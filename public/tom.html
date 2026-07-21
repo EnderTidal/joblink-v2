@@ -5,11 +5,10 @@
 <link rel="stylesheet" href="/app.css">
 <style>
   .paths { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-bottom:16px; }
-  .paths button { padding:16px 12px; border:2px solid var(--line); background:#161b22; border-radius:12px; cursor:pointer; color:var(--ink);
-    font-size:.95rem; font-weight:600; color:var(--ink); }
+  .paths button { padding:16px 12px; border:2px solid var(--line); background:#161b22; border-radius:12px; cursor:pointer;
+    font-size:.95rem; font-weight:600; color:var(--ink); transition:border-color .15s, background .15s; }
   .paths button:hover { border-color:var(--blue); }
-  .paths button.on { border-color:var(--blue); background:#eaf2fb; }
-  .paths button:disabled { opacity:.45; cursor:default; }
+  .paths button.on { border-color:var(--blue); background:rgba(96,165,250,0.15); }
   #chat { display:flex; flex-direction:column; gap:10px; min-height:300px; }
   .msg { max-width:78%; padding:12px 15px; border-radius:14px; white-space:pre-wrap; font-size:.94rem; line-height:1.45; }
   .msg.tom { background:#161b22; border:1px solid var(--line); align-self:flex-start; border-bottom-left-radius:4px; }
@@ -18,27 +17,22 @@
   #composer { display:flex; gap:8px; margin-top:14px; }
   #composer textarea { flex:1; resize:vertical; min-height:46px; max-height:160px; }
   .hint { text-align:center; margin:40px 0; color:var(--mut); }
-  .newconvo { margin-bottom:10px; }
 </style></head>
 <body>
 <main class="page">
   <h1 class="pagetitle">Tom</h1>
   <div class="paths" id="paths">
-    <button data-path="job_order">📋 New Job Order</button>
-    <button data-path="blast">✨ Send Magic Blast</button>
-    <button data-path="review">📊 Review Magic Blasts</button>
-    <button data-path="help">❓ Help / Tutorial / FAQ</button>
-  </div>
-  <div class="newconvo" id="newconvo" style="display:none">
-    <button class="btn ghost sm" onclick="resetConvo()">↩ New conversation</button>
-    <span class="mut" id="pathlabel"></span>
+    <button data-path="job_order">&#x1F4CB; New Job Order</button>
+    <button data-path="blast">&#x2728; Send Magic Blast</button>
+    <button data-path="review">&#x1F4CA; Review Magic Blasts</button>
+    <button data-path="help">&#x2753; Help / Tutorial / FAQ</button>
   </div>
   <div class="card">
-    <div id="chat"><div class="hint">Pick a button above to start. One task per conversation — switching tasks starts a fresh one.</div></div>
+    <div id="chat"><div class="hint">Pick a button above to start. One task per conversation &mdash; switching tasks starts a fresh one.</div></div>
     <div id="composer" style="display:none">
-      <button class="btn ghost" id="attach" title="Upload a file">📎</button>
+      <button class="btn ghost" id="attach" title="Upload a file">&#x1F4CE;</button>
       <input type="file" id="fileinput" style="display:none">
-      <textarea id="input" placeholder="Type here…"></textarea>
+      <textarea id="input" placeholder="Type here&hellip;"></textarea>
       <button class="btn" id="send">Send</button>
     </div>
   </div>
@@ -70,7 +64,7 @@ function addMsg(who, text, extra) {
     if (extra.confirmButton) {
       const b = document.createElement('button');
       b.className = 'btn gold';
-      b.textContent = '🚀 ' + extra.confirmButton.label;
+      b.textContent = '\u{1F680} ' + extra.confirmButton.label;
       b.onclick = () => { b.disabled = true; sendAction(extra.confirmButton.action, {}, '(Send button pressed)'); };
       choices.appendChild(b);
     }
@@ -89,22 +83,19 @@ function handleReply(r) {
 async function startPath(path) {
   document.querySelectorAll('.paths button').forEach((b) => {
     b.classList.toggle('on', b.dataset.path === path);
-    b.disabled = b.dataset.path !== path;
   });
-  document.getElementById('newconvo').style.display = 'block';
-  document.getElementById('pathlabel').textContent = ' — ' + PATH_LABELS[path];
   document.getElementById('chat').innerHTML = '';
   document.getElementById('composer').style.display = path === 'review' ? 'none' : 'flex';
   const r = await api('/api/tom/start', { method: 'POST', body: { path } });
   handleReply(r);
 }
 
-function resetConvo() {
+function tryStartPath(path) {
+  if (session) {
+    if (!confirm('Starting a new task will end the current one. Continue?')) return;
+  }
   session = null;
-  document.querySelectorAll('.paths button').forEach((b) => { b.classList.remove('on'); b.disabled = false; });
-  document.getElementById('newconvo').style.display = 'none';
-  document.getElementById('composer').style.display = 'none';
-  document.getElementById('chat').innerHTML = '<div class="hint">Pick a button above to start. One task per conversation — switching tasks starts a fresh one.</div>';
+  startPath(path);
 }
 
 async function sendText() {
@@ -123,7 +114,7 @@ async function sendAction(action, payload, label) {
   handleReply(r);
 }
 
-document.querySelectorAll('.paths button').forEach((b) => b.addEventListener('click', () => startPath(b.dataset.path)));
+document.querySelectorAll('.paths button').forEach((b) => b.addEventListener('click', () => tryStartPath(b.dataset.path)));
 document.getElementById('send').addEventListener('click', sendText);
 document.getElementById('input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(); }
@@ -132,7 +123,7 @@ document.getElementById('attach').addEventListener('click', () => document.getEl
 document.getElementById('fileinput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file || !session) return;
-  addMsg('me', '📎 ' + file.name);
+  addMsg('me', '\u{1F4CE} ' + file.name);
   const fd = new FormData();
   fd.append('sessionId', session);
   fd.append('file', file);

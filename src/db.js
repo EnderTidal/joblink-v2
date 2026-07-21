@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS changelog (
 const DEFAULT_SETTINGS = {
   onboarded: '0',                // first-login setup wizard not yet completed
   cooldown_hours: '72',          // Blast Guard default — "3 days" means exactly 72 hours
-  base_url: 'http://localhost:3000',
+  base_url: 'https://v2.joblinkplatform.com',
   sms_provider: 'mock',          // 'whippy' once credentials are entered in Admin
   whippy_api_key: '',
   whippy_channel_id: '',

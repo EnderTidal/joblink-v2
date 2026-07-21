@@ -1,81 +1,275 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>JobLink — Dashboard</title>
+<title>JobLink &mdash; Dashboard</title>
 <link rel="stylesheet" href="/app.css">
+<style>
+  /* Pipeline table enhancements */
+  .pipeline-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+  .pipeline-head h2 { font-size:1.1rem; margin:0; }
+  .preview-btn { font-size:.82rem; font-weight:600; color:var(--blue); text-decoration:none; border:1.5px solid var(--blue); padding:5px 14px; border-radius:8px; white-space:nowrap; cursor:pointer; background:transparent; }
+  .preview-btn:hover { background:rgba(96,165,250,0.1); }
+
+  /* Pipeline search */
+  .pipeline-search { position:relative; width:220px; max-width:100%; }
+  .pipeline-search svg { position:absolute; left:11px; top:50%; transform:translateY(-50%); }
+  .pipeline-search input { width:100%; height:36px; padding:0 12px 0 34px; border:1px solid var(--line); border-radius:10px; background:var(--bg); font-family:inherit; font-size:.88rem; color:var(--ink); outline:none; }
+  .pipeline-search input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(96,165,250,0.14); }
+
+  /* Pipeline controls row */
+  .pipeline-controls { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; align-items:center; }
+
+  /* Sort select */
+  .sort-select { height:36px; min-height:36px; width:auto; padding:0 30px 0 12px; font-size:.82rem; font-weight:600; border-radius:10px; color:var(--ink); background:var(--bg); border:1px solid var(--line); font-family:inherit; cursor:pointer; }
+
+  /* Pipeline table columns */
+  .col-company { font-size:.82rem; color:var(--mut); }
+  .col-pay { font-size:.85rem; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
+
+  /* Interest pill */
+  .interest { display:inline-flex; align-items:center; justify-content:center; gap:5px; min-width:46px; height:26px; padding:0 9px; border-radius:8px; font-size:.82rem; font-weight:700; font-variant-numeric:tabular-nums; }
+  .interest.has { background:rgba(96,165,250,0.15); color:var(--blue); }
+  .interest.none { background:rgba(148,163,184,0.1); color:var(--mut); }
+
+  /* Completed section */
+  .completed-toggle { display:flex; align-items:center; gap:10px; padding:14px 18px; cursor:pointer; user-select:none; border-top:1px solid var(--line); }
+  .completed-toggle h3 { font-size:.92rem; font-weight:700; color:var(--ink); margin:0; }
+  .completed-count { background:rgba(34,197,94,0.15); color:#22c55e; font-size:.78rem; font-weight:700; padding:2px 9px; border-radius:6px; }
+  .completed-body { display:none; }
+  .completed-body.open { display:block; }
+
+  /* Action buttons in pipeline */
+  .act-group { display:inline-flex; align-items:center; gap:4px; }
+</style>
 </head>
 <body>
 <main class="page">
   <h1 class="pagetitle">Dashboard</h1>
-  <div class="grid stats" id="stats"></div>
+
+  <!-- Stats cards row -->
+  <div class="grid stats" id="stats">
+    <div class="card stat"><div class="num" id="sPublished">--</div><div class="lbl">Published JOs</div></div>
+    <div class="card stat"><div class="num" id="sClicks">--</div><div class="lbl">Clicks Today</div></div>
+    <div class="card stat"><div class="num" style="color:#ffb500" id="sInterested">--</div><div class="lbl">Interested</div></div>
+    <div class="card stat"><div class="num" style="color:#22c55e" id="sFilled">--</div><div class="lbl">Filled</div></div>
+  </div>
+
+  <!-- Pipeline card -->
   <div class="card">
-    <div class="filters" id="statusFilters">
-      <button data-v="" class="on">All</button>
-      <button data-v="Published">Published</button>
-      <button data-v="Unpublished">Unpublished</button>
-      <button data-v="Complete">Complete</button>
+    <div class="pipeline-head">
+      <h2>Job Orders &mdash; Pipeline</h2>
+      <button class="preview-btn" id="previewBtn" onclick="openPreview()">&#x1F441; Preview as Candidate</button>
     </div>
-    <div class="filters" id="catFilters">
-      <button data-v="" class="on">All categories</button>
-      <button data-v="Industrial">Industrial</button>
-      <button data-v="Administrative">Administrative</button>
-      <button data-v="Skilled Trade">Skilled Trade</button>
+
+    <!-- Filter pills -->
+    <div class="pipeline-controls">
+      <div class="filters" id="statusFilters" style="margin-bottom:0">
+        <button data-v="" class="on">All</button>
+        <button data-v="Published">Published</button>
+        <button data-v="Unpublished">Unpublished</button>
+        <button data-v="Complete">Completed</button>
+      </div>
+      <span style="width:1px;height:24px;background:var(--line);margin:0 2px"></span>
+      <div class="filters" id="catFilters" style="margin-bottom:0">
+        <button data-v="" class="on">All categories</button>
+        <button data-v="Industrial">Industrial</button>
+        <button data-v="Administrative">Administrative</button>
+        <button data-v="Skilled Trade">Skilled Trades</button>
+      </div>
     </div>
-    <table>
-      <thead><tr><th>Job Order</th><th>Category</th><th>Pay</th><th>Interested</th><th>Status</th><th>Actions</th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
+
+    <!-- Search + sort row -->
+    <div class="pipeline-controls">
+      <div class="pipeline-search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#94a3b8" stroke-width="2"></circle><path d="M21 21l-4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"></path></svg>
+        <input id="pipelineSearch" placeholder="Search title or company..." oninput="onSearch(this.value)">
+      </div>
+      <select onchange="sortBy(this.value)" class="sort-select">
+        <option value="interested">Sort: Most Interested</option>
+        <option value="alpha">Sort: A-Z</option>
+        <option value="category">Sort: Category</option>
+        <option value="pay">Sort: Pay Rate</option>
+      </select>
+    </div>
+
+    <!-- Pipeline table -->
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>Job Order</th>
+          <th>Company</th>
+          <th>Category</th>
+          <th>Pay</th>
+          <th>Sent</th>
+          <th>Interested</th>
+          <th>Yes-Listed</th>
+          <th>Filled</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Completed section -->
+  <div class="card" id="completedSection" style="display:none">
+    <div class="completed-toggle" onclick="toggleCompleted()">
+      <h3>Completed Job Orders</h3>
+      <span class="completed-count" id="completedCount">0</span>
+    </div>
+    <div class="completed-body" id="completedBody">
+      <table>
+        <thead><tr>
+          <th>Job Order</th>
+          <th>Company</th>
+          <th>Category</th>
+          <th>Pay</th>
+          <th>Sent</th>
+          <th>Interested</th>
+          <th>Yes-Listed</th>
+          <th>Filled</th>
+          <th>Actions</th>
+        </tr></thead>
+        <tbody id="completedRows"></tbody>
+      </table>
+    </div>
   </div>
 </main>
 <script src="/app.js"></script>
 <script>
-let status = '', category = '';
+let statusFilter = '', categoryFilter = '', searchQuery = '', currentSort = 'interested';
+let allJobs = [];
 
 async function loadStats() {
-  const s = await api('/api/stats');
-  document.getElementById('stats').innerHTML = [
-    ['Candidates', s.candidates], ['Interested marks', s.interests],
-    ['Published jobs', s.published], ['Blasts sent', s.blasts],
-  ].map(([l, n]) => `<div class="card stat"><div class="num">${n}</div><div class="lbl">${l}</div></div>`).join('');
+  try {
+    const s = await api('/api/stats');
+    document.getElementById('sPublished').textContent = s.published || 0;
+    document.getElementById('sClicks').textContent = s.clicks_today || 0;
+    document.getElementById('sInterested').textContent = s.interests || 0;
+    document.getElementById('sFilled').textContent = s.filled || 0;
+  } catch(e) {
+    // stats endpoint may not exist yet -- leave placeholders
+  }
 }
 
 async function loadRows() {
   const params = new URLSearchParams();
-  if (status) params.set('status', status);
-  if (category) params.set('category', category);
-  const rows = await api('/api/job-orders?' + params);
-  document.getElementById('rows').innerHTML = rows.map((jo) => `
-    <tr>
-      <td><strong>${esc(jo.title)}</strong><div class="mut">${esc(jo.location || '')} ${esc(jo.shift_hours ? '· ' + jo.shift_hours : '')}</div></td>
-      <td>${esc(jo.category)}</td>
-      <td>${esc(jo.pay)}</td>
-      <td>${jo.interested_count}</td>
-      <td><span class="pill ${jo.status}">${jo.status}</span></td>
-      <td class="row">
-        ${jo.status !== 'Published' ? `<button class="btn sm" onclick="setStatus(${jo.id},'Published')">Publish</button>` : ''}
-        ${jo.status === 'Published' ? `<button class="btn sm ghost" onclick="setStatus(${jo.id},'Unpublished')">Unpublish</button>` : ''}
-        ${jo.status !== 'Complete' ? `<button class="btn sm ghost" onclick="setStatus(${jo.id},'Complete')">Complete 🎉</button>` : ''}
-      </td>
-    </tr>`).join('') || '<tr><td colspan="6" class="mut">No job orders yet — create one in Tom.</td></tr>';
+  if (statusFilter) params.set('status', statusFilter);
+  if (categoryFilter) params.set('category', categoryFilter);
+  try {
+    allJobs = await api('/api/job-orders?' + params);
+  } catch(e) {
+    allJobs = [];
+  }
+  renderTable();
+}
+
+function renderTable() {
+  let jobs = allJobs.slice();
+
+  // Search filter
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    jobs = jobs.filter(jo => (jo.title || '').toLowerCase().includes(q) || (jo.company || '').toLowerCase().includes(q));
+  }
+
+  // Sort
+  if (currentSort === 'alpha') jobs.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+  else if (currentSort === 'category') jobs.sort((a, b) => (a.category || '').localeCompare(b.category || ''));
+  else if (currentSort === 'pay') jobs.sort((a, b) => parseFloat(b.pay || 0) - parseFloat(a.pay || 0));
+  else jobs.sort((a, b) => (b.interested_count || 0) - (a.interested_count || 0));
+
+  // Split active vs completed
+  const active = jobs.filter(jo => jo.status !== 'Complete');
+  const completed = jobs.filter(jo => jo.status === 'Complete');
+
+  document.getElementById('rows').innerHTML = active.map(renderRow).join('')
+    || '<tr><td colspan="10" class="mut">No job orders yet &mdash; create one in Tom.</td></tr>';
+
+  // Completed section
+  const cSection = document.getElementById('completedSection');
+  if (completed.length > 0) {
+    cSection.style.display = 'block';
+    document.getElementById('completedCount').textContent = completed.length;
+    document.getElementById('completedRows').innerHTML = completed.map(renderCompletedRow).join('');
+  } else {
+    cSection.style.display = 'none';
+  }
+}
+
+function renderRow(jo) {
+  const ic = jo.interested_count || 0;
+  return '<tr>' +
+    '<td><strong>' + esc(jo.title) + '</strong>' +
+      '<div class="mut">' + esc(jo.location || '') + (jo.shift_hours ? ' &middot; ' + esc(jo.shift_hours) : '') + '</div></td>' +
+    '<td class="col-company">' + esc(jo.company || '\u2014') + '</td>' +
+    '<td>' + esc(jo.category || '\u2014') + '</td>' +
+    '<td class="col-pay">' + esc(jo.pay || '\u2014') + '</td>' +
+    '<td>' + (jo.sent_count || 0) + '</td>' +
+    '<td><span class="interest ' + (ic > 0 ? 'has' : 'none') + '">' + ic + '</span></td>' +
+    '<td>' + (jo.yeslisted_count || 0) + '</td>' +
+    '<td>' + (jo.filled_count || 0) + '</td>' +
+    '<td><span class="pill ' + jo.status + '">' + jo.status + '</span></td>' +
+    '<td class="act-group">' +
+      (jo.status !== 'Published' ? '<button class="btn sm" onclick="setStatus(' + jo.id + ',\'Published\')">Publish</button>' : '') +
+      (jo.status === 'Published' ? '<button class="btn sm ghost" onclick="setStatus(' + jo.id + ',\'Unpublished\')">Unpublish</button>' : '') +
+      (jo.status !== 'Complete' ? '<button class="btn sm ghost" onclick="setStatus(' + jo.id + ',\'Complete\')">Complete</button>' : '') +
+    '</td></tr>';
+}
+
+function renderCompletedRow(jo) {
+  return '<tr>' +
+    '<td><strong>' + esc(jo.title) + '</strong></td>' +
+    '<td class="col-company">' + esc(jo.company || '\u2014') + '</td>' +
+    '<td>' + esc(jo.category || '\u2014') + '</td>' +
+    '<td class="col-pay">' + esc(jo.pay || '\u2014') + '</td>' +
+    '<td>' + (jo.sent_count || 0) + '</td>' +
+    '<td>' + (jo.interested_count || 0) + '</td>' +
+    '<td>' + (jo.yeslisted_count || 0) + '</td>' +
+    '<td>' + (jo.filled_count || 0) + '</td>' +
+    '<td><button class="btn sm ghost" onclick="setStatus(' + jo.id + ',\'Unpublished\')">Reopen</button></td>' +
+  '</tr>';
 }
 
 async function setStatus(id, s) {
-  await api(`/api/job-orders/${id}/status`, { method: 'POST', body: { status: s } });
-  toast(`Job order ${s.toLowerCase()}.`);
+  await api('/api/job-orders/' + id + '/status', { method: 'POST', body: { status: s } });
+  toast('Job order ' + s.toLowerCase() + '.');
   loadRows(); loadStats();
 }
 
-function wireFilters(id, setter) {
-  document.querySelectorAll(`#${id} button`).forEach((b) => b.addEventListener('click', () => {
-    document.querySelectorAll(`#${id} button`).forEach((x) => x.classList.remove('on'));
-    b.classList.add('on');
-    setter(b.dataset.v);
-    loadRows();
-  }));
+function toggleCompleted() {
+  document.getElementById('completedBody').classList.toggle('open');
 }
-wireFilters('statusFilters', (v) => (status = v));
-wireFilters('catFilters', (v) => (category = v));
 
-boot('dash').then(() => { loadStats(); loadRows(); });
+function onSearch(v) {
+  searchQuery = v;
+  renderTable();
+}
+
+function sortBy(v) {
+  currentSort = v;
+  renderTable();
+}
+
+function openPreview() {
+  // TODO: wire to candidate preview page
+  toast('Preview feature coming soon.');
+}
+
+function wireFilters(id, setter) {
+  document.querySelectorAll('#' + id + ' button').forEach(function(b) {
+    b.addEventListener('click', function() {
+      document.querySelectorAll('#' + id + ' button').forEach(function(x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      setter(b.dataset.v);
+      loadRows();
+    });
+  });
+}
+wireFilters('statusFilters', function(v) { statusFilter = v; });
+wireFilters('catFilters', function(v) { categoryFilter = v; });
+
+boot('dash').then(function() { loadStats(); loadRows(); });
 </script>
 </body></html>
