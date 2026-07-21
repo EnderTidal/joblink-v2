@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JobLink — Admin</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  .tabs { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  .tabs button { background:#fff; border:1px solid var(--line); border-radius:8px; padding:8px 16px; cursor:pointer; }
+  .tabs button.on { background:var(--blue); color:#fff; border-color:var(--blue); }
+  section { display:none; } section.on { display:block; }
+  .half { max-width:520px; }
+</style></head>
+<body>
+<main class="page">
+  <h1 class="pagetitle">Admin</h1>
+  <div class="tabs" id="tabs">
+    <button data-t="settings" class="on">Settings</button>
+    <button data-t="templates">Templates</button>
+    <button data-t="users">Users</button>
+    <button data-t="candidates">Candidates</button>
+    <button data-t="feedback">Feedback</button>
+    <button data-t="changelog">Changelog</button>
+  </div>
+
+  <section id="s-settings" class="on"><div class="card half">
+    <h3 style="margin-bottom:12px">Settings</h3>
+    <label class="f">Blast Guard cooldown (hours) <input id="set-cooldown" type="number" min="0"></label>
+    <label class="f">Base URL (for magic links) <input id="set-baseurl"></label>
+    <label class="f">SMS provider
+      <select id="set-provider">
+        <option value="mock">Mock (safe — no real texts)</option>
+        <option value="whippy">Whippy</option>
+      </select>
+    </label>
+    <label class="f">Whippy API key <input id="set-wkey" placeholder="X-WHIPPY-KEY"></label>
+    <label class="f">Whippy channel ID <input id="set-wchan"></label>
+    <label class="f">Whippy from-number <input id="set-wfrom" placeholder="+1..."></label>
+    <div class="row">
+      <button class="btn" onclick="saveSettings()">Save</button>
+      <button class="btn ghost" onclick="testSms()">Test connection</button>
+      <button class="btn ghost" onclick="rerunSetup()">Re-run setup wizard</button>
+    </div>
+  </div></section>
+
+  <section id="s-templates"><div class="card half">
+    <h3 style="margin-bottom:12px">Blast message templates</h3>
+    <p class="mut" style="margin-bottom:10px">Placeholders: {first_name} and {link}. {link} is required.</p>
+    <div id="tpl-list"></div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+    <label class="f">Name <input id="tpl-name"></label>
+    <label class="f">Body <textarea id="tpl-body" rows="3"></textarea></label>
+    <button class="btn" onclick="addTemplate()">Add template</button>
+  </div></section>
+
+  <section id="s-users"><div class="card half">
+    <h3 style="margin-bottom:12px">Users</h3>
+    <div id="user-list"></div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+    <label class="f">Username <input id="u-name"></label>
+    <label class="f">Password <input id="u-pass" type="password"></label>
+    <label class="f">Role <select id="u-role"><option value="recruiter">Recruiter</option><option value="admin">Admin</option></select></label>
+    <button class="btn" onclick="addUser()">Add user</button>
+  </div></section>
+
+  <section id="s-candidates"><div class="card">
+    <h3 style="margin-bottom:12px">Candidates</h3>
+    <div class="row" style="margin-bottom:12px"><input id="cand-q" placeholder="Search name or phone…" style="max-width:300px"><button class="btn" onclick="loadCandidates()">Search</button></div>
+    <table><thead><tr><th>Name</th><th>Phone</th><th>Category</th><th>Last blast</th><th>Blasts</th><th>DNC</th></tr></thead><tbody id="cand-rows"></tbody></table>
+  </div></section>
+
+  <section id="s-feedback"><div class="card half">
+    <h3 style="margin-bottom:12px">Feedback</h3>
+    <label class="f">Leave feedback <textarea id="fb-body" rows="3"></textarea></label>
+    <button class="btn" onclick="sendFeedback()">Submit</button>
+    <div id="fb-list" style="margin-top:14px"></div>
+  </div></section>
+
+  <section id="s-changelog"><div class="card half">
+    <h3 style="margin-bottom:12px">Changelog</h3>
+    <div id="cl-list"></div>
+    <div id="cl-form" style="display:none">
+      <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+      <label class="f">Version <input id="cl-version" placeholder="2.0.1"></label>
+      <label class="f">Notes <textarea id="cl-notes" rows="3"></textarea></label>
+      <button class="btn" onclick="addChangelog()">Post</button>
+    </div>
+  </div></section>
+</main>
+<script src="/app.js"></script>
+<script>
+let me = null;
+
+document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('#tabs button').forEach((x) => x.classList.remove('on'));
+  document.querySelectorAll('section').forEach((x) => x.classList.remove('on'));
+  b.classList.add('on');
+  document.getElementById('s-' + b.dataset.t).classList.add('on');
+}));
+
+async function loadSettings() {
+  try {
+    const s = await api('/api/settings');
+    document.getElementById('set-cooldown').value = s.cooldown_hours || 72;
+    document.getElementById('set-baseurl').value = s.base_url || '';
+    document.getElementById('set-provider').value = s.sms_provider || 'mock';
+    document.getElementById('set-wkey').value = s.whippy_api_key || '';
+    document.getElementById('set-wchan').value = s.whippy_channel_id || '';
+    document.getElementById('set-wfrom').value = s.whippy_from_number || '';
+  } catch { document.getElementById('s-settings').innerHTML = '<div class="card half mut">Settings are admin-only.</div>'; }
+}
+async function saveSettings() {
+  await api('/api/settings', { method: 'POST', body: {
+    cooldown_hours: document.getElementById('set-cooldown').value,
+    base_url: document.getElementById('set-baseurl').value,
+    sms_provider: document.getElementById('set-provider').value,
+    whippy_api_key: document.getElementById('set-wkey').value,
+    whippy_channel_id: document.getElementById('set-wchan').value,
+    whippy_from_number: document.getElementById('set-wfrom').value,
+  }});
+  toast('Settings saved.');
+}
+async function testSms() {
+  const r = await api('/api/settings/test-sms', { method: 'POST' });
+  toast(r.ok ? `✓ ${r.provider} connection OK${r.mock ? ' (mock mode)' : ''}` : `✗ ${r.error}`);
+}
+async function rerunSetup() {
+  await api('/api/onboarding/reset', { method: 'POST' });
+  location.href = '/onboarding.html';
+}
+
+async function loadTemplates() {
+  const list = await api('/api/templates');
+  document.getElementById('tpl-list').innerHTML = list.map((t) =>
+    `<div style="margin-bottom:10px"><strong>${esc(t.name)}</strong>${t.is_default ? ' <span class="mut">(default)</span>' : ''}
+     <div class="mut">${esc(t.body)}</div>
+     ${!t.is_default && me?.role === 'admin' ? `<button class="btn sm ghost" onclick="delTemplate(${t.id})">Delete</button>` : ''}</div>`).join('');
+}
+async function addTemplate() {
+  try {
+    await api('/api/templates', { method: 'POST', body: { name: document.getElementById('tpl-name').value, body: document.getElementById('tpl-body').value } });
+    toast('Template added.'); loadTemplates();
+  } catch (e) { toast(e.message); }
+}
+async function delTemplate(id) { await api('/api/templates/' + id, { method: 'DELETE' }); loadTemplates(); }
+
+async function loadUsers() {
+  try {
+    const list = await api('/api/users');
+    document.getElementById('user-list').innerHTML = list.map((u) =>
+      `<div class="row" style="margin-bottom:8px"><strong>${esc(u.username)}</strong> <span class="mut">${u.role}</span>
+       <button class="btn sm ghost" onclick="resetPass(${u.id}, '${esc(u.username)}')">Reset password</button></div>`).join('');
+  } catch { document.getElementById('s-users').innerHTML = '<div class="card half mut">User management is admin-only.</div>'; }
+}
+async function addUser() {
+  try {
+    await api('/api/users', { method: 'POST', body: { username: document.getElementById('u-name').value, password: document.getElementById('u-pass').value, role: document.getElementById('u-role').value } });
+    toast('User added.'); loadUsers();
+  } catch (e) { toast(e.message); }
+}
+async function resetPass(id, name) {
+  const p = prompt('New password for ' + name + ':');
+  if (!p) return;
+  await api(`/api/users/${id}/password`, { method: 'POST', body: { password: p } });
+  toast('Password updated.');
+}
+
+async function loadCandidates() {
+  const q = document.getElementById('cand-q').value;
+  const rows = await api('/api/candidates?q=' + encodeURIComponent(q));
+  document.getElementById('cand-rows').innerHTML = rows.map((c) => `
+    <tr><td>${esc(c.first_name)} ${esc(c.last_name)}</td><td>${esc(c.phone_display)}</td>
+    <td>${esc(c.current_category || '—')}</td>
+    <td>${c.last_blast ? new Date(c.last_blast).toLocaleDateString() : '—'}</td>
+    <td>${c.blast_count}</td>
+    <td><button class="btn sm ${c.do_not_contact ? '' : 'ghost'}" onclick="toggleDnc('${c.phone}', ${c.do_not_contact ? 'false' : 'true'})">${c.do_not_contact ? 'DNC ✓' : 'Mark DNC'}</button></td></tr>`).join('')
+    || '<tr><td colspan="6" class="mut">No candidates yet.</td></tr>';
+}
+async function toggleDnc(phone, value) {
+  await api(`/api/candidates/${phone}/dnc`, { method: 'POST', body: { value } });
+  toast(value ? 'Marked do-not-contact (never blasted again).' : 'Do-not-contact removed.');
+  loadCandidates();
+}
+
+async function sendFeedback() {
+  await api('/api/feedback', { method: 'POST', body: { body: document.getElementById('fb-body').value } });
+  document.getElementById('fb-body').value = '';
+  toast('Thanks — feedback recorded.'); loadFeedback();
+}
+async function loadFeedback() {
+  try {
+    const list = await api('/api/feedback');
+    document.getElementById('fb-list').innerHTML = list.map((f) =>
+      `<div style="margin-bottom:8px"><span class="mut">${esc(f.author || 'anon')} · ${new Date(f.created_at).toLocaleDateString()}</span><div>${esc(f.body)}</div></div>`).join('');
+  } catch { /* recruiters can post but not read — fine */ }
+}
+
+async function loadChangelog() {
+  const list = await api('/api/changelog');
+  document.getElementById('cl-list').innerHTML = list.map((c) =>
+    `<div style="margin-bottom:10px"><strong>v${esc(c.version)}</strong> <span class="mut">${new Date(c.created_at).toLocaleDateString()}</span><div>${esc(c.notes)}</div></div>`).join('')
+    || '<div class="mut">No entries yet.</div>';
+  if (me?.role === 'admin') document.getElementById('cl-form').style.display = 'block';
+}
+async function addChangelog() {
+  await api('/api/changelog', { method: 'POST', body: { version: document.getElementById('cl-version').value, notes: document.getElementById('cl-notes').value } });
+  toast('Posted.'); loadChangelog();
+}
+
+boot('admin').then((m) => {
+  me = m;
+  loadSettings(); loadTemplates(); loadUsers(); loadCandidates(); loadFeedback(); loadChangelog();
+});
+</script>
+</body></html>

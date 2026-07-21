@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JobLink — Tom</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  .paths { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-bottom:16px; }
+  .paths button { padding:16px 12px; border:2px solid var(--line); background:#fff; border-radius:12px; cursor:pointer;
+    font-size:.95rem; font-weight:600; color:var(--ink); }
+  .paths button:hover { border-color:var(--blue); }
+  .paths button.on { border-color:var(--blue); background:#eaf2fb; }
+  .paths button:disabled { opacity:.45; cursor:default; }
+  #chat { display:flex; flex-direction:column; gap:10px; min-height:300px; }
+  .msg { max-width:78%; padding:12px 15px; border-radius:14px; white-space:pre-wrap; font-size:.94rem; line-height:1.45; }
+  .msg.tom { background:#fff; border:1px solid var(--line); align-self:flex-start; border-bottom-left-radius:4px; }
+  .msg.me { background:var(--blue); color:#fff; align-self:flex-end; border-bottom-right-radius:4px; }
+  .msg .choices { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  #composer { display:flex; gap:8px; margin-top:14px; }
+  #composer textarea { flex:1; resize:vertical; min-height:46px; max-height:160px; }
+  .hint { text-align:center; margin:40px 0; color:var(--mut); }
+  .newconvo { margin-bottom:10px; }
+</style></head>
+<body>
+<main class="page">
+  <h1 class="pagetitle">Tom</h1>
+  <div class="paths" id="paths">
+    <button data-path="job_order">📋 New Job Order</button>
+    <button data-path="blast">✨ Send Magic Blast</button>
+    <button data-path="review">📊 Review Magic Blasts</button>
+    <button data-path="help">❓ Help / Tutorial / FAQ</button>
+  </div>
+  <div class="newconvo" id="newconvo" style="display:none">
+    <button class="btn ghost sm" onclick="resetConvo()">↩ New conversation</button>
+    <span class="mut" id="pathlabel"></span>
+  </div>
+  <div class="card">
+    <div id="chat"><div class="hint">Pick a button above to start. One task per conversation — switching tasks starts a fresh one.</div></div>
+    <div id="composer" style="display:none">
+      <button class="btn ghost" id="attach" title="Upload a file">📎</button>
+      <input type="file" id="fileinput" style="display:none">
+      <textarea id="input" placeholder="Type here…"></textarea>
+      <button class="btn" id="send">Send</button>
+    </div>
+  </div>
+</main>
+<script src="/app.js"></script>
+<script>
+let session = null;
+const PATH_LABELS = { job_order: 'New Job Order', blast: 'Send Magic Blast', review: 'Review Magic Blasts', help: 'Help / FAQ' };
+
+function addMsg(who, text, extra) {
+  const chat = document.getElementById('chat');
+  const hint = chat.querySelector('.hint');
+  if (hint) hint.remove();
+  const div = document.createElement('div');
+  div.className = 'msg ' + who;
+  div.textContent = text;
+  if (extra) {
+    const choices = document.createElement('div');
+    choices.className = 'choices';
+    if (extra.choices) {
+      extra.choices.forEach((c) => {
+        const b = document.createElement('button');
+        b.className = 'btn sm';
+        b.textContent = c;
+        b.onclick = () => sendAction(extra.choiceAction, { category: c }, c);
+        choices.appendChild(b);
+      });
+    }
+    if (extra.confirmButton) {
+      const b = document.createElement('button');
+      b.className = 'btn gold';
+      b.textContent = '🚀 ' + extra.confirmButton.label;
+      b.onclick = () => { b.disabled = true; sendAction(extra.confirmButton.action, {}, '(Send button pressed)'); };
+      choices.appendChild(b);
+    }
+    if (choices.children.length) div.appendChild(choices);
+  }
+  chat.appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+function handleReply(r) {
+  if (r.error) { addMsg('tom', r.text || r.error); return; }
+  session = r.sessionId;
+  addMsg('tom', r.text, r);
+}
+
+async function startPath(path) {
+  document.querySelectorAll('.paths button').forEach((b) => {
+    b.classList.toggle('on', b.dataset.path === path);
+    b.disabled = b.dataset.path !== path;
+  });
+  document.getElementById('newconvo').style.display = 'block';
+  document.getElementById('pathlabel').textContent = ' — ' + PATH_LABELS[path];
+  document.getElementById('chat').innerHTML = '';
+  document.getElementById('composer').style.display = path === 'review' ? 'none' : 'flex';
+  const r = await api('/api/tom/start', { method: 'POST', body: { path } });
+  handleReply(r);
+}
+
+function resetConvo() {
+  session = null;
+  document.querySelectorAll('.paths button').forEach((b) => { b.classList.remove('on'); b.disabled = false; });
+  document.getElementById('newconvo').style.display = 'none';
+  document.getElementById('composer').style.display = 'none';
+  document.getElementById('chat').innerHTML = '<div class="hint">Pick a button above to start. One task per conversation — switching tasks starts a fresh one.</div>';
+}
+
+async function sendText() {
+  const input = document.getElementById('input');
+  const text = input.value.trim();
+  if (!text || !session) return;
+  input.value = '';
+  addMsg('me', text);
+  const r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, text } });
+  handleReply(r);
+}
+
+async function sendAction(action, payload, label) {
+  if (label) addMsg('me', label);
+  const r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, action, payload } });
+  handleReply(r);
+}
+
+document.querySelectorAll('.paths button').forEach((b) => b.addEventListener('click', () => startPath(b.dataset.path)));
+document.getElementById('send').addEventListener('click', sendText);
+document.getElementById('input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(); }
+});
+document.getElementById('attach').addEventListener('click', () => document.getElementById('fileinput').click());
+document.getElementById('fileinput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file || !session) return;
+  addMsg('me', '📎 ' + file.name);
+  const fd = new FormData();
+  fd.append('sessionId', session);
+  fd.append('file', file);
+  const res = await fetch('/api/tom/upload', { method: 'POST', body: fd });
+  handleReply(await res.json());
+  e.target.value = '';
+});
+
+boot('tom');
+</script>
+</body></html>

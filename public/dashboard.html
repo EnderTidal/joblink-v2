@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JobLink — Dashboard</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<main class="page">
+  <h1 class="pagetitle">Dashboard</h1>
+  <div class="grid stats" id="stats"></div>
+  <div class="card">
+    <div class="filters" id="statusFilters">
+      <button data-v="" class="on">All</button>
+      <button data-v="Published">Published</button>
+      <button data-v="Unpublished">Unpublished</button>
+      <button data-v="Complete">Complete</button>
+    </div>
+    <div class="filters" id="catFilters">
+      <button data-v="" class="on">All categories</button>
+      <button data-v="Industrial">Industrial</button>
+      <button data-v="Administrative">Administrative</button>
+      <button data-v="Skilled Trade">Skilled Trade</button>
+    </div>
+    <table>
+      <thead><tr><th>Job Order</th><th>Category</th><th>Pay</th><th>Interested</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</main>
+<script src="/app.js"></script>
+<script>
+let status = '', category = '';
+
+async function loadStats() {
+  const s = await api('/api/stats');
+  document.getElementById('stats').innerHTML = [
+    ['Candidates', s.candidates], ['Interested marks', s.interests],
+    ['Published jobs', s.published], ['Blasts sent', s.blasts],
+  ].map(([l, n]) => `<div class="card stat"><div class="num">${n}</div><div class="lbl">${l}</div></div>`).join('');
+}
+
+async function loadRows() {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (category) params.set('category', category);
+  const rows = await api('/api/job-orders?' + params);
+  document.getElementById('rows').innerHTML = rows.map((jo) => `
+    <tr>
+      <td><strong>${esc(jo.title)}</strong><div class="mut">${esc(jo.location || '')} ${esc(jo.shift_hours ? '· ' + jo.shift_hours : '')}</div></td>
+      <td>${esc(jo.category)}</td>
+      <td>${esc(jo.pay)}</td>
+      <td>${jo.interested_count}</td>
+      <td><span class="pill ${jo.status}">${jo.status}</span></td>
+      <td class="row">
+        ${jo.status !== 'Published' ? `<button class="btn sm" onclick="setStatus(${jo.id},'Published')">Publish</button>` : ''}
+        ${jo.status === 'Published' ? `<button class="btn sm ghost" onclick="setStatus(${jo.id},'Unpublished')">Unpublish</button>` : ''}
+        ${jo.status !== 'Complete' ? `<button class="btn sm ghost" onclick="setStatus(${jo.id},'Complete')">Complete 🎉</button>` : ''}
+      </td>
+    </tr>`).join('') || '<tr><td colspan="6" class="mut">No job orders yet — create one in Tom.</td></tr>';
+}
+
+async function setStatus(id, s) {
+  await api(`/api/job-orders/${id}/status`, { method: 'POST', body: { status: s } });
+  toast(`Job order ${s.toLowerCase()}.`);
+  loadRows(); loadStats();
+}
+
+function wireFilters(id, setter) {
+  document.querySelectorAll(`#${id} button`).forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll(`#${id} button`).forEach((x) => x.classList.remove('on'));
+    b.classList.add('on');
+    setter(b.dataset.v);
+    loadRows();
+  }));
+}
+wireFilters('statusFilters', (v) => (status = v));
+wireFilters('catFilters', (v) => (category = v));
+
+boot('dash').then(() => { loadStats(); loadRows(); });
+</script>
+</body></html>

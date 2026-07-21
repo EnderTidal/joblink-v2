@@ -1,0 +1,22 @@
+{
+  "name": "joblink",
+  "version": "2.0.0",
+  "description": "JobLink V2.0 — self-selected, interested candidates for Job Orders",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test \"tests/deterministic/*.test.js\"",
+    "test:ai": "node --test \"tests/ai-assisted/*.test.js\"",
+    "test:all": "node --test \"tests/deterministic/*.test.js\" \"tests/ai-assisted/*.test.js\"",
+    "smoke": "node scripts/smoke.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "bcryptjs": "^2.4.3",
+    "express": "^4.21.0",
+    "mammoth": "^1.8.0",
+    "multer": "^1.4.5-lts.1",
+    "xlsx": "^0.18.5"
+  }
+}
