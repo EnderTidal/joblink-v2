@@ -3,7 +3,7 @@
 * { box-sizing:border-box; margin:0; }
 body { font-family:-apple-system,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--ink); }
 a { color:var(--blue); }
-nav.topbar { background:var(--blue); color:#fff; display:flex; align-items:center; gap:18px; padding:0 18px; height:52px; }
+nav.topbar { background:#1a2332; color:#fff; display:flex; align-items:center; gap:18px; padding:0 18px; height:52px; }
 nav.topbar .brand { font-weight:800; letter-spacing:.3px; }
 nav.topbar a { color:#cfe1f3; text-decoration:none; padding:16px 2px; font-size:.93rem; border-bottom:3px solid transparent; }
 nav.topbar a.active, nav.topbar a:hover { color:#fff; border-bottom-color:var(--gold); }

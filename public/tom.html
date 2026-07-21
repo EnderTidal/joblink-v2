@@ -5,14 +5,14 @@
 <link rel="stylesheet" href="/app.css">
 <style>
   .paths { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-bottom:16px; }
-  .paths button { padding:16px 12px; border:2px solid var(--line); background:#fff; border-radius:12px; cursor:pointer;
+  .paths button { padding:16px 12px; border:2px solid var(--line); background:#161b22; border-radius:12px; cursor:pointer; color:var(--ink);
     font-size:.95rem; font-weight:600; color:var(--ink); }
   .paths button:hover { border-color:var(--blue); }
   .paths button.on { border-color:var(--blue); background:#eaf2fb; }
   .paths button:disabled { opacity:.45; cursor:default; }
   #chat { display:flex; flex-direction:column; gap:10px; min-height:300px; }
   .msg { max-width:78%; padding:12px 15px; border-radius:14px; white-space:pre-wrap; font-size:.94rem; line-height:1.45; }
-  .msg.tom { background:#fff; border:1px solid var(--line); align-self:flex-start; border-bottom-left-radius:4px; }
+  .msg.tom { background:#161b22; border:1px solid var(--line); align-self:flex-start; border-bottom-left-radius:4px; }
   .msg.me { background:var(--blue); color:#fff; align-self:flex-end; border-bottom-right-radius:4px; }
   .msg .choices { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
   #composer { display:flex; gap:8px; margin-top:14px; }
