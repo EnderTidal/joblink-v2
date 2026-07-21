@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS job_orders (
   location     TEXT NOT NULL DEFAULT '',
   requirements TEXT NOT NULL DEFAULT '',
   description  TEXT NOT NULL DEFAULT '',
+  company      TEXT NOT NULL DEFAULT '',
   status       TEXT NOT NULL DEFAULT 'Unpublished' CHECK (status IN ('Unpublished','Published','Complete')),
   assigned_recruiter TEXT,                    -- extension point
   created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),

@@ -12,6 +12,7 @@ const JOB_ORDER_FIELDS = [
   { key: 'location',     label: 'Location',     required: false },
   { key: 'requirements', label: 'Requirements', required: false },
   { key: 'description',  label: 'Description',  required: false },
+  { key: 'company',      label: 'Company',      required: false }, // HIDDEN from candidates
   { key: 'status',       label: 'Status',       required: true }, // Unpublished | Published | Complete
 ];
 
@@ -37,13 +38,13 @@ function createJobOrder(db, draft) {
   const v = validateJobOrder(draft);
   if (!v.ok) throw new Error('Invalid job order: ' + [...v.missing, ...v.errors].join('; '));
   const r = db.prepare(
-    `INSERT INTO job_orders (title, category, pay, shift_hours, location, requirements, description, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO job_orders (title, category, pay, shift_hours, location, requirements, description, company, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     draft.title.trim(), draft.category, String(draft.pay || '').trim(),
     String(draft.shift_hours || '').trim(), String(draft.location || '').trim(),
     String(draft.requirements || '').trim(), String(draft.description || '').trim(),
-    draft.status || 'Unpublished',
+    String(draft.company || '').trim(), draft.status || 'Unpublished',
   );
   return Number(r.lastInsertRowid);
 }
@@ -55,10 +56,10 @@ function updateJobOrder(db, id, patch) {
   const v = validateJobOrder(merged);
   if (!v.ok) throw new Error('Invalid job order: ' + [...v.missing, ...v.errors].join('; '));
   db.prepare(
-    `UPDATE job_orders SET title=?, category=?, pay=?, shift_hours=?, location=?, requirements=?, description=?, status=?,
+    `UPDATE job_orders SET title=?, category=?, pay=?, shift_hours=?, location=?, requirements=?, description=?, company=?, status=?,
      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`,
   ).run(merged.title, merged.category, merged.pay, merged.shift_hours, merged.location,
-        merged.requirements, merged.description, merged.status, id);
+        merged.requirements, merged.description, merged.company || '', merged.status, id);
   return db.prepare('SELECT * FROM job_orders WHERE id = ?').get(id);
 }
 

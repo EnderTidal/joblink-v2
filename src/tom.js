@@ -51,7 +51,7 @@ function draftSummary(draft) {
 const FIELD_KEYS = {
   title: 'title', category: 'category', pay: 'pay', wage: 'pay', salary: 'pay',
   shift: 'shift_hours', hours: 'shift_hours', schedule: 'shift_hours', 'shift/hours': 'shift_hours',
-  location: 'location', city: 'location', requirements: 'requirements', description: 'description',
+  location: 'location', city: 'location', requirements: 'requirements', description: 'description', company: 'company',
   status: 'status',
 };
 function parseFieldEdit(text) {
@@ -110,7 +110,7 @@ function createTom(db) {
       s.data.draft = parsed.fields;
       s.state = 'review';
       const warn = parsed.warnings.length ? `\n\n(Notes: ${parsed.warnings.join('; ')})` : '';
-      return reply(s, `Here's what I read (parsed by ${parsed.engine}):\n\n${draftSummary(s.data.draft)}${warn}\n\n` +
+      return reply(s, `Here's what I read:\n\n${draftSummary(s.data.draft)}${warn}\n\n` +
         'Fix anything by typing (e.g. "set pay to $18.50") or editing a field directly. ' +
         'Say "publish" to put it on the job board, or "done" to save it unpublished.',
         { draft: s.data.draft, fields: JOB_ORDER_FIELDS });
@@ -248,6 +248,7 @@ function createTom(db) {
         {
           confirmButton: { action: 'confirm_send', label: `Send to ${plan.sendable.length} people` },
           templates: templates.map((t) => ({ id: t.id, name: t.name })),
+          plan: { sendable: plan.sendable.map(c => ({ first_name: c.first_name, last_name: c.last_name, phone: c.phone })) },
         });
     }
 

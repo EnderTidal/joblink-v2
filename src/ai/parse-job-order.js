@@ -46,6 +46,7 @@ function parseDeterministic(text) {
     location: grabLine(text, ['location', 'city', 'address', 'site', 'worksite']),
     requirements: grabLine(text, ['requirements', 'qualifications', 'must have', 'needed']),
     description: grabLine(text, ['description', 'summary', 'details', 'duties', 'about the job']),
+    company: grabLine(text, ['company', 'client', 'employer', 'business']),
     status: 'Unpublished',
   };
   if (!fields.title) {
@@ -75,9 +76,13 @@ async function parseWithClaude(text) {
     system:
       'You extract job order fields from documents for a staffing agency. ' +
       'Respond ONLY with a JSON object with keys: title, category, pay, shift_hours, ' +
-      'location, requirements, description. category must be exactly one of ' +
+      'location, requirements, description, company. category must be exactly one of ' +
       '"Industrial", "Administrative", "Skilled Trade" (or "" if truly unclear). ' +
-      'Use "" for anything not present. Do not invent details.',
+      'Use "" for anything not present. Do not invent details. ' +
+      'EXCLUDE all internal staffing data: supervisor names, internal job numbers (e.g. MT198), ' +
+      '"evaluation hire" classifications, start/end dates, parking info, dress code, ' +
+      'smoking policy, directions, handicap access, bus line availability. ' +
+      'Only extract candidate-facing job information.',
     messages: [{ role: 'user', content: text.slice(0, 12000) }],
   });
   const raw = msg.content?.[0]?.text || '';
@@ -92,6 +97,7 @@ async function parseWithClaude(text) {
     location: String(parsed.location || ''),
     requirements: String(parsed.requirements || ''),
     description: String(parsed.description || ''),
+    company: String(parsed.company || ''),
     status: 'Unpublished',
   };
   const warnings = [];

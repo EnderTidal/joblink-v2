@@ -10,9 +10,9 @@ const GOOD = {
   requirements: '6+ months experience', description: 'Warehouse work', status: 'Unpublished',
 };
 
-test('the field list is exactly the eight agreed fields', () => {
+test('the field list is exactly the nine agreed fields', () => {
   assert.deepStrictEqual(JOB_ORDER_FIELDS.map((f) => f.key),
-    ['title', 'category', 'pay', 'shift_hours', 'location', 'requirements', 'description', 'status']);
+    ['title', 'category', 'pay', 'shift_hours', 'location', 'requirements', 'description', 'company', 'status']);
 });
 
 test('required fields: title, category, pay, status', () => {
