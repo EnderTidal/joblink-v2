@@ -123,7 +123,7 @@ function createTom(db) {
         return reply(s, `Updated.\n\n${draftSummary(draft)}`, { draft });
       }
       const t = String(text || '').trim();
-      if (/^(yes,?\s*)?(publish|go live)\b/i.test(t)) {
+      if (/\b(publish|go live|publish it|ship it|looks good|good to go|make it live)\b/i.test(t)) {
         draft.status = 'Published';
         const v = validateJobOrder(draft);
         if (!v.ok) return reply(s, `Can't publish yet — ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { draft });
@@ -131,7 +131,7 @@ function createTom(db) {
         s.state = 'ask_another';
         return reply(s, `✅ Published job order #${id}: ${draft.title} (${draft.category}). It's live on the job board now.\n\nWant to create another? (yes / no)`);
       }
-      if (/\b(done|save|keep it|finish)\b/i.test(t)) {
+      if (/\b(done|save|keep it|finish|save it)\b/i.test(t)) {
         draft.status = draft.status === 'Published' ? 'Published' : 'Unpublished';
         const v = validateJobOrder(draft);
         if (!v.ok) return reply(s, `Almost — ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { draft });
