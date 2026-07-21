@@ -59,6 +59,8 @@
   .blast-header:hover { background:rgba(96,165,250,0.05); }
   .blast-detail { display:none; padding:0 14px 14px; }
   .blast-detail.open { display:block; }
+
+  .jo-sub { font-size:.82rem; color:#94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; }
 </style>
 </head>
 <body>
@@ -167,7 +169,7 @@
     <div id="blastsList"></div>
   </div>
 </main>
-<script src="/app.js"></script>
+<script src="/app.js?v=2"></script>
 <script>
 let statusFilter = '', categoryFilter = '', searchQuery = '', currentSort = 'interested';
 let allJobs = [];
@@ -216,7 +218,7 @@ function renderTable() {
   const completed = jobs.filter(jo => jo.status === 'Complete');
 
   document.getElementById('rows').innerHTML = active.map(renderRow).join('')
-    || '<tr><td colspan="10" class="mut">No job orders yet &mdash; create one in AI Assistant.</td></tr>';
+    || '<tr><td colspan="10" class="mut jo-sub">No job orders yet &mdash; create one in AI Assistant.</td></tr>';
 
   // Completed section
   const cSection = document.getElementById('completedSection');
@@ -233,7 +235,7 @@ function renderRow(jo) {
   const ic = jo.interested_count || 0;
   return '<tr>' +
     '<td><strong><a href="#" onclick="openJoDetail(' + jo.id + '); return false" style="color:var(--blue);text-decoration:none;cursor:pointer">' + esc(jo.title) + '</a></strong>' +
-      '<div class="mut">' + esc(jo.location || '') + (jo.shift_hours ? ' &middot; ' + esc(jo.shift_hours) : '') + '</div></td>' +
+      '<div class="mut jo-sub">' + esc(jo.location || '') + (jo.shift_hours ? ' &middot; ' + esc(jo.shift_hours) : '') + '</div></td>' +
     '<td class="col-company">' + esc(jo.company || '\u2014') + '</td>' +
     '<td>' + esc(jo.category || '\u2014') + '</td>' +
     '<td class="col-pay">' + esc(jo.pay || '\u2014') + '</td>' +
@@ -333,7 +335,7 @@ async function openJoDetail(id) {
       });
       html += '</tbody></table></div>';
     } else {
-      html += '<div class="interested-list"><h3>Interested Candidates</h3><p class="mut">No candidates have expressed interest yet.</p></div>';
+      html += '<div class="interested-list"><h3>Interested Candidates</h3><p class="mut jo-sub">No candidates have expressed interest yet.</p></div>';
     }
     document.getElementById('joModalBody').innerHTML = html;
     document.getElementById('joModal').classList.add('open');
@@ -356,7 +358,7 @@ async function joAction(id, status) {
 async function loadBlasts() {
   try {
     var blasts = await api('/api/blasts');
-    if (!blasts.length) { document.getElementById('blastsList').innerHTML = '<p class="mut">No blasts sent yet.</p>'; return; }
+    if (!blasts.length) { document.getElementById('blastsList').innerHTML = '<p class="mut jo-sub">No blasts sent yet.</p>'; return; }
     document.getElementById('blastsList').innerHTML = blasts.slice(0, 20).map(function(b) {
       var d = new Date(b.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       var bits = [b.sent_count + ' sent'];
@@ -366,8 +368,8 @@ async function loadBlasts() {
       return '<div class="blast-card"><div class="blast-header" onclick="toggleBlast(' + b.id + ')">' +
         '<span><strong>#' + b.id + '</strong> \u00b7 ' + esc(b.category) + ' \u00b7 ' + d +
         (b.sent_by ? ' \u00b7 by ' + esc(b.sent_by) : '') + '</span>' +
-        '<span class="mut">' + bits.join(', ') + '</span></div>' +
-        '<div class="blast-detail" id="blast-' + b.id + '"><div class="mut">Loading...</div></div></div>';
+        '<span class="mut jo-sub">' + bits.join(', ') + '</span></div>' +
+        '<div class="blast-detail" id="blast-' + b.id + '"><div class="mut jo-sub">Loading...</div></div></div>';
     }).join('');
   } catch(e) { /* blasts endpoint may not exist */ }
 }
@@ -379,19 +381,19 @@ async function toggleBlast(id) {
     var data = await api('/api/blasts/' + id + '/recipients');
     var html = '<div style="margin-bottom:8px"><a href="/api/blasts/' + id + '/recipients/csv" class="preview-btn" style="font-size:.78rem;padding:4px 10px">Download CSV</a></div>';
     if (data.recipients.length === 0) {
-      html += '<p class="mut">No recipient data recorded for this blast.</p>';
+      html += '<p class="mut jo-sub">No recipient data recorded for this blast.</p>';
     } else {
       html += '<table><thead><tr><th>Name</th><th>Phone</th><th>Status</th><th>Error</th></tr></thead><tbody>';
       data.recipients.forEach(function(r) {
         html += '<tr><td>' + esc(r.first_name || '') + ' ' + esc(r.last_name || '') + '</td>';
         html += '<td>' + esc(r.phone_display) + '</td>';
         html += '<td><span class="pill ' + (r.status === 'sent' ? 'Published' : 'Unpublished') + '">' + esc(r.status) + '</span></td>';
-        html += '<td class="mut">' + esc(r.error || '\u2014') + '</td></tr>';
+        html += '<td class="mut jo-sub">' + esc(r.error || '\u2014') + '</td></tr>';
       });
       html += '</tbody></table>';
     }
     el.innerHTML = html;
-  } catch(e) { el.innerHTML = '<p class="mut">Error loading recipients.</p>'; }
+  } catch(e) { el.innerHTML = '<p class="mut jo-sub">Error loading recipients.</p>'; }
 }
 document.getElementById('joModal').addEventListener('click', function(e) { if (e.target === this) closeJoModal(); });
 
