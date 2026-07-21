@@ -1,9 +1,9 @@
 /* JobLink shared styles — one file, every page (V1's copy-paste debt, deleted). */
-:root { --blue:#4f8cff; --blue-d:#3a70d4; --gold:#ffb500; --bg:#0d1117; --ink:#e4e7ef; --mut:#8b90a5; --line:rgba(255,255,255,0.08); }
+:root { --blue:#60a5fa; --blue-d:#3b82f6; --gold:#ffb500; --bg:#0f172a; --ink:#f1f5f9; --mut:#94a3b8; --line:#334155; --card:#1e293b; }
 * { box-sizing:border-box; margin:0; }
 body { font-family:-apple-system,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--ink); }
 a { color:var(--blue); }
-nav.topbar { background:#1a2332; color:#fff; display:flex; align-items:center; gap:18px; padding:0 18px; height:52px; }
+nav.topbar { background:#1e293b; color:#fff; display:flex; align-items:center; gap:18px; padding:0 18px; height:52px; }
 nav.topbar .brand { font-weight:800; letter-spacing:.3px; }
 nav.topbar a { color:#cfe1f3; text-decoration:none; padding:16px 2px; font-size:.93rem; border-bottom:3px solid transparent; }
 nav.topbar a.active, nav.topbar a:hover { color:#fff; border-bottom-color:var(--gold); }
@@ -11,7 +11,7 @@ nav.topbar .spacer { flex:1; }
 nav.topbar button { background:transparent; border:1px solid #ffffff55; color:#fff; border-radius:7px; padding:6px 12px; cursor:pointer; }
 main.page { max-width:1080px; margin:0 auto; padding:22px 16px; }
 h1.pagetitle { font-size:1.35rem; margin-bottom:16px; }
-.card { background:#161b22; border-radius:12px; padding:18px; box-shadow:0 1px 4px rgba(10,40,80,.08); margin-bottom:16px; }
+.card { background:var(--card); border-radius:12px; padding:18px; box-shadow:0 1px 4px rgba(10,40,80,.08); margin-bottom:16px; }
 .grid { display:grid; gap:14px; }
 .grid.stats { grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
 .stat { text-align:center; padding:14px; }
@@ -30,14 +30,13 @@ button.btn.gold { background:var(--gold); color:var(--ink); font-weight:700; }
 button.btn.ghost { background:rgba(79,140,255,0.1); color:var(--blue); }
 button.btn.sm { padding:5px 10px; font-size:.8rem; }
 button.btn:disabled { opacity:.5; cursor:default; }
-input, select, textarea { font:inherit; padding:9px 11px; border:1px solid var(--line); border-radius:8px; width:100%; background:#0d1117; color:var(--ink); }
+input, select, textarea { font:inherit; padding:9px 11px; border:1px solid var(--line); border-radius:8px; width:100%; background:var(--bg); color:var(--ink); }
 label.f { display:block; margin-bottom:12px; font-size:.88rem; color:var(--mut); }
 label.f input, label.f select, label.f textarea { margin-top:4px; }
 .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
 .mut { color:var(--mut); font-size:.86rem; }
 .filters { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
-.filters button { background:#161b22; border:1px solid var(--line); border-radius:999px; padding:7px 15px; cursor:pointer; font-size:.87rem; }
+.filters button { background:var(--card); border:1px solid var(--line); border-radius:999px; padding:7px 15px; cursor:pointer; font-size:.87rem; color:var(--mut); }
 .filters button.on { background:var(--blue); border-color:var(--blue); color:#fff; }
-.toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#e4e7ef; color:#0d1117;
-  border-radius:9px; padding:11px 20px; font-size:.9rem; opacity:0; transition:opacity .25s; pointer-events:none; z-index:50; }
+.toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#f1f5f9; color:#0f172a; border-radius:9px; padding:11px 20px; font-size:.9rem; opacity:0; transition:opacity .25s; pointer-events:none; z-index:50; }
 .toast.show { opacity:1; }
