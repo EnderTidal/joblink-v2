@@ -84,6 +84,19 @@ const FIELD_VISIBILITY = {
   status: '(internal)',
 };
 
+
+function md(s) {
+  if (!s) return '';
+  return s
+    .replace(/**(.+?)**/g, '<strong>$1</strong>')
+    .replace(/*(.+?)*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/^- (.+)/gm, '<li>$1</li>')
+    .replace(/(<li>.*</li>)/gs, '<ul>$1</ul>')
+    .replace(/
+/g, '<br>');
+}
+
 function renderJOForm(draft, fields) {
   const form = document.createElement('div');
   form.className = 'jo-form';
@@ -226,7 +239,7 @@ function addMsg(who, text, extra) {
   }
 
   if (!richRendered) {
-    div.textContent = text;
+    div.innerHTML = md(text);
   }
 
   if (extra) {
