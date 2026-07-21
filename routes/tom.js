@@ -21,7 +21,7 @@ function createTomRoutes(db) {
   router.post('/api/tom/message', async (req, res, next) => {
     try {
       const { sessionId, text, action, payload } = req.body || {};
-      res.json(await tom.message(sessionId, { text, action, payload, user: req.user?.username }));
+      res.json(await tom.message(sessionId, { text, action, payload, user: req.user?.username, reqHost: req.get('host'), reqProto: req.protocol }));
     } catch (err) { next(err); }
   });
 

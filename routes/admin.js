@@ -10,7 +10,7 @@ const { getProvider } = require('../src/messaging');
 const { getSetting, setSetting } = require('../src/db');
 const { normalizePhone, formatPhone } = require('../src/phone');
 
-const SETTING_KEYS = ['cooldown_hours', 'base_url', 'sms_provider', 'whippy_api_key', 'whippy_channel_id', 'whippy_from_number'];
+const SETTING_KEYS = ['cooldown_hours', 'sms_provider', 'whippy_api_key', 'whippy_channel_id', 'whippy_from_number'];
 
 function createAdminRoutes(db, auth) {
   const router = express.Router();

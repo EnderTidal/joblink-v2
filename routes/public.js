@@ -7,6 +7,12 @@ const { renderCandidatePage, markInterest } = require('../src/candidate-page');
 function createPublicRoutes(db) {
   const router = express.Router();
 
+  // Preview mode — shows all published JOs as a candidate would see them
+  router.get('/m/preview', (req, res) => {
+    const { renderPreviewPage } = require('../src/candidate-page');
+    res.send(renderPreviewPage(db));
+  });
+
   router.get('/m/:token', (req, res) => {
     const candidate = db.prepare('SELECT * FROM candidates WHERE magic_token = ?').get(req.params.token);
     if (!candidate) return res.status(404).send('<h1>Link not found</h1><p>This link may have expired. Reply to our text and we\'ll send a fresh one.</p>');

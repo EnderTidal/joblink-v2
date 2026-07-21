@@ -1,6 +1,8 @@
 // JobLink V2.0 — server bootstrap. "Just a DB and a parser," plus the routes
 // that let recruiters talk to both. See SHAPE.md for the map.
 
+require('dotenv').config();
+
 const path = require('node:path');
 const fs = require('node:fs');
 const express = require('express');

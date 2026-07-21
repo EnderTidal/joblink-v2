@@ -103,4 +103,60 @@ document.querySelectorAll('.interest:not(.done)').forEach(function (btn) {
 </body></html>`;
 }
 
-module.exports = { renderCandidatePage, markInterest };
+function renderPreviewPage(db) {
+  const jobs = db.prepare("SELECT * FROM job_orders WHERE status = 'Published' ORDER BY category, id").all();
+
+  const jobCards = jobs.map((jo) => `
+    <div class="card" id="job-${jo.id}">
+      <h2>${esc(jo.title)}</h2>
+      <div class="meta">
+        ${jo.category ? '<span class="chip">' + esc(jo.category) + '</span>' : ''}
+        ${jo.pay ? '<span class="chip pay">\u{1F4B5} ' + esc(jo.pay) + '</span>' : ''}
+        ${jo.shift_hours ? '<span class="chip">\u{1F550} ' + esc(jo.shift_hours) + '</span>' : ''}
+        ${jo.location ? '<span class="chip">\u{1F4CD} ' + esc(jo.location) + '</span>' : ''}
+      </div>
+      ${jo.requirements ? '<p class="req"><strong>Requirements:</strong> ' + esc(jo.requirements) + '</p>' : ''}
+      ${jo.description ? '<p>' + esc(jo.description) + '</p>' : ''}
+      <button class="interest done" disabled>Preview only</button>
+    </div>`).join('\n');
+
+  const empty = '<div class="card empty"><h2>No published positions right now</h2>' +
+    '<p>Publish a job order from the Dashboard to see it here.</p></div>';
+
+  return '<!doctype html>' +
+'<html lang="en"><head>' +
+'<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+'<title>Candidate Preview \u2014 JobLink</title>' +
+'<style>' +
+'  :root { --blue:#00529b; --gold:#ffb500; }' +
+'  * { box-sizing:border-box; margin:0; }' +
+'  body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:#f2f5f9; color:#1a2733; padding-bottom:40px; }' +
+'  header { background:var(--blue); color:#fff; padding:20px 16px; text-align:center; }' +
+'  header h1 { font-size:1.25rem; }' +
+'  header p { opacity:.9; font-size:.9rem; margin-top:4px; }' +
+'  .preview-bar { background:#ffb500; color:#1a2733; text-align:center; padding:8px; font-weight:700; font-size:.88rem; }' +
+'  main { max-width:560px; margin:0 auto; padding:16px; }' +
+'  .card { background:#fff; border-radius:12px; padding:18px; margin-bottom:14px; box-shadow:0 1px 4px rgba(10,40,80,.08); }' +
+'  .card h2 { font-size:1.1rem; color:var(--blue); margin-bottom:8px; }' +
+'  .meta { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }' +
+'  .chip { background:#eef3f9; border-radius:999px; padding:4px 10px; font-size:.82rem; }' +
+'  .chip.pay { background:#e7f6e9; font-weight:600; }' +
+'  .req { font-size:.9rem; margin-bottom:8px; }' +
+'  p { font-size:.92rem; line-height:1.45; }' +
+'  .interest { width:100%; margin-top:12px; padding:13px; border:0; border-radius:9px; background:#2e8540;' +
+'    color:#fff; font-size:1rem; font-weight:700; cursor:default; }' +
+'  .empty { text-align:center; padding:40px 18px; }' +
+'</style></head>' +
+'<body>' +
+'<div class="preview-bar">PREVIEW MODE \u2014 This is what candidates see</div>' +
+'<header>' +
+'  <h1>Hi there! \u{1F44B}</h1>' +
+'  <p>These jobs are open right now \u2014 tap any you\'d like to be considered for.</p>' +
+'</header>' +
+'<main>' +
+  (jobs.length ? jobCards : empty) +
+'</main>' +
+'</body></html>';
+}
+
+module.exports = { renderCandidatePage, markInterest, renderPreviewPage };

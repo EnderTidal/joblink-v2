@@ -47,9 +47,9 @@ function planBlast(db, { phones, category, now = new Date() }) {
  * Execute a confirmed plan. Creates the Blast record, sends with pacing,
  * applies the partial-send rule, and returns final counts.
  */
-async function executeBlast(db, plan, { templateId, templateBody, provider, sentBy = null, now = new Date(), pacingMs = SMS_RATE_LIMIT_MS }) {
+async function executeBlast(db, plan, { templateId, templateBody, provider, sentBy = null, now = new Date(), pacingMs = SMS_RATE_LIMIT_MS, baseUrl: baseUrlOverride }) {
   if (!templateBody.includes('{link}')) throw new Error('Template must include {link}'); // V1 rule
-  const baseUrl = getSetting(db, 'base_url') || 'http://localhost:3000';
+  const baseUrl = baseUrlOverride || getSetting(db, 'base_url') || 'http://localhost:3000';
 
   const insertBlast = db.prepare(
     `INSERT INTO blasts (category, template_id, message_preview, skipped_cooldown_count, skipped_dnc_count, sent_by)

@@ -125,6 +125,8 @@ function openDb(filePath) {
   db.exec('PRAGMA journal_mode = WAL;');
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(SCHEMA);
+  // Migration: add category column to templates (for category-based defaults)
+  try { db.exec("ALTER TABLE templates ADD COLUMN category TEXT"); } catch { /* already exists */ }
   // Seed defaults (INSERT OR IGNORE keeps this idempotent)
   const seed = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) seed.run(k, v);

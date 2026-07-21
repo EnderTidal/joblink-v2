@@ -25,7 +25,6 @@
   <section id="s-settings" class="on"><div class="card half">
     <h3 style="margin-bottom:12px">Settings</h3>
     <label class="f">Blast Guard cooldown (hours) <input id="set-cooldown" type="number" min="0"></label>
-    <label class="f">Base URL (for magic links) <input id="set-baseurl"></label>
     <label class="f">SMS provider
       <select id="set-provider">
         <option value="mock">Mock (safe — no real texts)</option>
@@ -48,6 +47,14 @@
     <div id="tpl-list"></div>
     <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
     <label class="f">Name <input id="tpl-name"></label>
+    <label class="f">Category
+      <select id="tpl-cat">
+        <option value="">All (global)</option>
+        <option value="Industrial">Industrial</option>
+        <option value="Administrative">Administrative</option>
+        <option value="Skilled Trade">Skilled Trades</option>
+      </select>
+    </label>
     <label class="f">Body <textarea id="tpl-body" rows="3"></textarea></label>
     <button class="btn" onclick="addTemplate()">Add template</button>
   </div></section>
@@ -101,7 +108,6 @@ async function loadSettings() {
   try {
     const s = await api('/api/settings');
     document.getElementById('set-cooldown').value = s.cooldown_hours || 72;
-    document.getElementById('set-baseurl').value = s.base_url || '';
     document.getElementById('set-provider').value = s.sms_provider || 'mock';
     document.getElementById('set-wkey').value = s.whippy_api_key || '';
     document.getElementById('set-wchan').value = s.whippy_channel_id || '';
@@ -111,7 +117,6 @@ async function loadSettings() {
 async function saveSettings() {
   await api('/api/settings', { method: 'POST', body: {
     cooldown_hours: document.getElementById('set-cooldown').value,
-    base_url: document.getElementById('set-baseurl').value,
     sms_provider: document.getElementById('set-provider').value,
     whippy_api_key: document.getElementById('set-wkey').value,
     whippy_channel_id: document.getElementById('set-wchan').value,
@@ -130,18 +135,35 @@ async function rerunSetup() {
 
 async function loadTemplates() {
   const list = await api('/api/templates');
-  document.getElementById('tpl-list').innerHTML = list.map((t) =>
-    `<div style="margin-bottom:10px"><strong>${esc(t.name)}</strong>${t.is_default ? ' <span class="mut">(default)</span>' : ''}
-     <div class="mut">${esc(t.body)}</div>
-     ${!t.is_default && me?.role === 'admin' ? `<button class="btn sm ghost" onclick="delTemplate(${t.id})">Delete</button>` : ''}</div>`).join('');
+  document.getElementById('tpl-list').innerHTML = list.map((t) => {
+    const catLabel = t.category ? t.category : 'All';
+    const defaultLabel = t.is_default ? ' <span style="color:#22c55e;font-weight:700">(default' + (t.category ? ' for ' + esc(t.category) : '') + ')</span>' : '';
+    const adminBtns = me?.role === 'admin' ? [
+      !t.is_default ? '<button class="btn sm" onclick="setDefault(' + t.id + ')">Set as default</button>' : '',
+      '<select class="sort-select" style="height:28px;font-size:.78rem" onchange="setCat(' + t.id + ', this.value)">' +
+        '<option value=""' + (!t.category ? ' selected' : '') + '>All</option>' +
+        '<option value="Industrial"' + (t.category === 'Industrial' ? ' selected' : '') + '>Industrial</option>' +
+        '<option value="Administrative"' + (t.category === 'Administrative' ? ' selected' : '') + '>Administrative</option>' +
+        '<option value="Skilled Trade"' + (t.category === 'Skilled Trade' ? ' selected' : '') + '>Skilled Trades</option>' +
+      '</select>',
+      !t.is_default ? '<button class="btn sm ghost" onclick="delTemplate(' + t.id + ')">Delete</button>' : '',
+    ].filter(Boolean).join(' ') : '';
+    return '<div style="margin-bottom:12px;padding:10px 0;border-bottom:1px solid var(--line)">' +
+      '<strong>' + esc(t.name) + '</strong> <span class="mut">(' + catLabel + ')</span>' + defaultLabel +
+      '<div class="mut" style="margin:4px 0">' + esc(t.body) + '</div>' +
+      '<div class="row" style="gap:6px;margin-top:6px">' + adminBtns + '</div></div>';
+  }).join('');
 }
 async function addTemplate() {
   try {
-    await api('/api/templates', { method: 'POST', body: { name: document.getElementById('tpl-name').value, body: document.getElementById('tpl-body').value } });
+    const cat = document.getElementById('tpl-cat').value;
+    await api('/api/templates', { method: 'POST', body: { name: document.getElementById('tpl-name').value, body: document.getElementById('tpl-body').value, category: cat || null } });
     toast('Template added.'); loadTemplates();
   } catch (e) { toast(e.message); }
 }
 async function delTemplate(id) { await api('/api/templates/' + id, { method: 'DELETE' }); loadTemplates(); }
+async function setDefault(id) { await api('/api/templates/' + id + '/default', { method: 'PUT' }); toast('Default updated.'); loadTemplates(); }
+async function setCat(id, cat) { await api('/api/templates/' + id, { method: 'PATCH', body: { category: cat || null } }); toast('Category updated.'); loadTemplates(); }
 
 async function loadUsers() {
   try {

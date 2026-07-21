@@ -69,15 +69,15 @@ function demoWalkthrough(topic) {
     'job order': [
       DEMO_BANNER,
       '1. You pick **New Job Order** and upload "forklift_operator.docx".',
-      '2. Tom parses it: Title: Forklift Operator · Category: Industrial · Pay: $18/hr · Shift: 1st (6am–2:30pm) · Location: Waxahachie, TX.',
-      '3. You type "pay should be $18.50" — Tom updates the Pay field.',
+      '2. AI Assistant parses it: Title: Forklift Operator · Category: Industrial · Pay: $18/hr · Shift: 1st (6am–2:30pm) · Location: Waxahachie, TX.',
+      '3. You type "pay should be $18.50" — AI Assistant updates the Pay field.',
       '4. You say "publish" — in real life it would go live on the job board. (Demo: nothing was saved.)',
       DEMO_BANNER,
     ],
     blast: [
       DEMO_BANNER,
       '1. You pick **Send Magic Blast** and upload "industrial_list.xlsx" (300 contacts).',
-      '2. Tom parses the list: 300 valid numbers, 2 rows with bad phone numbers set aside.',
+      '2. AI Assistant parses the list: 300 valid numbers, 2 rows with bad phone numbers set aside.',
       '3. You confirm the category: **Industrial** (this can never be skipped).',
       '4. Preview: "287 will send, 13 skipped (cooldown)". You press the **Send** button.',
       '5. Result: 287 sent. (Demo: no texts were actually sent.)',

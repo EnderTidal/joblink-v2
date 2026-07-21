@@ -172,7 +172,7 @@ function createTom(db) {
       'John Smith 555-123-4567\nJane Doe (555) 987-6543');
   }
 
-  async function handleBlast(s, { text, action, payload, file, user }) {
+  async function handleBlast(s, { text, action, payload, file, user, reqHost, reqProto }) {
     if (s.state === 'await_contacts') {
       let parsed;
       if (file) parsed = parseContactFile(file.buffer, file.originalname);
@@ -228,7 +228,10 @@ function createTom(db) {
       const plan = planBlast(db, { phones: s.data.selection.map((c) => c.phone), category });
       s.data.plan = plan;
       const templates = db.prepare('SELECT * FROM templates ORDER BY is_default DESC, id').all();
-      s.data.template = templates[0];
+      // Category-specific default > global default > first template
+      const catDefault = templates.find(t => t.is_default && t.category === category);
+      const globalDefault = templates.find(t => t.is_default && (!t.category || t.category === ''));
+      s.data.template = catDefault || globalDefault || templates[0];
       s.state = 'preview';
       const sample = plan.sendable[0]
         ? renderMessage(s.data.template.body, plan.sendable[0], getSetting(db, 'base_url') || '')
@@ -257,11 +260,13 @@ function createTom(db) {
         if (!s.data.plan.sendable.length) return reply(s, 'Nobody to send to — everyone was skipped.');
         s.state = 'sending';
         const provider = getProvider(db);
+        const autoBaseUrl = reqHost ? ((reqProto === 'http' && reqHost.includes('localhost')) ? `http://${reqHost}` : `https://${reqHost}`) : undefined;
         const result = await executeBlast(db, s.data.plan, {
           templateId: s.data.template.id,
           templateBody: s.data.template.body,
           provider,
           sentBy: user || s.user || null,
+          baseUrl: autoBaseUrl,
         });
         s.state = 'ask_another';
         const mockNote = provider.name === 'mock'

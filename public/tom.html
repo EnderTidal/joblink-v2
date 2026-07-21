@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>JobLink — Tom</title>
+<title>JobLink — AI Assistant</title>
 <link rel="stylesheet" href="/app.css">
 <style>
   .paths { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-bottom:16px; }
@@ -101,7 +101,11 @@ function tryStartPath(path) {
 async function sendText() {
   const input = document.getElementById('input');
   const text = input.value.trim();
-  if (!text || !session) return;
+  if (!session) return;
+  // If a gold confirm button is visible, trigger it instead of sending text
+  const goldBtn = document.querySelector('.choices .btn.gold:not([disabled])');
+  if (goldBtn) { input.value = ''; goldBtn.click(); return; }
+  if (!text) return;
   input.value = '';
   addMsg('me', text);
   const r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, text } });

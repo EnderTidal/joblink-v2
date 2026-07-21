@@ -40,6 +40,25 @@
 
   /* Action buttons in pipeline */
   .act-group { display:inline-flex; align-items:center; gap:4px; }
+
+  /* JO Detail Modal */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:1000; justify-content:center; align-items:flex-start; padding:40px 20px; overflow-y:auto; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--card); border:1px solid var(--line); border-radius:12px; width:100%; max-width:640px; padding:24px; position:relative; }
+  .modal h2 { margin:0 0 16px; font-size:1.1rem; }
+  .modal .close-btn { position:absolute; top:12px; right:16px; background:none; border:none; color:var(--mut); font-size:1.4rem; cursor:pointer; }
+  .modal .f { display:block; margin-bottom:10px; }
+  .modal .f label { display:block; font-size:.82rem; font-weight:600; color:var(--mut); margin-bottom:3px; }
+  .modal .f input, .modal .f select, .modal .f textarea { width:100%; padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); font-family:inherit; font-size:.88rem; }
+  .modal .f textarea { min-height:60px; resize:vertical; }
+  .modal .btn-row { display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; }
+  .modal .interested-list { margin-top:16px; }
+  .modal .interested-list h3 { font-size:.92rem; margin:0 0 8px; }
+  .blast-card { border:1px solid var(--line); border-radius:10px; margin-bottom:8px; overflow:hidden; }
+  .blast-header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; cursor:pointer; gap:10px; flex-wrap:wrap; }
+  .blast-header:hover { background:rgba(96,165,250,0.05); }
+  .blast-detail { display:none; padding:0 14px 14px; }
+  .blast-detail.open { display:block; }
 </style>
 </head>
 <body>
@@ -135,6 +154,18 @@
       </table>
     </div>
   </div>
+
+  <div class="modal-overlay" id="joModal">
+    <div class="modal">
+      <button class="close-btn" onclick="closeJoModal()">&times;</button>
+      <h2 id="joModalTitle">Job Order Detail</h2>
+      <div id="joModalBody"></div>
+    </div>
+  </div>
+  <div class="card" id="blastsSection">
+    <h2 style="margin-bottom:14px">Recent Blasts</h2>
+    <div id="blastsList"></div>
+  </div>
 </main>
 <script src="/app.js"></script>
 <script>
@@ -185,7 +216,7 @@ function renderTable() {
   const completed = jobs.filter(jo => jo.status === 'Complete');
 
   document.getElementById('rows').innerHTML = active.map(renderRow).join('')
-    || '<tr><td colspan="10" class="mut">No job orders yet &mdash; create one in Tom.</td></tr>';
+    || '<tr><td colspan="10" class="mut">No job orders yet &mdash; create one in AI Assistant.</td></tr>';
 
   // Completed section
   const cSection = document.getElementById('completedSection');
@@ -201,7 +232,7 @@ function renderTable() {
 function renderRow(jo) {
   const ic = jo.interested_count || 0;
   return '<tr>' +
-    '<td><strong>' + esc(jo.title) + '</strong>' +
+    '<td><strong><a href="#" onclick="openJoDetail(' + jo.id + '); return false" style="color:var(--blue);text-decoration:none;cursor:pointer">' + esc(jo.title) + '</a></strong>' +
       '<div class="mut">' + esc(jo.location || '') + (jo.shift_hours ? ' &middot; ' + esc(jo.shift_hours) : '') + '</div></td>' +
     '<td class="col-company">' + esc(jo.company || '\u2014') + '</td>' +
     '<td>' + esc(jo.category || '\u2014') + '</td>' +
@@ -220,7 +251,7 @@ function renderRow(jo) {
 
 function renderCompletedRow(jo) {
   return '<tr>' +
-    '<td><strong>' + esc(jo.title) + '</strong></td>' +
+    '<td><strong><a href="#" onclick="openJoDetail(' + jo.id + '); return false" style="color:var(--blue);text-decoration:none;cursor:pointer">' + esc(jo.title) + '</a></strong></td>' +
     '<td class="col-company">' + esc(jo.company || '\u2014') + '</td>' +
     '<td>' + esc(jo.category || '\u2014') + '</td>' +
     '<td class="col-pay">' + esc(jo.pay || '\u2014') + '</td>' +
@@ -253,8 +284,7 @@ function sortBy(v) {
 }
 
 function openPreview() {
-  // TODO: wire to candidate preview page
-  toast('Preview feature coming soon.');
+  window.open('/m/preview', '_blank');
 }
 
 function wireFilters(id, setter) {
@@ -270,6 +300,101 @@ function wireFilters(id, setter) {
 wireFilters('statusFilters', function(v) { statusFilter = v; });
 wireFilters('catFilters', function(v) { categoryFilter = v; });
 
-boot('dash').then(function() { loadStats(); loadRows(); });
+
+async function openJoDetail(id) {
+  try {
+    var jo = await api('/api/job-orders/' + id);
+    document.getElementById('joModalTitle').textContent = 'Job Order #' + jo.id;
+    var cats = ['Industrial', 'Administrative', 'Skilled Trade'];
+    var statuses = ['Unpublished', 'Published', 'Complete'];
+    var html = '<form id="joEditForm">';
+    html += '<div class="f"><label>Title</label><input name="title" value="' + esc(jo.title) + '"></div>';
+    html += '<div class="f"><label>Category</label><select name="category">' + cats.map(function(ct){return '<option' + (jo.category===ct?' selected':'') + '>' + ct + '</option>';}).join('') + '</select></div>';
+    html += '<div class="f"><label>Pay</label><input name="pay" value="' + esc(jo.pay) + '"></div>';
+    html += '<div class="f"><label>Shift / Hours</label><input name="shift_hours" value="' + esc(jo.shift_hours) + '"></div>';
+    html += '<div class="f"><label>Location</label><input name="location" value="' + esc(jo.location) + '"></div>';
+    html += '<div class="f"><label>Requirements</label><textarea name="requirements">' + esc(jo.requirements) + '</textarea></div>';
+    html += '<div class="f"><label>Description</label><textarea name="description">' + esc(jo.description) + '</textarea></div>';
+    html += '<div class="f"><label>Status</label><select name="status">' + statuses.map(function(s){return '<option' + (jo.status===s?' selected':'') + '>' + s + '</option>';}).join('') + '</select></div>';
+    html += '<div class="btn-row">';
+    html += '<button type="button" class="btn" onclick="saveJoDetail(' + jo.id + ')">Save</button>';
+    if (jo.status !== 'Published') html += '<button type="button" class="btn ghost" onclick="joAction(' + jo.id + ',\x27Published\x27)">Publish</button>';
+    if (jo.status === 'Published') html += '<button type="button" class="btn ghost" onclick="joAction(' + jo.id + ',\x27Unpublished\x27)">Unpublish</button>';
+    if (jo.status !== 'Complete') html += '<button type="button" class="btn ghost" onclick="joAction(' + jo.id + ',\x27Complete\x27)">Complete</button>';
+    html += '</div></form>';
+    if (jo.interested_candidates && jo.interested_candidates.length > 0) {
+      html += '<div class="interested-list"><h3>Interested Candidates (' + jo.interested_candidates.length + ')</h3>';
+      html += '<table><thead><tr><th>Name</th><th>Phone</th><th>Category</th><th>Date</th></tr></thead><tbody>';
+      jo.interested_candidates.forEach(function(ic) {
+        html += '<tr><td>' + esc(ic.first_name) + ' ' + esc(ic.last_name) + '</td>';
+        html += '<td>' + esc(ic.phone_display) + '</td>';
+        html += '<td>' + esc(ic.current_category || '\u2014') + '</td>';
+        html += '<td>' + new Date(ic.interest_date).toLocaleDateString() + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+    } else {
+      html += '<div class="interested-list"><h3>Interested Candidates</h3><p class="mut">No candidates have expressed interest yet.</p></div>';
+    }
+    document.getElementById('joModalBody').innerHTML = html;
+    document.getElementById('joModal').classList.add('open');
+  } catch(e) { toast('Error loading job order: ' + e.message); }
+}
+function closeJoModal() { document.getElementById('joModal').classList.remove('open'); }
+async function saveJoDetail(id) {
+  var form = document.getElementById('joEditForm');
+  var data = {};
+  new FormData(form).forEach(function(v, k) { data[k] = v; });
+  try {
+    await api('/api/job-orders/' + id, { method: 'PATCH', body: data });
+    toast('Job order saved.'); closeJoModal(); loadRows(); loadStats();
+  } catch(e) { toast('Error: ' + e.message); }
+}
+async function joAction(id, status) {
+  await api('/api/job-orders/' + id + '/status', { method: 'POST', body: { status: status } });
+  toast('Job order ' + status.toLowerCase() + '.'); closeJoModal(); loadRows(); loadStats();
+}
+async function loadBlasts() {
+  try {
+    var blasts = await api('/api/blasts');
+    if (!blasts.length) { document.getElementById('blastsList').innerHTML = '<p class="mut">No blasts sent yet.</p>'; return; }
+    document.getElementById('blastsList').innerHTML = blasts.slice(0, 20).map(function(b) {
+      var d = new Date(b.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      var bits = [b.sent_count + ' sent'];
+      if (b.skipped_cooldown_count) bits.push(b.skipped_cooldown_count + ' skipped (cooldown)');
+      if (b.skipped_dnc_count) bits.push(b.skipped_dnc_count + ' skipped (DNC)');
+      if (b.failed_count) bits.push(b.failed_count + ' failed');
+      return '<div class="blast-card"><div class="blast-header" onclick="toggleBlast(' + b.id + ')">' +
+        '<span><strong>#' + b.id + '</strong> \u00b7 ' + esc(b.category) + ' \u00b7 ' + d +
+        (b.sent_by ? ' \u00b7 by ' + esc(b.sent_by) : '') + '</span>' +
+        '<span class="mut">' + bits.join(', ') + '</span></div>' +
+        '<div class="blast-detail" id="blast-' + b.id + '"><div class="mut">Loading...</div></div></div>';
+    }).join('');
+  } catch(e) { /* blasts endpoint may not exist */ }
+}
+async function toggleBlast(id) {
+  var el = document.getElementById('blast-' + id);
+  if (el.classList.contains('open')) { el.classList.remove('open'); return; }
+  el.classList.add('open');
+  try {
+    var data = await api('/api/blasts/' + id + '/recipients');
+    var html = '<div style="margin-bottom:8px"><a href="/api/blasts/' + id + '/recipients/csv" class="preview-btn" style="font-size:.78rem;padding:4px 10px">Download CSV</a></div>';
+    if (data.recipients.length === 0) {
+      html += '<p class="mut">No recipient data recorded for this blast.</p>';
+    } else {
+      html += '<table><thead><tr><th>Name</th><th>Phone</th><th>Status</th><th>Error</th></tr></thead><tbody>';
+      data.recipients.forEach(function(r) {
+        html += '<tr><td>' + esc(r.first_name || '') + ' ' + esc(r.last_name || '') + '</td>';
+        html += '<td>' + esc(r.phone_display) + '</td>';
+        html += '<td><span class="pill ' + (r.status === 'sent' ? 'Published' : 'Unpublished') + '">' + esc(r.status) + '</span></td>';
+        html += '<td class="mut">' + esc(r.error || '\u2014') + '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+    el.innerHTML = html;
+  } catch(e) { el.innerHTML = '<p class="mut">Error loading recipients.</p>'; }
+}
+document.getElementById('joModal').addEventListener('click', function(e) { if (e.target === this) closeJoModal(); });
+
+boot('dash').then(function() { loadStats(); loadRows(); loadBlasts(); });
 </script>
 </body></html>
