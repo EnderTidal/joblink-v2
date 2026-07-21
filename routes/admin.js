@@ -30,7 +30,63 @@ function createAdminRoutes(db, auth) {
     catch (err) { next(err); }
   });
 
+
+
+  // ---- Single Job Order detail with interested candidates ----
+  router.get('/api/job-orders/:id', (req, res) => {
+    const id = Number(req.params.id);
+    const jo = db.prepare(
+      `SELECT jo.*, (SELECT COUNT(*) FROM interests i WHERE i.job_order_id = jo.id) AS interested_count
+       FROM job_orders jo WHERE jo.id = ?`
+    ).get(id);
+    if (!jo) return res.status(404).json({ error: 'not_found' });
+    const interested = db.prepare(
+      `SELECT c.phone, c.first_name, c.last_name, c.current_category, i.created_at AS interest_date
+       FROM interests i
+       JOIN candidates c ON c.phone = i.phone
+       WHERE i.job_order_id = ?
+       ORDER BY i.created_at DESC`
+    ).all(id);
+    res.json({ ...jo, interested_candidates: interested.map(c => ({ ...c, phone_display: formatPhone(c.phone) })) });
+  });
+
   router.get('/api/blasts', (_req, res) => res.json(listBlasts(db, 50)));
+
+  // ---- Blast Recipients (expandable blast detail) ----
+  router.get('/api/blasts/:id/recipients', (req, res) => {
+    const blastId = Number(req.params.id);
+    const blast = db.prepare('SELECT * FROM blasts WHERE id = ?').get(blastId);
+    if (!blast) return res.status(404).json({ error: 'not_found' });
+    const recipients = db.prepare(
+      `SELECT br.phone, br.status, br.error, c.first_name, c.last_name
+       FROM blast_recipients br
+       LEFT JOIN candidates c ON c.phone = br.phone
+       WHERE br.blast_id = ?
+       ORDER BY br.status, c.last_name, c.first_name`
+    ).all(blastId);
+    res.json({ blast, recipients: recipients.map(r => ({ ...r, phone_display: formatPhone(r.phone) })) });
+  });
+
+  router.get('/api/blasts/:id/recipients/csv', (req, res) => {
+    const blastId = Number(req.params.id);
+    const blast = db.prepare('SELECT * FROM blasts WHERE id = ?').get(blastId);
+    if (!blast) return res.status(404).json({ error: 'not_found' });
+    const recipients = db.prepare(
+      `SELECT br.phone, br.status, br.error, c.first_name, c.last_name
+       FROM blast_recipients br
+       LEFT JOIN candidates c ON c.phone = br.phone
+       WHERE br.blast_id = ?
+       ORDER BY br.status, c.last_name, c.first_name`
+    ).all(blastId);
+    const header = 'First Name,Last Name,Phone,Status,Error';
+    const rows = recipients.map(r =>
+      [r.first_name || '', r.last_name || '', formatPhone(r.phone), r.status, r.error || '']
+        .map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')
+    );
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="blast-' + blastId + '-recipients.csv"');
+    res.send([header, ...rows].join('\n'));
+  });
 
   router.get('/api/stats', (_req, res) => {
     res.json({
@@ -92,10 +148,10 @@ function createAdminRoutes(db, auth) {
     res.json(db.prepare('SELECT * FROM templates ORDER BY is_default DESC, id').all());
   });
   router.post('/api/templates', auth.requireAdmin, (req, res) => {
-    const { name, body } = req.body || {};
+    const { name, body, category } = req.body || {};
     if (!name || !body) return res.status(400).json({ error: 'name and body required' });
     if (!String(body).includes('{link}')) return res.status(400).json({ error: 'Template must include {link}' });
-    const r = db.prepare('INSERT INTO templates (name, body) VALUES (?, ?)').run(name, body);
+    const r = db.prepare('INSERT INTO templates (name, body, category) VALUES (?, ?, ?)').run(name, body, category || null);
     res.json({ id: Number(r.lastInsertRowid) });
   });
   router.delete('/api/templates/:id', auth.requireAdmin, (req, res) => {
@@ -104,6 +160,39 @@ function createAdminRoutes(db, auth) {
     if (t.is_default) return res.status(400).json({ error: 'cannot delete the default template' });
     db.prepare('DELETE FROM templates WHERE id = ?').run(t.id);
     res.json({ ok: true });
+  });
+
+  router.patch('/api/templates/:id', auth.requireAdmin, (req, res) => {
+    const id = Number(req.params.id);
+    const t = db.prepare('SELECT * FROM templates WHERE id = ?').get(id);
+    if (!t) return res.status(404).json({ error: 'not_found' });
+    const { name, body, category } = req.body || {};
+    if (name !== undefined) db.prepare('UPDATE templates SET name = ? WHERE id = ?').run(String(name), id);
+    if (body !== undefined) {
+      if (!String(body).includes('{link}')) return res.status(400).json({ error: 'Template must include {link}' });
+      db.prepare('UPDATE templates SET body = ? WHERE id = ?').run(String(body), id);
+    }
+    if (category !== undefined) {
+      const validCats = ['Industrial', 'Administrative', 'Skilled Trade', ''];
+      const cat = category === null ? '' : String(category);
+      if (cat && !validCats.includes(cat)) return res.status(400).json({ error: 'Invalid category' });
+      db.prepare('UPDATE templates SET category = ? WHERE id = ?').run(cat || null, id);
+    }
+    res.json(db.prepare('SELECT * FROM templates WHERE id = ?').get(id));
+  });
+
+  router.put('/api/templates/:id/default', auth.requireAdmin, (req, res) => {
+    const id = Number(req.params.id);
+    const t = db.prepare('SELECT * FROM templates WHERE id = ?').get(id);
+    if (!t) return res.status(404).json({ error: 'not_found' });
+    const cat = t.category;
+    if (cat) {
+      db.prepare('UPDATE templates SET is_default = 0 WHERE category = ? AND id != ?').run(cat, id);
+    } else {
+      db.prepare("UPDATE templates SET is_default = 0 WHERE (category IS NULL OR category = '') AND id != ?").run(id);
+    }
+    db.prepare('UPDATE templates SET is_default = 1 WHERE id = ?').run(id);
+    res.json(db.prepare('SELECT * FROM templates WHERE id = ?').get(id));
   });
 
   // ---- Users (admin only) ----
