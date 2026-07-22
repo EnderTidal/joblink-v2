@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JobLink &mdash; Job Order Detail</title>
 <script>(function(){if(localStorage.getItem("joblink_light_mode")==="true"){document.documentElement.classList.add("light-mode")}})();</script>
-<link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/app.css?v=3">
 <style>
   .back-link { display:inline-flex; align-items:center; gap:6px; color:var(--blue); text-decoration:none; font-size:.9rem; margin-bottom:16px; }
   .back-link:hover { text-decoration:underline; }
@@ -95,7 +95,7 @@
   <!-- Pipeline sections -->
   <div id="pipeline"></div>
 </main>
-<script src="/app.js?v=2"></script>
+<script src="/app.js?v=3"></script>
 <script>
 var joId = Number(new URLSearchParams(location.search).get('id'));
 var joData = null;
