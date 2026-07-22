@@ -129,6 +129,13 @@
       <select id="recruiterFilter" onchange="recruiterFilter=this.value; loadRows()" class="sort-select" style="min-width:140px">
         <option value="">All recruiters</option>
       </select>
+      <span style="width:1px;height:24px;background:var(--line);margin:0 2px"></span>
+      <select id="pipelineFilter" onchange="pipelineFilter=this.value; renderTable()" class="sort-select" style="min-width:150px">
+        <option value="">Pipeline: All</option>
+        <option value="has_interested">Has Interested</option>
+        <option value="has_yeslisted">Has Yes-Listed</option>
+        <option value="has_confirmed">Has Confirmed</option>
+      </select>
     </div>
 
     <!-- Search + sort row -->
@@ -204,7 +211,7 @@
 </main>
 <script src="/app.js?v=2"></script>
 <script>
-let statusFilter = '', categoryFilter = '', recruiterFilter = '', searchQuery = '', currentSort = 'interested';
+let statusFilter = '', categoryFilter = '', recruiterFilter = '', pipelineFilter = '', searchQuery = '', currentSort = 'interested';
 let allJobs = [];
 
 async function loadStats() {
@@ -240,6 +247,11 @@ function renderTable() {
     const q = searchQuery.toLowerCase();
     jobs = jobs.filter(jo => (jo.title || '').toLowerCase().includes(q) || (jo.company || '').toLowerCase().includes(q));
   }
+
+  // Pipeline filter
+  if (pipelineFilter === 'has_interested') jobs = jobs.filter(function(jo) { return (jo.interested_count || 0) > 0; });
+  else if (pipelineFilter === 'has_yeslisted') jobs = jobs.filter(function(jo) { return (jo.yeslisted_count || 0) > 0; });
+  else if (pipelineFilter === 'has_confirmed') jobs = jobs.filter(function(jo) { return (jo.confirmed_count || 0) > 0; });
 
   // Sort
   if (currentSort === 'alpha') jobs.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
