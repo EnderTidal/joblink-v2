@@ -96,7 +96,7 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
   // Extension point (PORTING_FROM_V1): close the conversation threads the blast opened
   let conversationsClosed = 0;
   if (typeof provider.closeOpenConversations === 'function') {
-    try { conversationsClosed = (await provider.closeOpenConversations()).closed || 0; } catch { /* best-effort */ }
+    try { conversationsClosed = (await provider.assignAndCloseConversations(opts.recruiterId || null)).closed || 0; } catch { /* best-effort */ }
   }
 
   return {

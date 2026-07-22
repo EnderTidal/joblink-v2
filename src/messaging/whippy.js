@@ -64,6 +64,34 @@ function create(config) {
     },
     // Ported V1 behavior: a blast opens conversation threads in Whippy;
     // close them back out to keep the inbox clean (PORTING_FROM_V1.md).
+
+    async assignConversation(conversationId, userId) {
+      try {
+        await whippyRequest(config, 'PATCH', '/v1/conversations/' + conversationId, { assigned_user_id: userId });
+        return { ok: true };
+      } catch(e) {
+        return { ok: false, error: e.message };
+      }
+    },
+
+    async assignAndCloseConversations(recruiterId) {
+      try {
+        const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=100&status=open', null);
+        const convos = result?.data || [];
+        let assigned = 0, closed = 0;
+        for (const c of convos) {
+          if (recruiterId) {
+            await whippyRequest(config, 'PATCH', '/v1/conversations/' + c.id, { assigned_user_id: recruiterId });
+            assigned++;
+          }
+          await whippyRequest(config, 'PATCH', '/v1/conversations/' + c.id, { status: 'closed' });
+          closed++;
+        }
+        return { assigned, closed };
+      } catch(e) {
+        return { assigned: 0, closed: 0, error: e.message };
+      }
+    },
     async closeOpenConversations() {
       try {
         const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=100', null);
