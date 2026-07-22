@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JobLink — Setup</title>
 <script>(function(){if(localStorage.getItem("joblink_light_mode")==="true"){document.documentElement.classList.add("light-mode")}})();</script>
-<link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/app.css?v=3">
 <style>
   body { padding-bottom:60px; }
   .wrap { max-width:680px; margin:0 auto; padding:24px 16px; }
@@ -37,14 +37,14 @@
   <div class="step card" data-step="0">
     <h2>What JobLink does</h2>
     <p style="margin-bottom:10px">JobLink fills job orders with <strong>self-selected, interested candidates</strong>. You'll do everything through the <strong>AI Assistant</strong> — a chat with four buttons: create job orders, send Magic Blasts (a text with each candidate's personal job link), review results, and get help.</p>
-    <p>This setup walks you through two things: securing your account, and connecting <strong>Whippy</strong> so blasts can actually send texts. You can skip Whippy for now and stay in safe practice mode.</p>
+    <p>This setup walks you through two things: securing your account, and connecting your <strong>messaging provider</strong> so blasts can actually send texts. You can skip this for now and stay in safe practice mode.</p>
     <div class="navrow"><span></span><button class="btn" onclick="go(1)">Let's go &rarr;</button></div>
   </div>
 
   <!-- Step 2: Password -->
   <div class="step card" data-step="1">
     <h2>Secure your account</h2>
-    <p class="mut" style="margin-bottom:12px">You're currently on the default password everyone can read in the docs. Pick your own (8+ characters).</p>
+    <p class="mut" style="margin-bottom:12px">Set a secure password for your account (8+ characters).</p>
     <label class="f">Current password <input id="pw-current" type="password" autocomplete="current-password"></label>
     <label class="f">New password <input id="pw-new" type="password" autocomplete="new-password"></label>
     <label class="f">New password again <input id="pw-new2" type="password" autocomplete="new-password"></label>
@@ -120,7 +120,7 @@
     </div>
   </div>
 </div>
-<script src="/app.js?v=2"></script>
+<script src="/app.js?v=3"></script>
 <script>
 const STEPS = 4;
 let current = 0, whippyOk = false;
@@ -228,11 +228,11 @@ async function saveAndTest() {
 
 async function finish() {
   await api('/api/onboarding/complete', { method: 'POST' });
-  location.href = '/tom.html';
+  location.href = '/tom.html?path=help';
 }
 
 api('/api/me').then((me) => {
-  if (me.role !== 'admin') location.href = '/tom.html';
+  if (me.role !== 'admin') location.href = '/tom.html?path=help';
   go(0);
 });
 </script>
