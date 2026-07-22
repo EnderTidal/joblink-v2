@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JobLink &mdash; Job Order Detail</title>
 <script>(function(){if(localStorage.getItem("joblink_light_mode")==="true"){document.documentElement.classList.add("light-mode")}})();</script>
-<link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/app.css?v=3">
 <style>
   .back-link { display:inline-flex; align-items:center; gap:6px; color:var(--blue); text-decoration:none; font-size:.9rem; margin-bottom:16px; }
   .back-link:hover { text-decoration:underline; }
@@ -56,6 +56,7 @@
   .act-group { display:inline-flex; gap:4px; flex-wrap:wrap; }
 
   .empty-msg { padding:12px 0; color:var(--mut); font-size:.86rem; }
+  .pill { white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -83,7 +84,7 @@
       <label class="f">Description<textarea name="description" id="fDescription" rows="3"></textarea></label>
       <div class="row2">
         <label class="f">Status<select name="status" id="fStatus"><option>Unpublished</option><option>Published</option><option>Complete</option></select></label>
-        <label class="f">Assigned Recruiter<select name="assigned_recruiter" id="fRecruiter"><option value="">(none)</option></select></label>
+        <label class="f">Assigned Recruiter<select name="assigned_recruiter" id="fRecruiter"></select></label>
       </div>
       <div class="btn-row">
         <button class="btn" onclick="saveEdit()">Save Changes</button>
@@ -95,7 +96,7 @@
   <!-- Pipeline sections -->
   <div id="pipeline"></div>
 </main>
-<script src="/app.js?v=2"></script>
+<script src="/app.js?v=3"></script>
 <script>
 var joId = Number(new URLSearchParams(location.search).get('id'));
 var joData = null;
@@ -245,7 +246,7 @@ async function loadRecruiterOptions() {
       var opt = document.createElement('option');
       opt.value = u.display_name || u.username;
       opt.textContent = (u.display_name || u.username) + ' (' + u.role + ')';
-      if (joData && (joData.assigned_recruiter || '') === (u.display_name || u.username)) opt.selected = true;
+      var isMatch = joData && (joData.assigned_recruiter || '') === (u.display_name || u.username); if (isMatch) opt.selected = true; if (!joData.assigned_recruiter && sel.options.length === 0) opt.selected = true;
       sel.appendChild(opt);
     });
   } catch(e) { /* non-admin */ }

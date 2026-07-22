@@ -86,6 +86,7 @@ function createAdminRoutes(db, auth) {
 
   // Migration: add display_name column to users (idempotent)
   try { db.exec("ALTER TABLE users ADD COLUMN display_name TEXT NOT NULL DEFAULT ''"); } catch { /* already exists */ }
+  try { db.exec("ALTER TABLE feedback ADD COLUMN type TEXT DEFAULT 'general'"); } catch { /* already exists */ }
 
   // ---- Dashboard ----
   router.get('/api/job-orders', (req, res) => {
@@ -248,12 +249,6 @@ function createAdminRoutes(db, auth) {
   router.post('/api/settings/test-sms', auth.requireAdmin, async (_req, res) => {
     const provider = getProvider(db);
     const result = await provider.testConnection();
-    // Auto-sync Whippy users on successful connection test
-    if (result.ok && provider.name === 'whippy') {
-      const sync = await syncWhippyUsers(db);
-      result.whippy_users_synced = sync.ok;
-      result.whippy_users_count = sync.count || 0;
-    }
     res.json({ provider: provider.name, ...result });
   });
 
@@ -410,10 +405,11 @@ function createAdminRoutes(db, auth) {
     res.json(db.prepare('SELECT * FROM feedback ORDER BY id DESC LIMIT 100').all());
   });
   router.post('/api/feedback', (req, res) => {
-    const { body } = req.body || {};
+    const { body, type } = req.body || {};
     if (!body) return res.status(400).json({ error: 'body required' });
     const author = req.user?.username || null;
-    db.prepare('INSERT INTO feedback (author, body) VALUES (?, ?)').run(author, String(body));
+    const fbType = type || 'general';
+    db.prepare('INSERT INTO feedback (author, body, type) VALUES (?, ?, ?)').run(author, String(body), fbType);
     // Send email notification
     sendFeedbackEmail(author, body);
     res.json({ ok: true });

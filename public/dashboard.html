@@ -3,8 +3,11 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JobLink &mdash; Dashboard</title>
 <script>(function(){if(localStorage.getItem("joblink_light_mode")==="true"){document.documentElement.classList.add("light-mode")}})();</script>
-<link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/app.css?v=3">
 <style>
+  /* Pill nowrap fix */
+  .pill { white-space:nowrap; }
+
   /* Pipeline table enhancements */
   .pipeline-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
   .pipeline-head h2 { font-size:1.1rem; margin:0; }
@@ -40,7 +43,7 @@
   .completed-body.open { display:block; }
 
   /* Action buttons in pipeline */
-  .act-group { display:inline-flex; align-items:center; gap:4px; }
+  .act-group { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
 
   /* JO Detail Modal */
   .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; justify-content:center; align-items:flex-start; padding:40px 20px; overflow-y:auto; }
@@ -210,7 +213,7 @@
     <div id="blastsList"></div>
   </div>
 </main>
-<script src="/app.js?v=2"></script>
+<script src="/app.js?v=3"></script>
 <script>
 let statusFilter = '', categoryFilter = '', recruiterFilter = '', pipelineFilter = '', searchQuery = '', currentSort = 'interested';
 let allJobs = [];
@@ -290,7 +293,7 @@ function renderRow(jo) {
     '<td><span class="interest ' + (ic > 0 ? 'has' : 'none') + '">' + ic + '</span></td>' +
     '<td>' + (jo.yeslisted_count || 0) + '</td>' +
     '<td>' + (jo.filled_count || 0) + '</td>' +
-    '<td class="col-company"><select class="sort-select" style="height:28px;font-size:.78rem;width:auto;min-width:90px;padding:2px 6px" onchange="changeRecruiter(' + jo.id + ', this.value)"><option value="">(none)</option>' + _recruiters.map(function(r) { return '<option value="' + esc(r) + '"' + (jo.assigned_recruiter === r ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select></td>' +
+    '<td class="col-company"><select class="sort-select" style="height:28px;font-size:.78rem;width:auto;min-width:90px;padding:2px 6px" onchange="changeRecruiter(' + jo.id + ', this.value)">'  + _recruiters.map(function(r, idx) { var sel = jo.assigned_recruiter ? (jo.assigned_recruiter === r) : (idx === 0); return '<option value="' + esc(r) + '"' + (sel ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select></td>' +
     '<td><span class="pill ' + jo.status + '">' + jo.status + '</span></td>' +
     '<td class="act-group">' +
       (jo.status !== 'Published' ? '<button class="btn sm" onclick="setStatus(' + jo.id + ',\'Published\')">Publish</button>' : '') +
@@ -422,7 +425,7 @@ async function openJoDetail(id) {
     html += '<div class="f"><label>Requirements</label><textarea name="requirements">' + esc(jo.requirements) + '</textarea></div>';
     html += '<div class="f"><label>Description</label><textarea name="description">' + esc(jo.description) + '</textarea></div>';
     html += '<div class="f"><label>Status</label><select name="status">' + statuses.map(function(s){return '<option' + (jo.status===s?' selected':'') + '>' + s + '</option>';}).join('') + '</select></div>';
-    html += '<div class="f"><label>Assigned Recruiter</label><select name="assigned_recruiter" id="jo-recruiter-select"><option value="">(none)</option></select></div>';
+    html += '<div class="f"><label>Assigned Recruiter</label><select name="assigned_recruiter" id="jo-recruiter-select"></select></div>';
     html += '<div class="btn-row">';
     html += '<button type="button" class="btn" onclick="saveJoDetail(' + jo.id + ')">Save</button>';
     if (jo.status !== 'Published') html += '<button type="button" class="btn ghost" onclick="joAction(' + jo.id + ',\x27Published\x27)">Publish</button>';
