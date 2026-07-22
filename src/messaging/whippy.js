@@ -45,7 +45,7 @@ function create(config) {
       try {
         const res = await whippyRequest(config, 'POST', '/v1/messaging/sms', {
           to: toE164(to),
-          from: config.fromNumber,
+          from: toE164(config.fromNumber),
           body,
           channel_id: config.channelId,
         });
