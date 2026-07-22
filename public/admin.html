@@ -45,6 +45,7 @@
     <button data-t="templates">Templates</button>
     <button data-t="whippy">Messaging</button>
     <button data-t="candidates">Candidates</button>
+    <button data-t="templates">Templates</button>
     <button data-t="feedback">Feedback</button>
     <button data-t="changelog">Changelog</button>
   </div>
@@ -120,6 +121,24 @@
     <h3 style="margin-bottom:12px">Candidates</h3>
     <div class="row" style="margin-bottom:12px"><input id="cand-q" placeholder="Search name or phone..." style="max-width:300px"><button class="btn" onclick="loadCandidates()">Search</button></div>
     <table><thead><tr><th>Name</th><th>Phone</th><th>Category</th><th>Last blast</th><th>Blasts</th><th>DNC</th></tr></thead><tbody id="cand-rows"></tbody></table>
+  </div></section>
+
+  <section id="s-templates"><div class="card half">
+    <h3 style="margin-bottom:12px">Blast message templates</h3>
+    <p class="mut" style="margin-bottom:10px">Placeholders: {first_name} and {link}. {link} is required.</p>
+    <div id="tpl-list"></div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+    <label class="f">Name <input id="tpl-name"></label>
+    <label class="f">Category
+      <select id="tpl-cat">
+        <option value="">All (global)</option>
+        <option value="Industrial">Industrial</option>
+        <option value="Administrative">Administrative</option>
+        <option value="Skilled Trade">Skilled Trades</option>
+      </select>
+    </label>
+    <label class="f">Body <textarea id="tpl-body" rows="3"></textarea></label>
+    <button class="btn" onclick="addTemplate()">Add template</button>
   </div></section>
 
   <section id="s-feedback"><div class="card half">
