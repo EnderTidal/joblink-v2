@@ -8,6 +8,7 @@ const https = require('node:https');
 const { listJobOrders, setStatus, updateJobOrder } = require('../src/job-orders');
 const { listBlasts, markDoNotContact } = require('../src/blast');
 const { getProvider } = require('../src/messaging');
+const { toE164 } = require("../src/phone");
 const { getSetting, setSetting } = require('../src/db');
 const { normalizePhone, formatPhone } = require('../src/phone');
 
@@ -241,7 +242,7 @@ function createAdminRoutes(db, auth) {
       if (!SETTING_KEYS.includes(k)) continue;
       if (k === 'whippy_api_key' && String(v).startsWith('\u2022\u2022\u2022\u2022')) continue;
       if (k === 'cooldown_hours' && (!Number.isFinite(Number(v)) || Number(v) < 0)) continue;
-      setSetting(db, k, v);
+      setSetting(db, k, k === "whippy_from_number" ? (toE164(v) || v) : v);
     }
     res.json({ ok: true });
   });
