@@ -2,7 +2,7 @@
 // Usage: node scripts/send-alert.js "Subject" "Body text"
 const https = require('https');
 
-const RESEND_KEY = 're_ePrkKNY8_GXbFGuPkRLdSzE4DY8DC7Wi1';
+const RESEND_KEY = process.env.RESEND_KEY || '';
 const FROM = 'JobLink <resume@thetelosway.com>';
 const TO = 'joshuafriends@gmail.com';
 

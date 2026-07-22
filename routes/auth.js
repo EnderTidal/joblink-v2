@@ -13,7 +13,7 @@ const INVITE_TTL_MS = 72 * 60 * 60 * 1000; // 72 hours
 const MAGIC_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const RESET_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-const RESEND_KEY = process.env.RESEND_KEY || 're_ePrkKNY8_GXbFGuPkRLdSzE4DY8DC7Wi1';
+const RESEND_KEY = process.env.RESEND_KEY || '';
 const FROM_EMAIL = 'JobLink <resume@thetelosway.com>';
 
 /** Send email via Resend API */

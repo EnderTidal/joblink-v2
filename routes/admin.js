@@ -13,7 +13,7 @@ const { normalizePhone, formatPhone } = require('../src/phone');
 
 const SETTING_KEYS = ['cooldown_hours', 'sms_provider', 'whippy_api_key', 'whippy_channel_id', 'whippy_from_number'];
 
-const RESEND_KEY = process.env.RESEND_KEY || 're_ePrkKNY8_GXbFGuPkRLdSzE4DY8DC7Wi1';
+const RESEND_KEY = process.env.RESEND_KEY || '';
 const FEEDBACK_EMAIL = 'joshuafriends@gmail.com';
 
 /** Fetch Whippy team members and cache in settings */
