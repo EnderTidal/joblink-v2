@@ -10,6 +10,11 @@
 //   - New Job Order: typed "publish" is enough (a draft is easy to undo)
 //   - Send Magic Blast: ONLY the button action 'confirm_send' sends.
 //     A typed "yes" is explicitly rejected (see BLAST_CONFIRM_REJECTION).
+//
+// V2.1 changes:
+//   - JO form UX overhaul: AI parses once → full-width form replaces chat → form-only editing
+//   - Drag-and-drop upload support (client-side in tom.html, server already handled uploads)
+//   - Recruiter assignment on blasts: recruiter dropdown in preview, passed through to executeBlast
 
 const crypto = require('node:crypto');
 const { parseContactRows, parseContactFile, upsertCandidates, selectByLastContacted } = require('./importing');
@@ -99,36 +104,74 @@ function createTom(db) {
   // ---------- path: job_order ----------
   async function startJobOrder(s) {
     s.state = 'await_input';
-    return reply(s, `Let's create a Job Order. ${JOB_ORDER_EXAMPLE}`);
+    return reply(s, `Let's create a Job Order. ${JOB_ORDER_EXAMPLE}`, { showBlankFormLink: true });
   }
 
   async function handleJobOrder(s, { text, action, payload, file }) {
     if (s.state === 'await_input') {
+      // Feature 1: "Start with blank form" action
+      if (action === 'blank_form') {
+        s.data.draft = {
+          title: '', category: '', pay: '', shift_hours: '', address: '',
+          city_state: '', requirements: '', description: '', company: '', status: 'Unpublished',
+        };
+        s.state = 'review';
+        return reply(s, '', { showForm: true, draft: s.data.draft, warnings: [] });
+      }
+
       let docText = text || '';
       if (file) docText = await extractText(file.buffer, file.originalname);
-      if (!docText.trim()) return reply(s, 'Type the job details or upload a .docx/.txt file to get started.');
+      if (!docText.trim()) return reply(s, 'Type the job details or upload a .docx/.txt file to get started.', { showBlankFormLink: true });
       const parsed = await parseJobOrderText(docText);
-      if (!parsed.fields) return reply(s, 'That document looks empty — try again?');
+      if (!parsed.fields) return reply(s, 'That document looks empty — try again?', { showBlankFormLink: true });
       s.data.draft = parsed.fields;
       s.state = 'review';
-      const warn = parsed.warnings.length ? `\n\n(Notes: ${parsed.warnings.join('; ')})` : '';
-      return reply(s, `Here's what I read:\n\n${draftSummary(s.data.draft)}${warn}\n\n` +
-        'Fix anything by typing (e.g. "set pay to $18.50") or editing a field directly. ' +
-        'Say "publish" to put it on the job board, or "done" to save it unpublished.',
-        { draft: s.data.draft, fields: JOB_ORDER_FIELDS });
+      // Feature 1: return showForm flag so client renders full-width form
+      return reply(s, '', { showForm: true, draft: s.data.draft, warnings: parsed.warnings, fields: JOB_ORDER_FIELDS });
     }
 
     if (s.state === 'review') {
       const draft = s.data.draft;
+
+      // Feature 1: "Start Over" action — reset to await_input
+      if (action === 'start_over') {
+        s.data = {};
+        return startJobOrder(s);
+      }
+
+      // Feature 1: form-based publish/done with full draft payload
+      if ((action === 'publish' || action === 'done') && payload?.draft) {
+        // Apply all form fields from the client
+        Object.assign(draft, payload.draft);
+        if (action === 'publish') draft.status = 'Published';
+        else if (draft.status === 'Published') { /* keep */ } else draft.status = 'Unpublished';
+
+        const v = validateJobOrder(draft);
+        if (!v.ok) {
+          const errors = [...v.missing.map((m) => `missing ${m}`), ...v.errors];
+          return reply(s, `Can't save yet — ${errors.join('; ')}.`,
+            { showForm: true, draft, warnings: errors });
+        }
+        const id = createJobOrder(db, draft);
+        s.state = 'ask_another';
+        if (action === 'publish') {
+          return reply(s, `✅ Published job order #${id}: ${draft.title} (${draft.category}). It's live on the job board now.\n\nWant to create another? (yes / no)`);
+        }
+        return reply(s, `💾 Saved job order #${id}: ${draft.title} (${draft.status}). You can publish it later from the Dashboard.\n\nWant to create another? (yes / no)`);
+      }
+
+      // Legacy: inline field edit via action (from old in-chat form)
       if (action === 'edit_field' && payload?.field) {
         draft[payload.field] = String(payload.value ?? '').trim();
-        return reply(s, `Updated.\n\n${draftSummary(draft)}`, { draft });
+        return reply(s, `Updated.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: [] });
       }
+
+      // Legacy: text-based commands (still work if someone types in composer)
       const t = String(text || '').trim();
       if (/\b(publish|go live|publish it|ship it|looks good|good to go|make it live)\b/i.test(t)) {
         draft.status = 'Published';
         const v = validateJobOrder(draft);
-        if (!v.ok) return reply(s, `Can't publish yet — ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { draft });
+        if (!v.ok) return reply(s, `Can't publish yet — ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: v.missing });
         const id = createJobOrder(db, draft);
         s.state = 'ask_another';
         return reply(s, `✅ Published job order #${id}: ${draft.title} (${draft.category}). It's live on the job board now.\n\nWant to create another? (yes / no)`);
@@ -136,7 +179,7 @@ function createTom(db) {
       if (/\b(done|save|keep it|finish|save it)\b/i.test(t)) {
         draft.status = draft.status === 'Published' ? 'Published' : 'Unpublished';
         const v = validateJobOrder(draft);
-        if (!v.ok) return reply(s, `Almost — ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { draft });
+        if (!v.ok) return reply(s, `Almost — ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: v.missing });
         const id = createJobOrder(db, draft);
         s.state = 'ask_another';
         return reply(s, `💾 Saved job order #${id}: ${draft.title} (${draft.status}). You can publish it later from the Dashboard.\n\nWant to create another? (yes / no)`);
@@ -146,16 +189,16 @@ function createTom(db) {
         if (edit.field === 'category') {
           const cat = CATEGORIES.find((c) => c.toLowerCase() === edit.value.toLowerCase().replace(/s$/, ''))
             || CATEGORIES.find((c) => edit.value.toLowerCase().includes(c.toLowerCase()));
-          if (!cat) return reply(s, `Category has to be one of: ${CATEGORIES.join(', ')}.`, { draft });
+          if (!cat) return reply(s, `Category has to be one of: ${CATEGORIES.join(', ')}.`, { showForm: true, draft, warnings: [] });
           draft.category = cat;
         } else if (edit.field === 'status') {
-          return reply(s, 'Say "publish" to publish, or "done" to save unpublished — status changes go through those.', { draft });
+          return reply(s, 'Say "publish" to publish, or "done" to save unpublished — status changes go through those.', { showForm: true, draft, warnings: [] });
         } else {
           draft[edit.field] = edit.value;
         }
-        return reply(s, `Updated.\n\n${draftSummary(draft)}`, { draft });
+        return reply(s, `Updated.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: [] });
       }
-      return reply(s, 'I can update a field ("set pay to $18.50"), or you can say "publish" or "done".', { draft });
+      return reply(s, 'Edit fields in the form, or use "publish" / "Save as Draft" buttons.', { showForm: true, draft, warnings: [] });
     }
 
     if (s.state === 'ask_another') {
@@ -241,6 +284,10 @@ function createTom(db) {
       const skippedBits = [];
       if (plan.skippedCooldown.length) skippedBits.push(`${plan.skippedCooldown.length} skipped (cooldown)`);
       if (plan.skippedDnc.length) skippedBits.push(`${plan.skippedDnc.length} skipped (do not contact)`);
+
+      // Feature 3: Load recruiters (users) for assignment dropdown
+      const recruiters = db.prepare('SELECT id, username, role FROM users ORDER BY username').all();
+
       return reply(s,
         `Blast preview — ${category}\n` +
         `Template: ${s.data.template.name}\n` +
@@ -251,6 +298,7 @@ function createTom(db) {
           confirmButton: { action: 'confirm_send', label: `Send to ${plan.sendable.length} people` },
           templates: templates.map((t) => ({ id: t.id, name: t.name })),
           plan: { sendable: plan.sendable.map(c => ({ first_name: c.first_name, last_name: c.last_name, phone: c.phone })) },
+          recruiters,
         });
     }
 
@@ -264,12 +312,23 @@ function createTom(db) {
         s.state = 'sending';
         const provider = getProvider(db);
         const autoBaseUrl = reqHost ? ((reqProto === 'http' && reqHost.includes('localhost')) ? `http://${reqHost}` : `https://${reqHost}`) : undefined;
+
+        // Feature 3: capture recruiter assignment from payload
+        const recruiterId = payload?.recruiter_id ? Number(payload.recruiter_id) : null;
+        let recruiterUsername = null;
+        if (recruiterId) {
+          const rec = db.prepare('SELECT username FROM users WHERE id = ?').get(recruiterId);
+          if (rec) recruiterUsername = rec.username;
+        }
+
         const result = await executeBlast(db, s.data.plan, {
           templateId: s.data.template.id,
           templateBody: s.data.template.body,
           provider,
           sentBy: user || s.user || null,
           baseUrl: autoBaseUrl,
+          recruiterId,
+          recruiterUsername,
         });
         s.state = 'ask_another';
         const mockNote = provider.name === 'mock'
@@ -279,7 +338,8 @@ function createTom(db) {
         if (result.skippedCooldown) bits.push(`${result.skippedCooldown} skipped (cooldown)`);
         if (result.skippedDnc) bits.push(`${result.skippedDnc} skipped (do not contact)`);
         if (result.failed) bits.push(`${result.failed} failed (their cooldowns were NOT burned)`);
-        return reply(s, `✅ Blast #${result.blastId} complete: ${bits.join(', ')}.${mockNote}\n\nSend another? (yes / no)`);
+        const recruiterNote = recruiterUsername ? `\nRecruiter assigned: ${recruiterUsername}` : '';
+        return reply(s, `✅ Blast #${result.blastId} complete: ${bits.join(', ')}.${recruiterNote}${mockNote}\n\nSend another? (yes / no)`);
       }
       // Typed confirmation attempts are rejected — the button is the gate.
       if (/\b(yes|send|confirm|go|do it)\b/i.test(String(text || ''))) {

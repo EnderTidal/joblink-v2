@@ -7,6 +7,9 @@
 // Partial-send rule: last_blast / blast_count / current_category update ONLY
 // for candidates whose message was actually accepted by the provider. A failed
 // send never burns a cooldown.
+//
+// V2.1: recruiter assignment — executeBlast accepts recruiterId/recruiterUsername,
+// stores in blast record for downstream Whippy conversation assignment.
 
 const { applyBlastGuard } = require('./blast-guard');
 const { getCooldownHours, getSetting } = require('./db');
@@ -46,8 +49,10 @@ function planBlast(db, { phones, category, now = new Date() }) {
 /**
  * Execute a confirmed plan. Creates the Blast record, sends with pacing,
  * applies the partial-send rule, and returns final counts.
+ *
+ * V2.1: accepts recruiterId and recruiterUsername for Whippy conversation assignment.
  */
-async function executeBlast(db, plan, { templateId, templateBody, provider, sentBy = null, now = new Date(), pacingMs = SMS_RATE_LIMIT_MS, baseUrl: baseUrlOverride }) {
+async function executeBlast(db, plan, { templateId, templateBody, provider, sentBy = null, now = new Date(), pacingMs = SMS_RATE_LIMIT_MS, baseUrl: baseUrlOverride, recruiterId = null, recruiterUsername = null }) {
   if (!templateBody.includes('{link}')) throw new Error('Template must include {link}'); // V1 rule
   const baseUrl = baseUrlOverride || getSetting(db, 'base_url') || 'http://localhost:3000';
 
@@ -101,6 +106,8 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
     skippedCooldown: plan.skippedCooldown.length,
     skippedDnc: plan.skippedDnc.length,
     conversationsClosed,
+    recruiterId,
+    recruiterUsername,
   };
 }
 

@@ -18,15 +18,20 @@
   #composer textarea { flex:1; resize:vertical; min-height:46px; max-height:160px; }
   .hint { text-align:center; margin:40px 0; color:var(--mut); }
 
-  /* Editable JO form */
-  .jo-form { margin-top:10px; display:flex; flex-direction:column; gap:8px; }
-  .jo-form .jo-field { display:flex; flex-direction:column; gap:2px; }
-  .jo-form label { font-size:.8rem; color:var(--mut); font-weight:600; }
-  .jo-form label .vis { font-weight:400; font-style:italic; font-size:.75rem; }
-  .jo-form input, .jo-form textarea { background:#0d1117; border:1px solid var(--line); color:var(--ink);
-    padding:6px 8px; border-radius:6px; font-size:.9rem; font-family:inherit; }
-  .jo-form textarea { min-height:60px; resize:vertical; }
-  .jo-form input:focus, .jo-form textarea:focus { border-color:var(--blue); outline:none; }
+  /* Full-width JO form panel (replaces chat after AI parse) */
+  #jo-form-panel { display:none; }
+  #jo-form-panel.active { display:block; }
+  #jo-form-panel .jo-form { display:flex; flex-direction:column; gap:12px; }
+  #jo-form-panel .jo-field { display:flex; flex-direction:column; gap:3px; }
+  #jo-form-panel label { font-size:.82rem; color:var(--mut); font-weight:600; }
+  #jo-form-panel label .vis { font-weight:400; font-style:italic; font-size:.75rem; }
+  #jo-form-panel input, #jo-form-panel textarea, #jo-form-panel select { background:#0d1117; border:1px solid var(--line); color:var(--ink);
+    padding:8px 10px; border-radius:6px; font-size:.9rem; font-family:inherit; }
+  #jo-form-panel textarea { min-height:70px; resize:vertical; }
+  #jo-form-panel input:focus, #jo-form-panel textarea:focus, #jo-form-panel select:focus { border-color:var(--blue); outline:none; }
+  #jo-form-panel .form-actions { display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; }
+  #jo-form-panel .form-warn { color:#f59e0b; font-size:.82rem; margin-top:4px; }
+  #jo-form-panel .form-title { font-size:1.05rem; font-weight:700; margin-bottom:4px; }
 
   /* Blast review cards */
   .blast-card { background:#0d1117; border:1px solid var(--line); border-radius:8px; padding:10px 12px;
@@ -53,6 +58,28 @@
   .loading-indicator .dots span:nth-child(1) { animation-delay:-0.32s; }
   .loading-indicator .dots span:nth-child(2) { animation-delay:-0.16s; }
   @keyframes bounce { 0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)} }
+
+  /* Drag-and-drop overlay (ported from V1 chat.html) */
+  .drop-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.55);
+    z-index:9999; align-items:center; justify-content:center; flex-direction:column; backdrop-filter:blur(2px); transition:opacity .15s; }
+  .drop-overlay.active { display:flex; }
+  .drop-overlay-box { background:#1e293b; border:3px dashed #3b82f6; border-radius:20px; padding:48px 64px;
+    text-align:center; box-shadow:0 8px 32px rgba(0,0,0,0.4); transition:transform .15s; }
+  .drop-overlay.active .drop-overlay-box { animation:dropPulse .3s ease; }
+  @keyframes dropPulse { 0%{transform:scale(.95);opacity:.7} 100%{transform:scale(1);opacity:1} }
+  .drop-overlay-icon { margin-bottom:16px; color:#3b82f6; }
+  .drop-overlay-title { font-size:18px; font-weight:700; color:#93c5fd; }
+  .drop-overlay-sub { font-size:14px; color:#94a3b8; margin-top:6px; }
+
+  /* Recruiter dropdown in blast preview */
+  .recruiter-select { margin-top:8px; }
+  .recruiter-select label { font-size:.82rem; color:var(--mut); font-weight:600; margin-right:6px; }
+  .recruiter-select select { background:#0d1117; border:1px solid var(--line); color:var(--ink);
+    padding:6px 8px; border-radius:6px; font-size:.85rem; min-width:180px; }
+
+  /* Blank form link */
+  .blank-form-link { display:inline-block; margin-top:8px; color:var(--blue); cursor:pointer; font-size:.85rem; text-decoration:underline; }
+  .blank-form-link:hover { color:var(--blue-d); }
 </style></head>
 <body>
 <main class="page">
@@ -64,19 +91,38 @@
     <button data-path="help">&#x2753; Help / Tutorial / FAQ</button>
   </div>
   <div class="card">
+    <!-- Full-width JO form panel (shown after AI parse or blank form) -->
+    <div id="jo-form-panel"></div>
     <div id="chat"><div class="hint">Pick a button above to start. One task per conversation &mdash; switching tasks starts a fresh one.</div></div>
     <div id="composer" style="display:none">
       <button class="btn ghost" id="attach" title="Upload a file">&#x1F4CE;</button>
-      <input type="file" id="fileinput" style="display:none">
+      <input type="file" id="fileinput" style="display:none" accept=".docx,.doc,.txt,.csv,.xlsx,.xls">
       <textarea id="input" placeholder="Type here&hellip;"></textarea>
       <button class="btn" id="send">Send</button>
     </div>
   </div>
 </main>
+
+<!-- Drop overlay (ported from V1 chat.html) -->
+<div class="drop-overlay" id="dropOverlay">
+  <div class="drop-overlay-box">
+    <svg class="drop-overlay-icon" width="48" height="48" viewBox="0 0 24 24" fill="none">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="drop-overlay-title">Drop file here</div>
+    <div class="drop-overlay-sub">.docx, .xlsx, .csv, .txt</div>
+  </div>
+</div>
+
 <script src="/app.js?v=2"></script>
 <script>
 let session = null;
+let currentPath = null;
+let joFormActive = false;
 const PATH_LABELS = { job_order: 'New Job Order', blast: 'Send Magic Blast', review: 'Review Magic Blasts', help: 'Help / FAQ' };
+
+const CATEGORIES = ['Industrial', 'Administrative', 'Skilled Trade'];
+const STATUSES = ['Published', 'Unpublished'];
 
 // Visibility annotations for JO fields
 const FIELD_VISIBILITY = {
@@ -84,18 +130,31 @@ const FIELD_VISIBILITY = {
   category: '(visible)',
   pay: '(visible)',
   shift_hours: '(visible)',
-  location: '(visible \u2014 city/state only, NOT full address)',
+  city_state: '(visible \u2014 city/state only, NOT full address)',
   requirements: '(visible)',
   description: '(visible)',
   company: '(HIDDEN from candidates)',
+  address: '(HIDDEN from candidates)',
   status: '(internal)',
 };
 
-
+// JO fields definition (mirrors server-side)
+const JO_FIELDS = [
+  { key: 'title', label: 'Title', required: true },
+  { key: 'category', label: 'Category', required: true },
+  { key: 'pay', label: 'Pay', required: true },
+  { key: 'shift_hours', label: 'Shift / Hours', required: false },
+  { key: 'company', label: 'Company', required: false },
+  { key: 'address', label: 'Address', required: false },
+  { key: 'city_state', label: 'City / State', required: false },
+  { key: 'requirements', label: 'Requirements', required: false },
+  { key: 'description', label: 'Description', required: false },
+  { key: 'status', label: 'Status', required: true },
+];
 
 function showLoading() {
-  const chat = document.getElementById('chat');
-  const el = document.createElement('div');
+  var chat = document.getElementById('chat');
+  var el = document.createElement('div');
   el.className = 'msg tom loading-indicator';
   el.id = 'loading-msg';
   el.innerHTML = '<span class="dots"><span></span><span></span><span></span></span> Working...';
@@ -103,7 +162,7 @@ function showLoading() {
   chat.scrollTop = chat.scrollHeight;
 }
 function hideLoading() {
-  const el = document.getElementById('loading-msg');
+  var el = document.getElementById('loading-msg');
   if (el) el.remove();
 }
 
@@ -121,45 +180,163 @@ function md(s) {
     .replace(/\n/g, '<br>');
 }
 
-function renderJOForm(draft, fields) {
-  const form = document.createElement('div');
+// ---- Full-width JO Form (Feature 1) ----
+function showJOForm(draft, warnings) {
+  joFormActive = true;
+  var panel = document.getElementById('jo-form-panel');
+  panel.className = 'active';
+  panel.innerHTML = '';
+  document.getElementById('chat').style.display = 'none';
+
+  var title = document.createElement('div');
+  title.className = 'form-title';
+  title.textContent = draft.title ? 'Edit Job Order' : 'New Job Order';
+  panel.appendChild(title);
+
+  if (warnings && warnings.length) {
+    var warn = document.createElement('div');
+    warn.className = 'form-warn';
+    warn.textContent = 'Notes: ' + warnings.join('; ');
+    panel.appendChild(warn);
+  }
+
+  var form = document.createElement('div');
   form.className = 'jo-form';
-  (fields || []).forEach(function(f) {
-    const wrap = document.createElement('div');
+  form.id = 'jo-edit-form';
+
+  JO_FIELDS.forEach(function(f) {
+    var wrap = document.createElement('div');
     wrap.className = 'jo-field';
-    const label = document.createElement('label');
-    const vis = FIELD_VISIBILITY[f.key] || '';
-    label.innerHTML = esc(f.label) + (vis ? ' <span class="vis">' + esc(vis) + '</span>' : '');
+    var label = document.createElement('label');
+    var vis = FIELD_VISIBILITY[f.key] || '';
+    label.innerHTML = esc(f.label) + (f.required ? ' *' : '') + (vis ? ' <span class="vis">' + esc(vis) + '</span>' : '');
     wrap.appendChild(label);
-    const isLong = f.key === 'description' || f.key === 'requirements';
-    const input = document.createElement(isLong ? 'textarea' : 'input');
-    input.value = draft[f.key] || '';
-    if (f.key === 'status') input.disabled = true;
-    input.addEventListener('change', function() {
-      sendAction('edit_field', { field: f.key, value: input.value });
-    });
+
+    var input;
+    if (f.key === 'category') {
+      input = document.createElement('select');
+      var emptyOpt = document.createElement('option');
+      emptyOpt.value = ''; emptyOpt.textContent = '\u2014 Select \u2014';
+      input.appendChild(emptyOpt);
+      CATEGORIES.forEach(function(c) {
+        var opt = document.createElement('option');
+        opt.value = c; opt.textContent = c;
+        if (draft[f.key] === c) opt.selected = true;
+        input.appendChild(opt);
+      });
+    } else if (f.key === 'status') {
+      input = document.createElement('select');
+      STATUSES.forEach(function(s) {
+        var opt = document.createElement('option');
+        opt.value = s; opt.textContent = s;
+        if (draft[f.key] === s) opt.selected = true;
+        input.appendChild(opt);
+      });
+    } else if (f.key === 'description' || f.key === 'requirements') {
+      input = document.createElement('textarea');
+      input.value = draft[f.key] || '';
+    } else {
+      input = document.createElement('input');
+      input.type = 'text';
+      input.value = draft[f.key] || '';
+    }
+    input.dataset.field = f.key;
     wrap.appendChild(input);
     form.appendChild(wrap);
   });
-  return form;
+
+  panel.appendChild(form);
+
+  var actions = document.createElement('div');
+  actions.className = 'form-actions';
+
+  var pubBtn = document.createElement('button');
+  pubBtn.className = 'btn gold';
+  pubBtn.textContent = 'Publish';
+  pubBtn.addEventListener('click', function() { submitJOForm('publish'); });
+
+  var draftBtn = document.createElement('button');
+  draftBtn.className = 'btn ghost';
+  draftBtn.style.background = '#334155';
+  draftBtn.style.color = '#94a3b8';
+  draftBtn.textContent = 'Save as Draft';
+  draftBtn.addEventListener('click', function() { submitJOForm('done'); });
+
+  var startOverBtn = document.createElement('button');
+  startOverBtn.className = 'btn ghost';
+  startOverBtn.textContent = 'Start Over';
+  startOverBtn.addEventListener('click', function() { hideJOForm(); sendAction('start_over', {}); });
+
+  actions.appendChild(pubBtn);
+  actions.appendChild(draftBtn);
+  actions.appendChild(startOverBtn);
+  panel.appendChild(actions);
+
+  // Update composer hint
+  document.getElementById('input').placeholder = 'Edit fields directly in the form above, or click Start Over to re-parse.';
+}
+
+function hideJOForm() {
+  joFormActive = false;
+  var panel = document.getElementById('jo-form-panel');
+  panel.className = '';
+  panel.innerHTML = '';
+  document.getElementById('chat').style.display = 'flex';
+  document.getElementById('input').placeholder = 'Type here\u2026';
+}
+
+function getFormDraft() {
+  var draft = {};
+  var form = document.getElementById('jo-edit-form');
+  if (!form) return draft;
+  form.querySelectorAll('input, textarea, select').forEach(function(el) {
+    if (el.dataset.field) draft[el.dataset.field] = el.value;
+  });
+  return draft;
+}
+
+async function submitJOForm(action) {
+  var draft = getFormDraft();
+  showLoading();
+  var r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, action: action, payload: { draft: draft } } });
+  hideLoading();
+  if (r.showForm && r.draft) {
+    // Re-render form with validation errors
+    showJOForm(r.draft, r.warnings || []);
+    return;
+  }
+  if (r.error && r.state === 'review') {
+    // Show validation error on current form
+    var panel = document.getElementById('jo-form-panel');
+    var existing = panel.querySelector('.form-warn');
+    if (existing) existing.remove();
+    var warn = document.createElement('div');
+    warn.className = 'form-warn';
+    warn.textContent = r.text || r.error;
+    var actionsEl = panel.querySelector('.form-actions');
+    if (actionsEl) panel.insertBefore(warn, actionsEl);
+    return;
+  }
+  hideJOForm();
+  handleReply(r);
 }
 
 function renderBlastCards(blasts) {
-  const container = document.createElement('div');
+  var container = document.createElement('div');
   (blasts || []).forEach(function(b) {
-    const card = document.createElement('div');
+    var card = document.createElement('div');
     card.className = 'blast-card';
-    const d = new Date(b.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const bits = [b.sent_count + ' sent'];
+    var d = new Date(b.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    var bits = [b.sent_count + ' sent'];
     if (b.skipped_cooldown_count) bits.push(b.skipped_cooldown_count + ' skipped (cooldown)');
     if (b.skipped_dnc_count) bits.push(b.skipped_dnc_count + ' skipped (DNC)');
     if (b.failed_count) bits.push(b.failed_count + ' failed');
     bits.push(b.interested_count + ' interested');
-    const header = document.createElement('div');
+    var header = document.createElement('div');
     header.className = 'bc-header';
     header.textContent = '#' + b.id + ' \u00B7 ' + d + ' \u00B7 ' + (b.category || '') + (b.sent_by ? ' \u00B7 by ' + b.sent_by : '');
     card.appendChild(header);
-    const meta = document.createElement('div');
+    var meta = document.createElement('div');
     meta.className = 'bc-meta';
     meta.textContent = bits.join(', ');
     card.appendChild(meta);
@@ -174,12 +351,9 @@ function renderBlastCards(blasts) {
       tbl.innerHTML = '<tr><th>Name</th><th>Phone</th><th>Status</th></tr>';
       data.recipients.forEach(function(r) {
         var row = document.createElement('tr');
-        var td1 = document.createElement('td');
-        td1.textContent = (r.first_name || '') + ' ' + (r.last_name || '');
-        var td2 = document.createElement('td');
-        td2.textContent = r.phone_display || r.phone;
-        var td3 = document.createElement('td');
-        td3.textContent = r.status;
+        var td1 = document.createElement('td'); td1.textContent = (r.first_name || '') + ' ' + (r.last_name || '');
+        var td2 = document.createElement('td'); td2.textContent = r.phone_display || r.phone;
+        var td3 = document.createElement('td'); td3.textContent = r.status;
         row.appendChild(td1); row.appendChild(td2); row.appendChild(td3);
         tbl.appendChild(row);
       });
@@ -197,11 +371,7 @@ function renderBlastCards(blasts) {
   return container;
 }
 
-function esc(s) {
-  var d = document.createElement('span');
-  d.textContent = s;
-  return d.innerHTML;
-}
+function esc(s) { var d = document.createElement('span'); d.textContent = s; return d.innerHTML; }
 
 function renderRecipientToggle(plan) {
   if (!plan || !plan.sendable || !plan.sendable.length) return null;
@@ -230,6 +400,29 @@ function renderRecipientToggle(plan) {
   return wrap;
 }
 
+// Recruiter dropdown for blast preview (Feature 3)
+function renderRecruiterSelect(recruiters, selectedId) {
+  var wrap = document.createElement('div');
+  wrap.className = 'recruiter-select';
+  var label = document.createElement('label');
+  label.textContent = 'Assign recruiter:';
+  wrap.appendChild(label);
+  var sel = document.createElement('select');
+  sel.id = 'blast-recruiter';
+  var none = document.createElement('option');
+  none.value = ''; none.textContent = '\u2014 None \u2014';
+  sel.appendChild(none);
+  (recruiters || []).forEach(function(u) {
+    var opt = document.createElement('option');
+    opt.value = u.id;
+    opt.textContent = u.username + (u.role === 'admin' ? ' (admin)' : '');
+    if (selectedId && String(u.id) === String(selectedId)) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  wrap.appendChild(sel);
+  return wrap;
+}
+
 function addMsg(who, text, extra) {
   var chat = document.getElementById('chat');
   var hint = chat.querySelector('.hint');
@@ -237,20 +430,9 @@ function addMsg(who, text, extra) {
   var div = document.createElement('div');
   div.className = 'msg ' + who;
 
-  // Check if we need rich rendering
   var richRendered = false;
 
   if (extra) {
-    // Editable JO form with visibility labels
-    if (extra.draft && extra.fields) {
-      richRendered = true;
-      var textPre = document.createElement('div');
-      textPre.style.whiteSpace = 'pre-wrap';
-      textPre.textContent = text;
-      div.appendChild(textPre);
-      div.appendChild(renderJOForm(extra.draft, extra.fields));
-    }
-
     // Clickable blast cards for review
     if (extra.blasts && extra.blasts.length) {
       richRendered = true;
@@ -282,15 +464,37 @@ function addMsg(who, text, extra) {
       var b = document.createElement('button');
       b.className = 'btn gold';
       b.textContent = '\u{1F680} ' + extra.confirmButton.label;
-      b.onclick = function() { b.disabled = true; sendAction(extra.confirmButton.action, {}); };
+      b.onclick = function() {
+        b.disabled = true;
+        var recruiterSel = document.getElementById('blast-recruiter');
+        var recruiterId = recruiterSel ? recruiterSel.value : '';
+        sendAction(extra.confirmButton.action, { recruiter_id: recruiterId || null });
+      };
       choices.appendChild(b);
     }
     if (choices.children.length) div.appendChild(choices);
+
+    // Recruiter dropdown in blast preview (Feature 3)
+    if (extra.recruiters && extra.confirmButton) {
+      div.appendChild(renderRecruiterSelect(extra.recruiters));
+    }
 
     // Expandable recipient list in blast preview
     if (extra.confirmButton && extra.plan) {
       var toggle = renderRecipientToggle(extra.plan);
       if (toggle) div.appendChild(toggle);
+    }
+
+    // "Start with blank form" link for JO path
+    if (extra.showBlankFormLink) {
+      var link = document.createElement('a');
+      link.className = 'blank-form-link';
+      link.textContent = 'Or start with a blank form';
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        sendAction('blank_form', {});
+      });
+      div.appendChild(link);
     }
   }
   chat.appendChild(div);
@@ -300,16 +504,28 @@ function addMsg(who, text, extra) {
 function handleReply(r) {
   if (r.error) { addMsg('tom', r.text || r.error); return; }
   session = r.sessionId;
+
+  // Feature 1: If server returns showForm, render the full-width form
+  if (r.showForm && r.draft) {
+    showJOForm(r.draft, r.warnings || []);
+    return;
+  }
+
   addMsg('tom', r.text, r);
 }
 
 async function startPath(path) {
+  currentPath = path;
+  hideJOForm();
   document.querySelectorAll('.paths button').forEach(function(b) {
     b.classList.toggle('on', b.dataset.path === path);
   });
   document.getElementById('chat').innerHTML = '';
   document.getElementById('composer').style.display = path === 'review' ? 'none' : 'flex';
+  document.getElementById('input').placeholder = 'Type here\u2026';
+  showLoading();
   var r = await api('/api/tom/start', { method: 'POST', body: { path } });
+  hideLoading();
   handleReply(r);
 }
 
@@ -322,25 +538,83 @@ function tryStartPath(path) {
 }
 
 async function sendText() {
-  var input = document.getElementById('input');
-  var text = input.value.trim();
+  var inputEl = document.getElementById('input');
+  var text = inputEl.value.trim();
   if (!session) return;
+
+  // Feature 1: If JO form is active, show hint instead of chat-editing
+  if (joFormActive) {
+    inputEl.value = '';
+    if (text) toast('Edit fields directly in the form above, or click Start Over to re-parse.');
+    return;
+  }
+
   // If a gold confirm button is visible, trigger it instead of sending text
   var goldBtn = document.querySelector('.choices .btn.gold:not([disabled])');
-  if (goldBtn) { input.value = ''; goldBtn.click(); return; }
+  if (goldBtn) { inputEl.value = ''; goldBtn.click(); return; }
   if (!text) return;
-  input.value = '';
+  inputEl.value = '';
   addMsg('me', text);
+  showLoading();
   var r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, text: text } });
+  hideLoading();
   handleReply(r);
 }
 
 async function sendAction(action, payload, label) {
   if (label) addMsg('me', label);
+  showLoading();
   var r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, action: action, payload: payload } });
+  hideLoading();
   handleReply(r);
 }
 
+async function uploadFile(file) {
+  if (!file || !session) return;
+  addMsg('me', '\u{1F4CE} ' + file.name);
+  showLoading();
+  var fd = new FormData();
+  fd.append('sessionId', session);
+  fd.append('file', file);
+  var res = await fetch('/api/tom/upload', { method: 'POST', body: fd });
+  hideLoading();
+  handleReply(await res.json());
+}
+
+// ---- Feature 2: Drag and Drop (ported from V1 chat.html) ----
+(function() {
+  var dropOverlay = document.getElementById('dropOverlay');
+  var dragCounter = 0;
+  var mainEl = document.querySelector('main.page');
+
+  mainEl.addEventListener('dragenter', function(e) { e.preventDefault(); dragCounter++; dropOverlay.classList.add('active'); });
+  mainEl.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); });
+  mainEl.addEventListener('dragleave', function(e) { e.preventDefault(); dragCounter--; if (dragCounter <= 0) { dragCounter = 0; dropOverlay.classList.remove('active'); } });
+  dropOverlay.addEventListener('dragleave', function(e) { e.preventDefault(); dragCounter--; if (dragCounter <= 0) { dragCounter = 0; dropOverlay.classList.remove('active'); } });
+
+  function handleDrop(e) {
+    e.preventDefault(); e.stopPropagation();
+    dropOverlay.classList.remove('active'); dragCounter = 0;
+    var files = Array.from(e.dataTransfer.files || []);
+    if (!files.length) return;
+    var file = files[0]; // one file at a time
+    if (file.size > 5 * 1024 * 1024) { toast(file.name + ' is too large (max 5 MB).'); return; }
+    if (!/\.(csv|tsv|txt|xlsx|xls|docx|doc)$/i.test(file.name)) { toast(file.name + ': unsupported format. Use .docx, .xlsx, .csv, or .txt'); return; }
+
+    // If we have an active session, send as file upload
+    if (session) {
+      uploadFile(file);
+      return;
+    }
+    // No active session
+    toast('Pick a task above first, then drop your file.');
+  }
+
+  dropOverlay.addEventListener('drop', handleDrop);
+  mainEl.addEventListener('drop', handleDrop);
+})();
+
+// Wire up buttons
 document.querySelectorAll('.paths button').forEach(function(b) { b.addEventListener('click', function() { tryStartPath(b.dataset.path); }); });
 document.getElementById('send').addEventListener('click', sendText);
 document.getElementById('input').addEventListener('keydown', function(e) {
@@ -349,13 +623,8 @@ document.getElementById('input').addEventListener('keydown', function(e) {
 document.getElementById('attach').addEventListener('click', function() { document.getElementById('fileinput').click(); });
 document.getElementById('fileinput').addEventListener('change', async function(e) {
   var file = e.target.files[0];
-  if (!file || !session) return;
-  addMsg('me', '\u{1F4CE} ' + file.name);
-  var fd = new FormData();
-  fd.append('sessionId', session);
-  fd.append('file', file);
-  var res = await fetch('/api/tom/upload', { method: 'POST', body: fd });
-  handleReply(await res.json());
+  if (!file) return;
+  uploadFile(file);
   e.target.value = '';
 });
 
