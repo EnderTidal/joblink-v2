@@ -41,3 +41,20 @@ label.f input, label.f select, label.f textarea { margin-top:4px; }
 .filters button.on { background:var(--blue); border-color:var(--blue); color:#fff; }
 .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#f1f5f9; color:#0f172a; border-radius:9px; padding:11px 20px; font-size:.9rem; opacity:0; transition:opacity .25s; pointer-events:none; z-index:50; }
 .toast.show { opacity:1; }
+
+/* Light mode overrides — dark is default */
+html.light-mode { --blue:#3b82f6; --blue-d:#2563eb; --gold:#d97706; --bg:#f8fafc; --ink:#1e293b; --mut:#64748b; --line:#e2e8f0; --card:#ffffff; }
+html.light-mode nav.topbar { background:#ffffff; color:#1e293b; border-bottom:1px solid #e2e8f0; }
+html.light-mode nav.topbar .brand { color:#1e293b; }
+html.light-mode nav.topbar a { color:#64748b; }
+html.light-mode nav.topbar a.active, html.light-mode nav.topbar a:hover { color:#1e293b; border-bottom-color:var(--gold); }
+html.light-mode nav.topbar button { border-color:#cbd5e1; color:#1e293b; }
+html.light-mode .stat .lbl { color:#64748b; }
+html.light-mode th { color:#64748b; }
+html.light-mode .filters button { color:#475569; }
+html.light-mode .toast { background:#1e293b; color:#f1f5f9; }
+html.light-mode #whoami { color:#475569 !important; }
+html.light-mode .card { box-shadow:0 1px 6px rgba(0,0,0,.06); }
+.theme-toggle { background:transparent; border:1px solid #ffffff55; color:#fff; border-radius:7px; padding:5px 8px; cursor:pointer; display:flex; align-items:center; }
+.theme-toggle svg { width:18px; height:18px; }
+html.light-mode .theme-toggle { border-color:#cbd5e1; color:#1e293b; }

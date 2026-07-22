@@ -2,6 +2,7 @@
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JobLink — Admin</title>
+<script>(function(){if(localStorage.getItem("joblink_light_mode")==="true"){document.documentElement.classList.add("light-mode")}})();</script>
 <link rel="stylesheet" href="/app.css">
 <style>
   .tabs { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
@@ -33,7 +34,7 @@
     <button data-t="candidates">Candidates</button>
     <button data-t="feedback">Feedback</button>
     <button data-t="changelog">Changelog</button>
-    <button data-t="whippy">Messaging</button>
+    <button data-t="whippy">Whippy</button>
   </div>
 
   <section id="s-settings" class="on"><div class="card half">
@@ -42,16 +43,16 @@
     <label class="f">SMS provider
       <select id="set-provider">
         <option value="mock">Mock (safe — no real texts)</option>
-        <option value="whippy">Messaging Provider</option>
+        <option value="whippy">Whippy</option>
       </select>
     </label>
-    <label class="f">Messaging API key <input id="set-wkey" placeholder="X-WHIPPY-KEY"></label>
-    <label class="f">Messaging channel ID <input id="set-wchan"></label>
-    <label class="f">Messaging from-number <input id="set-wfrom" placeholder="+1..."></label>
+    <label class="f">Whippy API key <input id="set-wkey" placeholder="X-WHIPPY-KEY"></label>
+    <label class="f">Whippy channel ID <input id="set-wchan"></label>
+    <label class="f">Whippy from-number <input id="set-wfrom" placeholder="+1..."></label>
     <div class="row" style="gap:8px;flex-wrap:wrap">
       <button class="btn" onclick="saveSettings()">Save</button>
       <button class="btn ghost" onclick="testSms()">Test connection</button>
-      <button class="btn ghost" onclick="syncWhippyUsers()">Sync Messaging Users</button>
+      <button class="btn ghost" onclick="syncWhippyUsers()">Sync Whippy Users</button>
       <button class="btn ghost" onclick="rerunSetup()">Re-run setup wizard</button>
     </div>
     <div id="whippy-users-info" style="margin-top:10px"></div>
@@ -121,9 +122,9 @@
   </div></section>
 
   <section id="s-whippy"><div class="card half">
-    <h3 style="margin-bottom:12px">Messaging Users</h3>
-    <p class="mut" style="margin-bottom:10px">Manage synced messaging team members. These are used for blast recruiter assignment.</p>
-    <button class="btn" onclick="syncWhippyUsersTab()" style="margin-bottom:14px">Sync from Provider</button>
+    <h3 style="margin-bottom:12px">Whippy Users</h3>
+    <p class="mut" style="margin-bottom:10px">Manage synced Whippy team members. These are used for blast recruiter assignment.</p>
+    <button class="btn" onclick="syncWhippyUsersTab()" style="margin-bottom:14px">Sync from Whippy</button>
     <div id="whippy-list"></div>
   </div></section>
 </main>
@@ -146,10 +147,10 @@ async function loadSettings() {
     document.getElementById('set-wkey').value = s.whippy_api_key || '';
     document.getElementById('set-wchan').value = s.whippy_channel_id || '';
     document.getElementById('set-wfrom').value = s.whippy_from_number || '';
-    // Show cached messaging users count
+    // Show cached Whippy users count
     if (s.whippy_users && s.whippy_users.length > 0) {
       document.getElementById('whippy-users-info').innerHTML =
-        '<span class="whippy-users-badge">' + s.whippy_users.length + ' messaging users synced</span> ' +
+        '<span class="whippy-users-badge">' + s.whippy_users.length + ' Whippy users synced</span> ' +
         s.whippy_users.map(function(u) { return esc(u.name); }).join(', ');
     }
   } catch { document.getElementById('s-settings').innerHTML = '<div class="card half mut">Settings are admin-only.</div>'; }
@@ -168,7 +169,7 @@ async function testSms() {
   const r = await api('/api/settings/test-sms', { method: 'POST' });
   if (r.ok) {
     let msg = '\u2713 ' + r.provider + ' connection OK' + (r.mock ? ' (mock mode)' : '');
-    if (r.whippy_users_synced) msg += ' \u2014 ' + r.whippy_users_count + ' messaging users synced';
+    if (r.whippy_users_synced) msg += ' \u2014 ' + r.whippy_users_count + ' Whippy users synced';
     toast(msg);
     loadSettings(); // refresh to show synced users
   } else {
@@ -179,7 +180,7 @@ async function syncWhippyUsers() {
   try {
     const r = await api('/api/settings/sync-whippy-users', { method: 'POST' });
     if (r.ok) {
-      toast('\u2713 Synced ' + r.count + ' messaging users');
+      toast('\u2713 Synced ' + r.count + ' Whippy users');
       loadSettings();
     } else {
       toast('\u2717 ' + (r.error || 'Sync failed'));
@@ -356,7 +357,7 @@ async function loadWhippyUsers() {
   try {
     var users = await api('/api/whippy-users');
     if (!users.length) {
-      document.getElementById('whippy-list').innerHTML = '<p class="mut">No messaging users synced yet. Click "Sync from Whippy" to fetch them.</p>';
+      document.getElementById('whippy-list').innerHTML = '<p class="mut">No Whippy users synced yet. Click "Sync from Whippy" to fetch them.</p>';
       return;
     }
     document.getElementById('whippy-list').innerHTML = users.map(function(u) {
@@ -364,15 +365,15 @@ async function loadWhippyUsers() {
         '<span class="user-label">' + esc(u.name) + '</span>' +
         '<span class="mut" style="font-size:.82rem">' + esc(u.id || '') + '</span>' +
         '<span class="mut" style="font-size:.82rem">' + esc(u.email || '') + '</span>' +
-        '<button class="btn sm ghost" style="color:#ef4444" onclick="removeWhippyUser(' + "'" + esc(u.id) + "'" + ')">Remove</button>' +
+        '<button class="btn sm ghost" style="color:#ef4444" onclick="removeWhippyUser('' + esc(u.id) + '')">Remove</button>' +
       '</div>';
     }).join('');
-  } catch(e) { document.getElementById('whippy-list').innerHTML = '<p class="mut">Error loading messaging users.</p>'; }
+  } catch(e) { document.getElementById('whippy-list').innerHTML = '<p class="mut">Error loading Whippy users.</p>'; }
 }
 async function syncWhippyUsersTab() {
   try {
     var r = await api('/api/settings/sync-whippy-users', { method: 'POST' });
-    if (r.ok) { toast('Synced ' + r.count + ' messaging users'); loadWhippyUsers(); }
+    if (r.ok) { toast('Synced ' + r.count + ' Whippy users'); loadWhippyUsers(); }
     else { toast('Sync failed: ' + (r.error || 'unknown')); }
   } catch(e) { toast(e.message); }
 }

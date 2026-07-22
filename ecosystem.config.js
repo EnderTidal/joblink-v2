@@ -4,6 +4,7 @@ module.exports = {
     script: "server.js",
     cwd: "/root/joblink-v2",
     interpreter: "/opt/node22/bin/node",
+    env_file: "/root/joblink-v2/.env",
     env: {
       NODE_ENV: "production",
     },
