@@ -85,7 +85,7 @@
 
     <div class="divider-or"><hr><span>or add manually</span><hr></div>
 
-    <label class="f">Username <input id="u-name"></label>
+    <label class="f">Display Name <input id="u-name" placeholder="First Last"></label>
     <label class="f">Email <input id="u-email" type="email" placeholder="optional"></label>
     <label class="f">Password <input id="u-pass" type="password"></label>
     <label class="f">Role <select id="u-role"><option value="recruiter">Recruiter</option><option value="admin">Admin</option></select></label>
@@ -257,7 +257,7 @@ async function loadUsers() {
       const emailDisplay = u.email ? esc(u.email) : '<span class="mut">no email</span>';
       const verifiedBadge = u.email ? (u.email_verified ? '<span class="verified-badge">verified</span>' : '<span class="unverified-badge">pending</span>') : '';
       return '<div class="edit-row" id="user-row-' + u.id + '">' +
-        '<span class="user-label">' + esc(u.username) + '</span>' +
+        '<span class="user-label">' + esc(u.display_name || u.username) + '</span>' +
         '<span class="mut" style="font-size:.84rem">' + emailDisplay + '</span>' +
         verifiedBadge +
         '<span class="mut" style="font-size:.82rem">' + esc(u.display_name || '') + '</span>' +
@@ -315,7 +315,8 @@ async function inviteUser() {
 async function addUser() {
   try {
     await api('/api/users', { method: 'POST', body: {
-      username: document.getElementById('u-name').value,
+      display_name: document.getElementById('u-name').value,
+      username: (document.getElementById('u-email').value || document.getElementById('u-name').value).split('@')[0].toLowerCase().replace(/s+/g, '.'),
       password: document.getElementById('u-pass').value,
       email: document.getElementById('u-email').value || null,
       role: document.getElementById('u-role').value
