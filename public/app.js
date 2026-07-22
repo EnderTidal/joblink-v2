@@ -30,9 +30,12 @@ function esc(s) {
 function navbar(active) {
   return `<nav class="topbar">
     <span class="brand">JobLink</span>
-    <a href="/dashboard.html" class="${active === 'dash' ? 'active' : ''}">Dashboard</a>
-    <a href="/tom.html" class="${active === 'tom' ? 'active' : ''}">AI Assistant</a>
-    <a href="/admin.html" class="${active === 'admin' ? 'active' : ''}">Admin</a>
+    <span class="spacer"></span>
+    <div class="nav-links">
+      <a href="/dashboard.html" class="${active === 'dash' ? 'active' : ''}">Dashboard</a>
+      <a href="/tom.html" class="${active === 'tom' ? 'active' : ''}">AI Assistant</a>
+      <a href="/admin.html" class="${active === 'admin' ? 'active' : ''}">Admin</a>
+    </div>
     <span class="spacer"></span>
     <span class="mut" id="whoami" style="color:#cfe1f3"></span>
     <button onclick="api('/api/logout',{method:'POST'}).then(()=>location.href='/login.html')">Log out</button>

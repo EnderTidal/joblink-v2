@@ -9,6 +9,7 @@ nav.topbar a { color:#cfe1f3; text-decoration:none; padding:16px 2px; font-size:
 nav.topbar a.active, nav.topbar a:hover { color:#fff; border-bottom-color:var(--gold); }
 nav.topbar .spacer { flex:1; }
 nav.topbar button { background:transparent; border:1px solid #ffffff55; color:#fff; border-radius:7px; padding:6px 12px; cursor:pointer; }
+nav.topbar .nav-links { display:flex; align-items:center; gap:18px; }
 main.page { max-width:1080px; margin:0 auto; padding:22px 16px; }
 h1.pagetitle { font-size:1.35rem; margin-bottom:16px; }
 .card { background:var(--card); border-radius:12px; padding:18px; box-shadow:0 1px 4px rgba(10,40,80,.08); margin-bottom:16px; }
