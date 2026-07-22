@@ -44,7 +44,7 @@
   /* JO Detail Modal */
   .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; justify-content:center; align-items:flex-start; padding:40px 20px; overflow-y:auto; }
   .modal-overlay.open { display:flex; }
-  .modal { background:var(--card); border:1px solid var(--line); border-radius:12px; width:100%; max-width:640px; padding:24px; position:relative; }
+  .modal { background:var(--card); border:1px solid var(--line); border-radius:12px; width:100%; max-width:700px; padding:24px; position:relative; }
   .modal h2 { margin:0 0 16px; font-size:1.1rem; }
   .modal .close-btn { position:absolute; top:12px; right:16px; background:none; border:none; color:var(--mut); font-size:1.4rem; cursor:pointer; }
   .modal .f { display:block; margin-bottom:10px; }
@@ -52,8 +52,35 @@
   .modal .f input, .modal .f select, .modal .f textarea { width:100%; padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); font-family:inherit; font-size:.88rem; }
   .modal .f textarea { min-height:60px; resize:vertical; }
   .modal .btn-row { display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; }
-  .modal .interested-list { margin-top:16px; }
-  .modal .interested-list h3 { font-size:.92rem; margin:0 0 8px; }
+
+  /* Pipeline sections in modal */
+  .pipeline-section { margin-top:16px; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .pipeline-section-header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; cursor:pointer; user-select:none; }
+  .pipeline-section-header:hover { background:rgba(96,165,250,0.05); }
+  .pipeline-section-header h3 { font-size:.92rem; margin:0; display:flex; align-items:center; gap:8px; }
+  .pipeline-section-body { display:none; padding:0 14px 14px; }
+  .pipeline-section-body.open { display:block; }
+  .pipeline-badge { font-size:.78rem; font-weight:700; padding:2px 9px; border-radius:6px; }
+  .badge-interested { background:rgba(96,165,250,0.15); color:var(--blue); }
+  .badge-yeslisted { background:rgba(217,119,6,0.15); color:#d97706; }
+  .badge-confirmed { background:rgba(34,197,94,0.15); color:#22c55e; }
+  .badge-filled { background:rgba(139,92,246,0.15); color:#8b5cf6; }
+  .badge-ruledout { background:rgba(148,163,184,0.15); color:#94a3b8; }
+
+  /* Row action buttons in modal */
+  .row-btn { display:inline-flex; align-items:center; justify-content:center; height:28px; padding:0 10px; border:1px solid transparent; border-radius:6px; font-family:inherit; font-size:.78rem; font-weight:700; cursor:pointer; white-space:nowrap; transition:all .12s; }
+  .row-btn:disabled { opacity:.4; cursor:not-allowed; }
+  .btn-yeslist { background:rgba(217,119,6,0.12); color:#d97706; }
+  .btn-yeslist:hover { background:rgba(217,119,6,0.22); }
+  .btn-confirm { background:rgba(34,197,94,0.12); color:#22c55e; }
+  .btn-confirm:hover { background:rgba(34,197,94,0.22); }
+  .btn-fill { background:rgba(139,92,246,0.12); color:#8b5cf6; }
+  .btn-fill:hover { background:rgba(139,92,246,0.22); }
+  .btn-ruleout { background:rgba(239,68,68,0.08); color:#ef4444; }
+  .btn-ruleout:hover { background:rgba(239,68,68,0.18); }
+  .btn-restore { background:rgba(148,163,184,0.1); color:#64748b; }
+  .btn-restore:hover { background:rgba(148,163,184,0.2); }
+
   .blast-card { border:1px solid var(--line); border-radius:10px; margin-bottom:8px; overflow:hidden; }
   .blast-header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; cursor:pointer; gap:10px; flex-wrap:wrap; }
   .blast-header:hover { background:rgba(96,165,250,0.05); }
@@ -302,8 +329,63 @@ function wireFilters(id, setter) {
 wireFilters('statusFilters', function(v) { statusFilter = v; });
 wireFilters('catFilters', function(v) { categoryFilter = v; });
 
+// ---- Pipeline action buttons for each status ----
+function pipelineButtons(c) {
+  var s = c.pipeline_status || 'interested';
+  var btns = '';
+  if (s === 'interested') {
+    btns += '<button class="row-btn btn-yeslist" onclick="moveInterest(' + c.interest_id + ',\'yes_listed\',' + currentJoId + ')">Yes-List</button>';
+    btns += '<button class="row-btn btn-ruleout" onclick="moveInterest(' + c.interest_id + ',\'ruled_out\',' + currentJoId + ')">Rule Out</button>';
+  } else if (s === 'yes_listed') {
+    btns += '<button class="row-btn btn-confirm" onclick="moveInterest(' + c.interest_id + ',\'confirmed\',' + currentJoId + ')">Confirm</button>';
+    btns += '<button class="row-btn btn-ruleout" onclick="moveInterest(' + c.interest_id + ',\'ruled_out\',' + currentJoId + ')">Rule Out</button>';
+    btns += '<button class="row-btn btn-restore" onclick="moveInterest(' + c.interest_id + ',\'interested\',' + currentJoId + ')">Back</button>';
+  } else if (s === 'confirmed') {
+    btns += '<button class="row-btn btn-fill" onclick="moveInterest(' + c.interest_id + ',\'filled\',' + currentJoId + ')">Fill</button>';
+    btns += '<button class="row-btn btn-ruleout" onclick="moveInterest(' + c.interest_id + ',\'ruled_out\',' + currentJoId + ')">Rule Out</button>';
+    btns += '<button class="row-btn btn-restore" onclick="moveInterest(' + c.interest_id + ',\'yes_listed\',' + currentJoId + ')">Back</button>';
+  } else if (s === 'filled') {
+    btns += '<button class="row-btn btn-restore" onclick="moveInterest(' + c.interest_id + ',\'confirmed\',' + currentJoId + ')">Undo Fill</button>';
+  } else if (s === 'ruled_out') {
+    btns += '<button class="row-btn btn-restore" onclick="moveInterest(' + c.interest_id + ',\'interested\',' + currentJoId + ')">Restore</button>';
+  }
+  return btns;
+}
+
+function renderPipelineSection(title, badgeClass, candidates) {
+  if (!candidates || candidates.length === 0) return '';
+  var html = '<div class="pipeline-section">';
+  html += '<div class="pipeline-section-header" onclick="this.nextElementSibling.classList.toggle(\'open\')">';
+  html += '<h3>' + title + ' <span class="pipeline-badge ' + badgeClass + '">' + candidates.length + '</span></h3>';
+  html += '<span style="color:var(--mut);font-size:.82rem">\u25BC</span></div>';
+  html += '<div class="pipeline-section-body open">';
+  html += '<table><thead><tr><th>Name</th><th>Phone</th><th>Category</th><th>Date</th><th>Actions</th></tr></thead><tbody>';
+  candidates.forEach(function(c) {
+    html += '<tr><td>' + esc(c.first_name) + ' ' + esc(c.last_name) + '</td>';
+    html += '<td>' + esc(c.phone_display) + '</td>';
+    html += '<td>' + esc(c.current_category || '\u2014') + '</td>';
+    html += '<td>' + new Date(c.interest_date).toLocaleDateString() + '</td>';
+    html += '<td>' + pipelineButtons(c) + '</td></tr>';
+  });
+  html += '</tbody></table></div></div>';
+  return html;
+}
+
+var currentJoId = null;
+
+async function moveInterest(interestId, newStatus, joId) {
+  try {
+    await api('/api/interests/' + interestId + '/status', { method: 'PATCH', body: { status: newStatus } });
+    var label = newStatus.replace('_', ' ');
+    label = label.charAt(0).toUpperCase() + label.slice(1);
+    toast('Moved to ' + label);
+    openJoDetail(joId); // refresh modal
+    loadRows(); loadStats(); // refresh table counts
+  } catch(e) { toast('Error: ' + e.message); }
+}
 
 async function openJoDetail(id) {
+  currentJoId = id;
   try {
     var jo = await api('/api/job-orders/' + id);
     document.getElementById('joModalTitle').textContent = 'Job Order #' + jo.id;
@@ -325,24 +407,26 @@ async function openJoDetail(id) {
     if (jo.status === 'Published') html += '<button type="button" class="btn ghost" onclick="joAction(' + jo.id + ',\x27Unpublished\x27)">Unpublish</button>';
     if (jo.status !== 'Complete') html += '<button type="button" class="btn ghost" onclick="joAction(' + jo.id + ',\x27Complete\x27)">Complete</button>';
     html += '</div></form>';
-    if (jo.interested_candidates && jo.interested_candidates.length > 0) {
-      html += '<div class="interested-list"><h3>Interested Candidates (' + jo.interested_candidates.length + ')</h3>';
-      html += '<table><thead><tr><th>Name</th><th>Phone</th><th>Category</th><th>Date</th></tr></thead><tbody>';
-      jo.interested_candidates.forEach(function(ic) {
-        html += '<tr><td>' + esc(ic.first_name) + ' ' + esc(ic.last_name) + '</td>';
-        html += '<td>' + esc(ic.phone_display) + '</td>';
-        html += '<td>' + esc(ic.current_category || '\u2014') + '</td>';
-        html += '<td>' + new Date(ic.interest_date).toLocaleDateString() + '</td></tr>';
-      });
-      html += '</tbody></table></div>';
-    } else {
-      html += '<div class="interested-list"><h3>Interested Candidates</h3><p class="mut jo-sub">No candidates have expressed interest yet.</p></div>';
+
+    // Pipeline sections grouped by status
+    var p = jo.pipeline || {};
+    var totalCandidates = (jo.interested_candidates || []).length;
+    html += '<div style="margin-top:20px"><h3 style="margin:0 0 8px">Pipeline (' + totalCandidates + ' candidates)</h3>';
+    html += renderPipelineSection('Interested', 'badge-interested', p.interested);
+    html += renderPipelineSection('Yes-Listed', 'badge-yeslisted', p.yes_listed);
+    html += renderPipelineSection('Confirmed', 'badge-confirmed', p.confirmed);
+    html += renderPipelineSection('Filled', 'badge-filled', p.filled);
+    html += renderPipelineSection('Ruled Out', 'badge-ruledout', p.ruled_out);
+    if (totalCandidates === 0) {
+      html += '<p class="mut jo-sub">No candidates have expressed interest yet.</p>';
     }
+    html += '</div>';
+
     document.getElementById('joModalBody').innerHTML = html;
     document.getElementById('joModal').classList.add('open');
   } catch(e) { toast('Error loading job order: ' + e.message); }
 }
-function closeJoModal() { document.getElementById('joModal').classList.remove('open'); }
+function closeJoModal() { document.getElementById('joModal').classList.remove('open'); currentJoId = null; }
 async function saveJoDetail(id) {
   var form = document.getElementById('joEditForm');
   var data = {};

@@ -9,26 +9,78 @@
   .login h1 { color:var(--blue); text-align:center; margin-bottom:6px; }
   .login p.sub { text-align:center; color:var(--mut); font-size:.88rem; margin-bottom:18px; }
   .err { color:#b3261e; font-size:.86rem; margin-bottom:10px; display:none; }
+  .divider { display:flex; align-items:center; margin:16px 0; gap:10px; }
+  .divider span { color:var(--mut); font-size:.82rem; }
+  .divider hr { flex:1; border:0; border-top:1px solid var(--line); }
+  .link-btn { background:none; border:none; color:var(--blue); font-size:.85rem; cursor:pointer; padding:0; text-decoration:underline; }
+  .alt-actions { display:flex; justify-content:space-between; margin-top:12px; flex-wrap:wrap; gap:8px; }
+  .magic-section { display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--line); }
+  .magic-section.show { display:block; }
+  .success-msg { color:#22c55e; font-size:.86rem; margin-top:8px; display:none; }
 </style></head>
 <body>
 <form class="card login" id="f">
   <h1>JobLink</h1>
   <p class="sub">Self-selected candidates for your job orders</p>
-  <div class="err" id="err">Wrong username or password.</div>
-  <label class="f">Username<input id="u" autocomplete="username" required></label>
+  <div class="err" id="err">Invalid email or password.</div>
+  <label class="f">Email<input id="e" type="email" autocomplete="email" required></label>
   <label class="f">Password<input id="p" type="password" autocomplete="current-password" required></label>
-  <button class="btn" style="width:100%">Log in</button>
+  <button class="btn" style="width:100%" type="submit">Log in</button>
+  <div class="alt-actions">
+    <button type="button" class="link-btn" onclick="showForgot()">Forgot password?</button>
+    <button type="button" class="link-btn" onclick="showMagic()">Sign in with email link</button>
+  </div>
+
+  <div class="magic-section" id="forgotSection">
+    <label class="f">Email for password reset<input id="forgotEmail" type="email" autocomplete="email"></label>
+    <button type="button" class="btn ghost" style="width:100%" onclick="sendReset()">Send reset link</button>
+    <div class="success-msg" id="forgotSuccess">If that email exists, a reset link has been sent.</div>
+  </div>
+
+  <div class="magic-section" id="magicSection">
+    <label class="f">Email for magic link<input id="magicEmail" type="email" autocomplete="email"></label>
+    <button type="button" class="btn ghost" style="width:100%" onclick="sendMagic()">Send sign-in link</button>
+    <div class="success-msg" id="magicSuccess">Check your email for a sign-in link.</div>
+  </div>
 </form>
 <script src="/app.js?v=2"></script>
 <script>
 document.getElementById('f').addEventListener('submit', async (e) => {
   e.preventDefault();
+  document.getElementById('err').style.display = 'none';
   try {
-    const r = await api('/api/login', { method: 'POST', body: { username: u.value, password: p.value } });
+    const r = await api('/api/login', { method: 'POST', body: { email: e.target.querySelector('#e').value, password: p.value } });
     if (r.needsOnboarding) { location.href = '/onboarding.html'; return; }
-    if (r.defaultPassword) alert('You are using the default password. Please change it in Admin → Users.');
+    if (r.defaultPassword) alert('You are using the default password. Please change it in Admin \u2192 Users.');
     location.href = '/tom.html';
   } catch { document.getElementById('err').style.display = 'block'; }
 });
+
+function showForgot() {
+  document.getElementById('forgotSection').classList.toggle('show');
+  document.getElementById('magicSection').classList.remove('show');
+}
+function showMagic() {
+  document.getElementById('magicSection').classList.toggle('show');
+  document.getElementById('forgotSection').classList.remove('show');
+}
+
+async function sendReset() {
+  const email = document.getElementById('forgotEmail').value;
+  if (!email) return;
+  try {
+    await api('/api/forgot-password', { method: 'POST', body: { email } });
+  } catch { /* always show success */ }
+  document.getElementById('forgotSuccess').style.display = 'block';
+}
+
+async function sendMagic() {
+  const email = document.getElementById('magicEmail').value;
+  if (!email) return;
+  try {
+    await api('/api/magic-login', { method: 'POST', body: { email } });
+  } catch { /* always show success */ }
+  document.getElementById('magicSuccess').style.display = 'block';
+}
 </script>
 </body></html>

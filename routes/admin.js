@@ -102,22 +102,56 @@ function createAdminRoutes(db, auth) {
     catch (err) { next(err); }
   });
 
-  // ---- Single Job Order detail with interested candidates ----
+  // ---- Single Job Order detail with interested candidates grouped by status ----
   router.get('/api/job-orders/:id', (req, res) => {
     const id = Number(req.params.id);
     const jo = db.prepare(
-      `SELECT jo.*, (SELECT COUNT(*) FROM interests i WHERE i.job_order_id = jo.id) AS interested_count
+      `SELECT jo.*,
+        (SELECT COUNT(*) FROM interests i WHERE i.job_order_id = jo.id) AS interested_count,
+        (SELECT COUNT(*) FROM interests i WHERE i.job_order_id = jo.id AND i.status = 'yes_listed') AS yeslisted_count,
+        (SELECT COUNT(*) FROM interests i WHERE i.job_order_id = jo.id AND i.status = 'confirmed') AS confirmed_count,
+        (SELECT COUNT(*) FROM interests i WHERE i.job_order_id = jo.id AND i.status = 'filled') AS filled_count,
+        (SELECT COUNT(*) FROM interests i WHERE i.job_order_id = jo.id AND i.status = 'ruled_out') AS ruled_out_count
        FROM job_orders jo WHERE jo.id = ?`
     ).get(id);
     if (!jo) return res.status(404).json({ error: 'not_found' });
-    const interested = db.prepare(
-      `SELECT c.phone, c.first_name, c.last_name, c.current_category, i.created_at AS interest_date
+    const allInterests = db.prepare(
+      `SELECT i.id AS interest_id, i.status AS pipeline_status, c.phone, c.first_name, c.last_name, c.current_category, i.created_at AS interest_date
        FROM interests i
        JOIN candidates c ON c.phone = i.phone
        WHERE i.job_order_id = ?
        ORDER BY i.created_at DESC`
     ).all(id);
-    res.json({ ...jo, interested_candidates: interested.map(c => ({ ...c, phone_display: formatPhone(c.phone) })) });
+    // Group by status
+    const grouped = {
+      interested: [],
+      yes_listed: [],
+      confirmed: [],
+      filled: [],
+      ruled_out: [],
+    };
+    for (const c of allInterests) {
+      const status = c.pipeline_status || 'interested';
+      if (grouped[status]) grouped[status].push({ ...c, phone_display: formatPhone(c.phone) });
+      else grouped.interested.push({ ...c, phone_display: formatPhone(c.phone) });
+    }
+    res.json({
+      ...jo,
+      interested_candidates: allInterests.map(c => ({ ...c, phone_display: formatPhone(c.phone) })),
+      pipeline: grouped,
+    });
+  });
+
+  // ---- Pipeline Actions: move candidate through statuses ----
+  router.patch('/api/interests/:id/status', (req, res) => {
+    const id = Number(req.params.id);
+    const { status } = req.body || {};
+    const VALID = ['interested', 'yes_listed', 'confirmed', 'filled', 'ruled_out'];
+    if (!VALID.includes(status)) return res.status(400).json({ error: `status must be one of: ${VALID.join(', ')}` });
+    const interest = db.prepare('SELECT * FROM interests WHERE id = ?').get(id);
+    if (!interest) return res.status(404).json({ error: 'interest not found' });
+    db.prepare('UPDATE interests SET status = ? WHERE id = ?').run(status, id);
+    res.json({ ok: true, id, status });
   });
 
   router.get('/api/blasts', (_req, res) => res.json(listBlasts(db, 50)));
@@ -164,6 +198,7 @@ function createAdminRoutes(db, auth) {
       interests: db.prepare('SELECT COUNT(*) AS n FROM interests').get().n,
       published: db.prepare("SELECT COUNT(*) AS n FROM job_orders WHERE status='Published'").get().n,
       blasts: db.prepare('SELECT COUNT(*) AS n FROM blasts').get().n,
+      filled: db.prepare("SELECT COUNT(*) AS n FROM interests WHERE status='filled'").get().n,
     });
   });
 
@@ -288,23 +323,24 @@ function createAdminRoutes(db, auth) {
 
   // ---- Users (admin only) ----
   router.get('/api/users', auth.requireAdmin, (_req, res) => {
-    res.json(db.prepare('SELECT id, username, display_name, role, created_at FROM users').all());
+    res.json(db.prepare('SELECT id, username, display_name, role, email, email_verified, created_at FROM users').all());
   });
   router.post('/api/users', auth.requireAdmin, (req, res) => {
-    const { username, password, role } = req.body || {};
+    const { username, password, role, email } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'username and password required' });
     try {
-      const r = db.prepare('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)')
-        .run(String(username), bcrypt.hashSync(String(password), 10), role === 'admin' ? 'admin' : 'recruiter');
+      const r = db.prepare('INSERT INTO users (username, password_hash, role, email, email_verified) VALUES (?, ?, ?, ?, ?)')
+        .run(String(username), bcrypt.hashSync(String(password), 10), role === 'admin' ? 'admin' : 'recruiter',
+             email ? String(email) : null, email ? 1 : 0);
       res.json({ id: Number(r.lastInsertRowid) });
-    } catch { res.status(400).json({ error: 'username taken' }); }
+    } catch { res.status(400).json({ error: 'username or email taken' }); }
   });
-  // PATCH user — edit display_name, username, role
+  // PATCH user — edit display_name, username, role, email
   router.patch('/api/users/:id', auth.requireAdmin, (req, res) => {
     const id = Number(req.params.id);
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
     if (!user) return res.status(404).json({ error: 'not_found' });
-    const { display_name, username, role } = req.body || {};
+    const { display_name, username, role, email } = req.body || {};
     if (display_name !== undefined) db.prepare('UPDATE users SET display_name = ? WHERE id = ?').run(String(display_name), id);
     if (username !== undefined) {
       const existing = db.prepare('SELECT id FROM users WHERE username = ? AND id != ?').get(String(username), id);
@@ -315,7 +351,16 @@ function createAdminRoutes(db, auth) {
       const validRole = role === 'admin' ? 'admin' : 'recruiter';
       db.prepare('UPDATE users SET role = ? WHERE id = ?').run(validRole, id);
     }
-    res.json(db.prepare('SELECT id, username, display_name, role, created_at FROM users WHERE id = ?').get(id));
+    if (email !== undefined) {
+      if (email) {
+        const existing = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(String(email), id);
+        if (existing) return res.status(400).json({ error: 'email taken' });
+        db.prepare('UPDATE users SET email = ? WHERE id = ?').run(String(email), id);
+      } else {
+        db.prepare('UPDATE users SET email = NULL WHERE id = ?').run(id);
+      }
+    }
+    res.json(db.prepare('SELECT id, username, display_name, role, email, email_verified, created_at FROM users WHERE id = ?').get(id));
   });
   router.post('/api/users/:id/password', auth.requireAdmin, (req, res) => {
     const { password } = req.body || {};

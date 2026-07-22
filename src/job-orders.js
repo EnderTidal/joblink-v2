@@ -72,8 +72,12 @@ function setStatus(db, id, status) {
 }
 
 function listJobOrders(db, { status, category } = {}) {
-  let sql = `SELECT jo.*, (SELECT COUNT(*) FROM interests i WHERE i.job_order_id = jo.id) AS interested_count
-             FROM job_orders jo WHERE 1=1`;
+  let sql = `SELECT jo.*,
+    (SELECT COUNT(*) FROM interests i WHERE i.job_order_id = jo.id) AS interested_count,
+    (SELECT COUNT(*) FROM interests i WHERE i.job_order_id = jo.id AND i.status = 'yes_listed') AS yeslisted_count,
+    (SELECT COUNT(*) FROM interests i WHERE i.job_order_id = jo.id AND i.status = 'confirmed') AS confirmed_count,
+    (SELECT COUNT(*) FROM interests i WHERE i.job_order_id = jo.id AND i.status = 'filled') AS filled_count
+    FROM job_orders jo WHERE 1=1`;
   const params = [];
   if (status) { sql += ' AND jo.status = ?'; params.push(status); }
   if (category) { sql += ' AND jo.category = ?'; params.push(category); }

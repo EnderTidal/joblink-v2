@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JobLink — Accept Invitation</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  body { display:flex; align-items:center; justify-content:center; min-height:100vh; }
+  .login { width:380px; }
+  .login h1 { color:var(--blue); text-align:center; margin-bottom:6px; }
+  .login p.sub { text-align:center; color:var(--mut); font-size:.88rem; margin-bottom:18px; }
+  .err { color:#b3261e; font-size:.86rem; margin-bottom:10px; display:none; }
+  .info { color:var(--mut); font-size:.86rem; margin-bottom:12px; }
+</style></head>
+<body>
+<div class="card login" id="main">
+  <h1>JobLink</h1>
+  <p class="sub">Accept your invitation</p>
+  <div class="err" id="err"></div>
+  <div id="loading" class="info">Validating invitation...</div>
+  <form id="f" style="display:none">
+    <div class="info" id="inviteInfo"></div>
+    <label class="f">Your Name<input id="dname" autocomplete="name"></label>
+    <label class="f">Set Password (min 8 chars)<input id="pw" type="password" autocomplete="new-password" required minlength="8"></label>
+    <label class="f">Confirm Password<input id="pw2" type="password" autocomplete="new-password" required minlength="8"></label>
+    <button class="btn" style="width:100%" type="submit">Create Account</button>
+  </form>
+</div>
+<script src="/app.js?v=2"></script>
+<script>
+const token = new URLSearchParams(location.search).get('token');
+if (!token) {
+  document.getElementById('loading').textContent = 'No invitation token found.';
+} else {
+  fetch('/api/invite/validate?token=' + encodeURIComponent(token))
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('err').style.display = 'block';
+        document.getElementById('err').textContent = d.error;
+        return;
+      }
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('f').style.display = 'block';
+      document.getElementById('inviteInfo').textContent = 'Invited as ' + d.role + ' for ' + d.email;
+    })
+    .catch(() => {
+      document.getElementById('loading').textContent = 'Invalid or expired invitation.';
+    });
+}
+
+document.getElementById('f').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const pw = document.getElementById('pw').value;
+  const pw2 = document.getElementById('pw2').value;
+  if (pw !== pw2) {
+    document.getElementById('err').style.display = 'block';
+    document.getElementById('err').textContent = 'Passwords do not match.';
+    return;
+  }
+  try {
+    const r = await api('/api/invite/accept', {
+      method: 'POST',
+      body: { token, password: pw, display_name: document.getElementById('dname').value }
+    });
+    if (r.ok) location.href = '/tom.html';
+    else throw new Error(r.error);
+  } catch (err) {
+    document.getElementById('err').style.display = 'block';
+    document.getElementById('err').textContent = err.message;
+  }
+});
+</script>
+</body></html>

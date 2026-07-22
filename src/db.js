@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS interests (
   phone        TEXT NOT NULL REFERENCES candidates(phone),
   job_order_id INTEGER NOT NULL REFERENCES job_orders(id),
   blast_id     INTEGER,                       -- which blast brought them in (nullable)
+  status       TEXT NOT NULL DEFAULT 'interested' CHECK (status IN ('interested','yes_listed','confirmed','filled','ruled_out')),
   created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   UNIQUE (phone, job_order_id)
 );
@@ -89,6 +90,12 @@ CREATE TABLE IF NOT EXISTS users (
   username      TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   role          TEXT NOT NULL DEFAULT 'recruiter' CHECK (role IN ('admin','recruiter')),
+  email         TEXT UNIQUE,
+  email_verified INTEGER NOT NULL DEFAULT 0,
+  invite_token  TEXT,
+  invite_expires TEXT,
+  magic_login_token TEXT,
+  magic_login_expires TEXT,
   created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
@@ -132,6 +139,15 @@ function openDb(filePath) {
   try { db.exec("ALTER TABLE job_orders ADD COLUMN address TEXT NOT NULL DEFAULT ''"); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE job_orders ADD COLUMN city_state TEXT NOT NULL DEFAULT ''"); } catch { /* already exists */ }
   try { db.exec("UPDATE job_orders SET city_state = location WHERE city_state = '' AND location != ''"); } catch { /* no-op */ }
+  // Migration: add status column to interests (for pipeline progression)
+  try { db.exec("ALTER TABLE interests ADD COLUMN status TEXT NOT NULL DEFAULT 'interested'"); } catch { /* already exists */ }
+  // Migration: add email columns to users (for email-based auth)
+  try { db.exec("ALTER TABLE users ADD COLUMN email TEXT UNIQUE"); } catch { /* already exists */ }
+  try { db.exec("ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0"); } catch { /* already exists */ }
+  try { db.exec("ALTER TABLE users ADD COLUMN invite_token TEXT"); } catch { /* already exists */ }
+  try { db.exec("ALTER TABLE users ADD COLUMN invite_expires TEXT"); } catch { /* already exists */ }
+  try { db.exec("ALTER TABLE users ADD COLUMN magic_login_token TEXT"); } catch { /* already exists */ }
+  try { db.exec("ALTER TABLE users ADD COLUMN magic_login_expires TEXT"); } catch { /* already exists */ }
   // Seed defaults (INSERT OR IGNORE keeps this idempotent)
   const seed = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) seed.run(k, v);

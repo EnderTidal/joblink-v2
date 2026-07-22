@@ -15,6 +15,13 @@
   .edit-row select { width:110px; }
   .edit-row .user-label { font-weight:600; min-width:80px; }
   .whippy-users-badge { display:inline-block; background:rgba(34,197,94,0.15); color:#22c55e; font-size:.78rem; font-weight:700; padding:2px 9px; border-radius:6px; margin-left:8px; }
+  .verified-badge { display:inline-block; background:rgba(34,197,94,0.15); color:#22c55e; font-size:.75rem; font-weight:700; padding:1px 7px; border-radius:4px; }
+  .unverified-badge { display:inline-block; background:rgba(239,68,68,0.1); color:#ef4444; font-size:.75rem; font-weight:700; padding:1px 7px; border-radius:4px; }
+  .invite-section { border-top:1px solid var(--line); margin-top:14px; padding-top:14px; }
+  .invite-section h4 { margin:0 0 10px; font-size:.92rem; }
+  .divider-or { display:flex; align-items:center; margin:14px 0; gap:10px; }
+  .divider-or span { color:var(--mut); font-size:.82rem; }
+  .divider-or hr { flex:1; border:0; border-top:1px solid var(--line); }
 </style></head>
 <body>
 <main class="page">
@@ -70,16 +77,27 @@
   <section id="s-users"><div class="card half">
     <h3 style="margin-bottom:12px">Users</h3>
     <div id="user-list"></div>
-    <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+
+    <div class="invite-section">
+      <h4>Invite New User</h4>
+      <p class="mut" style="font-size:.84rem;margin-bottom:10px">Send an invitation email. They'll set their own password.</p>
+      <label class="f">Email <input id="inv-email" type="email" placeholder="user@company.com"></label>
+      <label class="f">Role <select id="inv-role"><option value="recruiter">Recruiter</option><option value="admin">Admin</option></select></label>
+      <button class="btn" onclick="inviteUser()">Send Invitation</button>
+    </div>
+
+    <div class="divider-or"><hr><span>or add manually</span><hr></div>
+
     <label class="f">Username <input id="u-name"></label>
+    <label class="f">Email <input id="u-email" type="email" placeholder="optional"></label>
     <label class="f">Password <input id="u-pass" type="password"></label>
     <label class="f">Role <select id="u-role"><option value="recruiter">Recruiter</option><option value="admin">Admin</option></select></label>
-    <button class="btn" onclick="addUser()">Add user</button>
+    <button class="btn ghost" onclick="addUser()">Add user manually</button>
   </div></section>
 
   <section id="s-candidates"><div class="card">
     <h3 style="margin-bottom:12px">Candidates</h3>
-    <div class="row" style="margin-bottom:12px"><input id="cand-q" placeholder="Search name or phone…" style="max-width:300px"><button class="btn" onclick="loadCandidates()">Search</button></div>
+    <div class="row" style="margin-bottom:12px"><input id="cand-q" placeholder="Search name or phone..." style="max-width:300px"><button class="btn" onclick="loadCandidates()">Search</button></div>
     <table><thead><tr><th>Name</th><th>Phone</th><th>Category</th><th>Last blast</th><th>Blasts</th><th>DNC</th></tr></thead><tbody id="cand-rows"></tbody></table>
   </div></section>
 
@@ -203,10 +221,14 @@ async function loadUsers() {
   try {
     const list = await api('/api/users');
     document.getElementById('user-list').innerHTML = list.map((u) => {
+      const emailDisplay = u.email ? esc(u.email) : '<span class="mut">no email</span>';
+      const verifiedBadge = u.email ? (u.email_verified ? '<span class="verified-badge">verified</span>' : '<span class="unverified-badge">pending</span>') : '';
       return '<div class="edit-row" id="user-row-' + u.id + '">' +
         '<span class="user-label">' + esc(u.username) + '</span>' +
-        '<span class="mut">' + esc(u.display_name || '') + '</span>' +
-        '<span class="mut">' + u.role + '</span>' +
+        '<span class="mut" style="font-size:.84rem">' + emailDisplay + '</span>' +
+        verifiedBadge +
+        '<span class="mut" style="font-size:.82rem">' + esc(u.display_name || '') + '</span>' +
+        '<span class="mut" style="font-size:.82rem">' + u.role + '</span>' +
         '<button class="btn sm ghost" onclick="editUser(' + u.id + ')">Edit</button>' +
         '<button class="btn sm ghost" onclick="resetPass(' + u.id + ', \'' + esc(u.username) + '\')">Reset password</button>' +
       '</div>';
@@ -225,6 +247,7 @@ function editUser(id) {
     row.innerHTML =
       '<input id="edit-display-' + id + '" value="' + esc(u.display_name || '') + '" placeholder="Display name">' +
       '<input id="edit-username-' + id + '" value="' + esc(u.username) + '" placeholder="Username">' +
+      '<input id="edit-email-' + id + '" value="' + esc(u.email || '') + '" placeholder="Email" type="email">' +
       '<select id="edit-role-' + id + '">' +
         '<option value="admin"' + (u.role === 'admin' ? ' selected' : '') + '>Admin</option>' +
         '<option value="recruiter"' + (u.role === 'recruiter' ? ' selected' : '') + '>Recruiter</option>' +
@@ -238,16 +261,34 @@ async function saveUser(id) {
   try {
     const display_name = document.getElementById('edit-display-' + id).value;
     const username = document.getElementById('edit-username-' + id).value;
+    const email = document.getElementById('edit-email-' + id).value;
     const role = document.getElementById('edit-role-' + id).value;
-    await api('/api/users/' + id, { method: 'PATCH', body: { display_name, username, role } });
+    await api('/api/users/' + id, { method: 'PATCH', body: { display_name, username, email: email || null, role } });
     toast('User updated.');
+    loadUsers();
+  } catch (e) { toast(e.message); }
+}
+
+async function inviteUser() {
+  const email = document.getElementById('inv-email').value;
+  const role = document.getElementById('inv-role').value;
+  if (!email) { toast('Email required.'); return; }
+  try {
+    const r = await api('/api/invite', { method: 'POST', body: { email, role } });
+    toast(r.message || 'Invitation sent!');
+    document.getElementById('inv-email').value = '';
     loadUsers();
   } catch (e) { toast(e.message); }
 }
 
 async function addUser() {
   try {
-    await api('/api/users', { method: 'POST', body: { username: document.getElementById('u-name').value, password: document.getElementById('u-pass').value, role: document.getElementById('u-role').value } });
+    await api('/api/users', { method: 'POST', body: {
+      username: document.getElementById('u-name').value,
+      password: document.getElementById('u-pass').value,
+      email: document.getElementById('u-email').value || null,
+      role: document.getElementById('u-role').value
+    }});
     toast('User added.'); loadUsers();
   } catch (e) { toast(e.message); }
 }
