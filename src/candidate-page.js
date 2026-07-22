@@ -38,7 +38,7 @@ function renderCandidatePage(db, candidate) {
       <div class="meta">
         ${jo.pay ? `<span class="chip pay">💵 ${esc(jo.pay)}</span>` : ''}
         ${jo.shift_hours ? `<span class="chip">🕐 ${esc(jo.shift_hours)}</span>` : ''}
-        ${jo.location ? `<span class="chip">📍 ${esc(jo.location)}</span>` : ''}
+        ${jo.city_state ? `<span class="chip">📍 ${esc(jo.city_state)}</span>` : ''}
       </div>
       ${jo.requirements ? `<p class="req"><strong>Requirements:</strong> ${esc(jo.requirements)}</p>` : ''}
       ${jo.description ? `<p>${esc(jo.description)}</p>` : ''}
@@ -113,7 +113,7 @@ function renderPreviewPage(db) {
         ${jo.category ? '<span class="chip">' + esc(jo.category) + '</span>' : ''}
         ${jo.pay ? '<span class="chip pay">\u{1F4B5} ' + esc(jo.pay) + '</span>' : ''}
         ${jo.shift_hours ? '<span class="chip">\u{1F550} ' + esc(jo.shift_hours) + '</span>' : ''}
-        ${jo.location ? '<span class="chip">\u{1F4CD} ' + esc(jo.location) + '</span>' : ''}
+        ${jo.city_state ? '<span class="chip">\u{1F4CD} ' + esc(jo.city_state) + '</span>' : ''}
       </div>
       ${jo.requirements ? '<p class="req"><strong>Requirements:</strong> ' + esc(jo.requirements) + '</p>' : ''}
       ${jo.description ? '<p>' + esc(jo.description) + '</p>' : ''}

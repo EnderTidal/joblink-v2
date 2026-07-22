@@ -6,13 +6,13 @@ const { JOB_ORDER_FIELDS, validateJobOrder, createJobOrder, setStatus, listJobOr
 
 const GOOD = {
   title: 'Forklift Operator', category: 'Industrial', pay: '$18/hr',
-  shift_hours: '1st shift', location: 'Waxahachie, TX',
+  shift_hours: '1st shift', address: '123 Warehouse Dr, Waxahachie, TX 75165', city_state: 'Waxahachie, TX',
   requirements: '6+ months experience', description: 'Warehouse work', status: 'Unpublished',
 };
 
-test('the field list is exactly the nine agreed fields', () => {
+test('the field list is exactly the ten agreed fields', () => {
   assert.deepStrictEqual(JOB_ORDER_FIELDS.map((f) => f.key),
-    ['title', 'category', 'pay', 'shift_hours', 'location', 'requirements', 'description', 'company', 'status']);
+    ['title', 'category', 'pay', 'shift_hours', 'address', 'city_state', 'requirements', 'description', 'company', 'status']);
 });
 
 test('required fields: title, category, pay, status', () => {

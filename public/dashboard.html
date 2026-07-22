@@ -235,7 +235,7 @@ function renderRow(jo) {
   const ic = jo.interested_count || 0;
   return '<tr>' +
     '<td><strong><a href="#" onclick="openJoDetail(' + jo.id + '); return false" style="color:var(--blue);text-decoration:none;cursor:pointer">' + esc(jo.title) + '</a></strong>' +
-      '<div class="mut jo-sub">' + esc(jo.location || '') + (jo.shift_hours ? ' &middot; ' + esc(jo.shift_hours) : '') + '</div></td>' +
+      '<div class="mut jo-sub">' + esc(jo.city_state || '') + (jo.shift_hours ? ' &middot; ' + esc(jo.shift_hours) : '') + '</div></td>' +
     '<td class="col-company">' + esc(jo.company || '\u2014') + '</td>' +
     '<td>' + esc(jo.category || '\u2014') + '</td>' +
     '<td class="col-pay">' + esc(jo.pay || '\u2014') + '</td>' +
@@ -314,7 +314,8 @@ async function openJoDetail(id) {
     html += '<div class="f"><label>Category</label><select name="category">' + cats.map(function(ct){return '<option' + (jo.category===ct?' selected':'') + '>' + ct + '</option>';}).join('') + '</select></div>';
     html += '<div class="f"><label>Pay</label><input name="pay" value="' + esc(jo.pay) + '"></div>';
     html += '<div class="f"><label>Shift / Hours</label><input name="shift_hours" value="' + esc(jo.shift_hours) + '"></div>';
-    html += '<div class="f"><label>Location</label><input name="location" value="' + esc(jo.location) + '"></div>';
+    html += '<div class="f"><label>Address <em style="font-weight:400;color:#94a3b8">(hidden from candidates)</em></label><input name="address" value="' + esc(jo.address || '') + '"></div>';
+    html += '<div class="f"><label>City / State <em style="font-weight:400;color:#94a3b8">(visible to candidates)</em></label><input name="city_state" value="' + esc(jo.city_state || '') + '"></div>';
     html += '<div class="f"><label>Requirements</label><textarea name="requirements">' + esc(jo.requirements) + '</textarea></div>';
     html += '<div class="f"><label>Description</label><textarea name="description">' + esc(jo.description) + '</textarea></div>';
     html += '<div class="f"><label>Status</label><select name="status">' + statuses.map(function(s){return '<option' + (jo.status===s?' selected':'') + '>' + s + '</option>';}).join('') + '</select></div>';

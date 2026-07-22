@@ -16,7 +16,8 @@ const JOB_TEXT = `Title: Forklift Operator
 Category: Industrial
 Pay: $18/hr
 Shift: 1st shift, 6am-2:30pm
-Location: Waxahachie, TX
+Address: 123 Warehouse Dr, Waxahachie, TX 75165
+City/State: Waxahachie, TX
 Requirements: 6 months forklift experience
 Description: Move palletized goods in a warehouse.`;
 
@@ -31,15 +32,15 @@ test('job order path: type → parse → edit → publish', async () => {
   const r2 = await tom.message(s.sessionId, { text: 'set pay to $18.50/hr' });
   assert.strictEqual(r2.draft.pay, '$18.50/hr');
 
-  const r3 = await tom.message(s.sessionId, { action: 'edit_field', payload: { field: 'location', value: 'Ennis, TX' } });
-  assert.strictEqual(r3.draft.location, 'Ennis, TX');
+  const r3 = await tom.message(s.sessionId, { action: 'edit_field', payload: { field: 'city_state', value: 'Ennis, TX' } });
+  assert.strictEqual(r3.draft.city_state, 'Ennis, TX');
 
   const r4 = await tom.message(s.sessionId, { text: 'yes, publish' });
   assert.match(r4.text, /Published job order #\d+/);
   const jo = db.prepare('SELECT * FROM job_orders').get();
   assert.strictEqual(jo.status, 'Published');
   assert.strictEqual(jo.pay, '$18.50/hr');
-  assert.strictEqual(jo.location, 'Ennis, TX');
+  assert.strictEqual(jo.city_state, 'Ennis, TX');
 });
 
 test('job order path: "done" saves unpublished (draft stays a draft)', async () => {
@@ -122,7 +123,7 @@ test('review path: reports blasts with counts', async () => {
 test('field-edit parser handles the common phrasings', () => {
   assert.deepStrictEqual(parseFieldEdit('set pay to $18.50'), { field: 'pay', value: '$18.50' });
   assert.deepStrictEqual(parseFieldEdit('pay: $19'), { field: 'pay', value: '$19' });
-  assert.deepStrictEqual(parseFieldEdit('location should be Ennis TX'), { field: 'location', value: 'Ennis TX' });
+  assert.deepStrictEqual(parseFieldEdit('location should be Ennis TX'), { field: 'city_state', value: 'Ennis TX' });
   assert.deepStrictEqual(parseFieldEdit('change title to Welder II'), { field: 'title', value: 'Welder II' });
   assert.strictEqual(parseFieldEdit('publish it'), null);
 });

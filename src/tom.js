@@ -32,7 +32,8 @@ const BLAST_CONFIRM_REJECTION =
 const JOB_ORDER_EXAMPLE =
   'Type the details like this, or upload a .docx/.txt file:\n\n' +
   'Title: Forklift Operator\nCategory: Industrial\nPay: $18/hr\n' +
-  'Shift: 1st shift, 6am-2:30pm\nLocation: Waxahachie, TX\n' +
+  'Shift: 1st shift, 6am-2:30pm\nAddress: 123 Warehouse Dr, Waxahachie, TX 75165\n' +
+  'City/State: Waxahachie, TX\n' +
   'Requirements: 6+ months forklift experience\nDescription: Move palletized goods in a climate-controlled warehouse.';
 
 function draftSummary(draft) {
@@ -51,7 +52,8 @@ function draftSummary(draft) {
 const FIELD_KEYS = {
   title: 'title', category: 'category', pay: 'pay', wage: 'pay', salary: 'pay',
   shift: 'shift_hours', hours: 'shift_hours', schedule: 'shift_hours', 'shift/hours': 'shift_hours',
-  location: 'location', city: 'location', requirements: 'requirements', description: 'description', company: 'company',
+  address: 'address', location: 'city_state', city: 'city_state', state: 'city_state', 'city/state': 'city_state',
+  requirements: 'requirements', description: 'description', company: 'company',
   status: 'status',
 };
 function parseFieldEdit(text) {

@@ -9,7 +9,8 @@ const JOB_ORDER_FIELDS = [
   { key: 'category',     label: 'Category',     required: true }, // Industrial | Administrative | Skilled Trade
   { key: 'pay',          label: 'Pay',          required: true },
   { key: 'shift_hours',  label: 'Shift / Hours', required: false },
-  { key: 'location',     label: 'Location',     required: false },
+  { key: 'address',      label: 'Address',      required: false },
+  { key: 'city_state',   label: 'City / State',  required: false },
   { key: 'requirements', label: 'Requirements', required: false },
   { key: 'description',  label: 'Description',  required: false },
   { key: 'company',      label: 'Company',      required: false }, // HIDDEN from candidates
@@ -38,11 +39,12 @@ function createJobOrder(db, draft) {
   const v = validateJobOrder(draft);
   if (!v.ok) throw new Error('Invalid job order: ' + [...v.missing, ...v.errors].join('; '));
   const r = db.prepare(
-    `INSERT INTO job_orders (title, category, pay, shift_hours, location, requirements, description, company, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO job_orders (title, category, pay, shift_hours, address, city_state, requirements, description, company, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     draft.title.trim(), draft.category, String(draft.pay || '').trim(),
-    String(draft.shift_hours || '').trim(), String(draft.location || '').trim(),
+    String(draft.shift_hours || '').trim(), String(draft.address || '').trim(),
+    String(draft.city_state || '').trim(),
     String(draft.requirements || '').trim(), String(draft.description || '').trim(),
     String(draft.company || '').trim(), draft.status || 'Unpublished',
   );
@@ -56,9 +58,9 @@ function updateJobOrder(db, id, patch) {
   const v = validateJobOrder(merged);
   if (!v.ok) throw new Error('Invalid job order: ' + [...v.missing, ...v.errors].join('; '));
   db.prepare(
-    `UPDATE job_orders SET title=?, category=?, pay=?, shift_hours=?, location=?, requirements=?, description=?, company=?, status=?,
+    `UPDATE job_orders SET title=?, category=?, pay=?, shift_hours=?, address=?, city_state=?, requirements=?, description=?, company=?, status=?,
      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`,
-  ).run(merged.title, merged.category, merged.pay, merged.shift_hours, merged.location,
+  ).run(merged.title, merged.category, merged.pay, merged.shift_hours, merged.address, merged.city_state,
         merged.requirements, merged.description, merged.company || '', merged.status, id);
   return db.prepare('SELECT * FROM job_orders WHERE id = ?').get(id);
 }

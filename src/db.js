@@ -128,6 +128,10 @@ function openDb(filePath) {
   db.exec(SCHEMA);
   // Migration: add category column to templates (for category-based defaults)
   try { db.exec("ALTER TABLE templates ADD COLUMN category TEXT"); } catch { /* already exists */ }
+  // Migration: split location into address + city_state
+  try { db.exec("ALTER TABLE job_orders ADD COLUMN address TEXT NOT NULL DEFAULT ''"); } catch { /* already exists */ }
+  try { db.exec("ALTER TABLE job_orders ADD COLUMN city_state TEXT NOT NULL DEFAULT ''"); } catch { /* already exists */ }
+  try { db.exec("UPDATE job_orders SET city_state = location WHERE city_state = '' AND location != ''"); } catch { /* no-op */ }
   // Seed defaults (INSERT OR IGNORE keeps this idempotent)
   const seed = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) seed.run(k, v);

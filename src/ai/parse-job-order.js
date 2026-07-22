@@ -43,7 +43,8 @@ function parseDeterministic(text) {
     category: grabLine(text, ['category', 'classification', 'type']),
     pay: grabLine(text, ['pay rate', 'pay', 'wage', 'salary', 'rate', 'compensation']),
     shift_hours: grabLine(text, ['shift/hours', 'shift', 'hours', 'schedule']),
-    location: grabLine(text, ['location', 'city', 'address', 'site', 'worksite']),
+    address: grabLine(text, ['address', 'street address', 'site address']),
+    city_state: grabLine(text, ['city/state', 'city_state', 'location', 'city', 'site', 'worksite']),
     requirements: grabLine(text, ['requirements', 'qualifications', 'must have', 'needed']),
     description: grabLine(text, ['description', 'summary', 'details', 'duties', 'about the job']),
     company: grabLine(text, ['company', 'client', 'employer', 'business']),
@@ -76,7 +77,10 @@ async function parseWithClaude(text) {
     system:
       'You extract job order fields from documents for a staffing agency. ' +
       'Respond ONLY with a JSON object with keys: title, category, pay, shift_hours, ' +
-      'location, requirements, description, company. category must be exactly one of ' +
+      'address, city_state, requirements, description, company. ' +
+      'address = full street address (hidden from candidates). ' +
+      'city_state = city and state only (visible to candidates). ' +
+      'category must be exactly one of ' +
       '"Industrial", "Administrative", "Skilled Trade" (or "" if truly unclear). ' +
       'Use "" for anything not present. Do not invent details. ' +
       'EXCLUDE all internal staffing data: supervisor names, internal job numbers (e.g. MT198), ' +
@@ -94,7 +98,8 @@ async function parseWithClaude(text) {
     category: String(parsed.category || ''),
     pay: String(parsed.pay || ''),
     shift_hours: String(parsed.shift_hours || ''),
-    location: String(parsed.location || ''),
+    address: String(parsed.address || ''),
+    city_state: String(parsed.city_state || ''),
     requirements: String(parsed.requirements || ''),
     description: String(parsed.description || ''),
     company: String(parsed.company || ''),
