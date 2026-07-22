@@ -290,7 +290,7 @@ function renderRow(jo) {
     '<td><span class="interest ' + (ic > 0 ? 'has' : 'none') + '">' + ic + '</span></td>' +
     '<td>' + (jo.yeslisted_count || 0) + '</td>' +
     '<td>' + (jo.filled_count || 0) + '</td>' +
-    '<td class="col-company">' + esc(jo.assigned_recruiter || '—') + '</td>' +
+    '<td class="col-company"><select class="sort-select" style="height:28px;font-size:.78rem;width:auto;min-width:90px;padding:2px 6px" onchange="changeRecruiter(' + jo.id + ', this.value)"><option value="">(none)</option>' + _recruiters.map(function(r) { return '<option value="' + esc(r) + '"' + (jo.assigned_recruiter === r ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select></td>' +
     '<td><span class="pill ' + jo.status + '">' + jo.status + '</span></td>' +
     '<td class="act-group">' +
       (jo.status !== 'Published' ? '<button class="btn sm" onclick="setStatus(' + jo.id + ',\'Published\')">Publish</button>' : '') +
@@ -449,6 +449,7 @@ async function openJoDetail(id) {
     // Populate recruiter dropdown
     try {
       var users = await api('/api/users');
+    _recruiters = users.map(function(u) { return u.display_name || u.username; });
       var sel = document.getElementById('jo-recruiter-select');
       if (sel) {
         users.forEach(function(u) {
@@ -519,6 +520,13 @@ async function toggleBlast(id) {
 document.getElementById('joModal').addEventListener('click', function(e) { if (e.target === this) closeJoModal(); });
 
 
+var _recruiters = [];
+async function changeRecruiter(joId, value) {
+  try {
+    await api('/api/job-orders/' + joId, { method: 'PATCH', body: { assigned_recruiter: value || null } });
+    toast('Recruiter updated');
+  } catch(e) { toast('Error: ' + e.message); loadRows(); }
+}
 async function loadRecruiterFilter() {
   try {
     var users = await api('/api/users');
