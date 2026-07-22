@@ -541,6 +541,6 @@ async function loadRecruiterFilter() {
   } catch(e) { /* non-admin may not have access */ }
 }
 
-boot('dash').then(function() { loadStats(); loadRows(); loadBlasts(); loadRecruiterFilter(); });
+boot('dash').then(async function() { loadStats(); await loadRecruiterFilter(); loadRows(); loadBlasts(); });
 </script>
 </body></html>
