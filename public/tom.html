@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>JobLink — AI Assistant</title>
+<title>JobLink &mdash; AI Assistant</title>
 <link rel="stylesheet" href="/app.css">
 <style>
   .paths { justify-content: center; display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-bottom:16px; }
@@ -33,6 +33,35 @@
   #jo-form-panel .form-warn { color:#f59e0b; font-size:.82rem; margin-top:4px; }
   #jo-form-panel .form-title { font-size:1.05rem; font-weight:700; margin-bottom:4px; }
 
+  /* Blast settings form panel */
+  #blast-form-panel { display:none; }
+  #blast-form-panel.active { display:block; }
+  .bf-title { font-size:1.05rem; font-weight:700; margin-bottom:4px; }
+  .bf-stat { font-size:.88rem; color:var(--mut); margin-bottom:12px; }
+  .bf-stat strong { color:var(--ink); }
+  .bf-form { display:flex; flex-direction:column; gap:14px; }
+  .bf-field { display:flex; flex-direction:column; gap:4px; }
+  .bf-field label { font-size:.82rem; color:var(--mut); font-weight:600; }
+  .bf-field input, .bf-field textarea, .bf-field select { background:#0d1117; border:1px solid var(--line); color:var(--ink);
+    padding:8px 10px; border-radius:6px; font-size:.9rem; font-family:inherit; }
+  .bf-field textarea { min-height:90px; resize:vertical; }
+  .bf-field input:focus, .bf-field textarea:focus, .bf-field select:focus { border-color:var(--blue); outline:none; }
+  .bf-radio-group { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .bf-radio-group label { font-size:.88rem; color:var(--ink); font-weight:400; cursor:pointer; display:flex; align-items:center; gap:4px; }
+  .bf-radio-group input[type="radio"] { width:auto; margin:0; }
+  .bf-radio-group input[type="number"] { width:80px; padding:6px 8px; }
+  .bf-btn-group { display:flex; gap:6px; flex-wrap:wrap; }
+  .bf-btn-group button { padding:8px 16px; border:2px solid var(--line); background:#161b22; border-radius:8px; cursor:pointer;
+    font-size:.88rem; font-weight:600; color:var(--ink); transition:border-color .15s, background .15s; }
+  .bf-btn-group button:hover { border-color:var(--blue); }
+  .bf-btn-group button.selected { border-color:var(--blue); background:rgba(96,165,250,0.15); color:#93c5fd; }
+  .bf-preview-box { background:#0d1117; border:1px solid var(--line); border-radius:8px; padding:10px 12px;
+    font-size:.85rem; color:var(--mut); white-space:pre-wrap; line-height:1.4; margin-top:4px; }
+  .bf-save-link { display:inline-block; margin-top:4px; color:var(--blue); cursor:pointer; font-size:.82rem; text-decoration:underline; }
+  .bf-save-link:hover { color:#93c5fd; }
+  .bf-actions { display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; }
+  .bf-warn { color:#f59e0b; font-size:.82rem; margin-top:4px; }
+
   /* Blast review cards */
   .blast-card { background:#0d1117; border:1px solid var(--line); border-radius:8px; padding:10px 12px;
     margin-top:6px; cursor:pointer; transition:border-color .15s; }
@@ -59,7 +88,7 @@
   .loading-indicator .dots span:nth-child(2) { animation-delay:-0.16s; }
   @keyframes bounce { 0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)} }
 
-  /* Drag-and-drop overlay (ported from V1 chat.html) */
+  /* Drag-and-drop overlay */
   .drop-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.55);
     z-index:9999; align-items:center; justify-content:center; flex-direction:column; backdrop-filter:blur(2px); transition:opacity .15s; }
   .drop-overlay.active { display:flex; }
@@ -71,15 +100,18 @@
   .drop-overlay-title { font-size:18px; font-weight:700; color:#93c5fd; }
   .drop-overlay-sub { font-size:14px; color:#94a3b8; margin-top:6px; }
 
-  /* Recruiter dropdown in blast preview */
-  .recruiter-select { margin-top:8px; }
-  .recruiter-select label { font-size:.82rem; color:var(--mut); font-weight:600; margin-right:6px; }
-  .recruiter-select select { background:#0d1117; border:1px solid var(--line); color:var(--ink);
-    padding:6px 8px; border-radius:6px; font-size:.85rem; min-width:180px; }
-
   /* Blank form link */
   .blank-form-link { display:inline-block; margin-top:8px; color:var(--blue); cursor:pointer; font-size:.85rem; text-decoration:underline; }
   .blank-form-link:hover { color:var(--blue-d); }
+
+  /* Save template modal */
+  .modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6);
+    z-index:9998; align-items:center; justify-content:center; }
+  .modal-overlay.active { display:flex; }
+  .modal-box { background:#1e293b; border:1px solid var(--line); border-radius:12px; padding:24px; min-width:340px; max-width:440px; }
+  .modal-box h3 { margin:0 0 12px 0; font-size:1rem; }
+  .modal-box .bf-field { margin-bottom:10px; }
+  .modal-box .bf-actions { margin-top:14px; }
 </style></head>
 <body>
 <main class="page">
@@ -91,8 +123,8 @@
     <button data-path="help">&#x2753; Help / Tutorial / FAQ</button>
   </div>
   <div class="card">
-    <!-- Full-width JO form panel (shown after AI parse or blank form) -->
     <div id="jo-form-panel"></div>
+    <div id="blast-form-panel"></div>
     <div id="chat"><div class="hint">Pick a button above to start. One task per conversation &mdash; switching tasks starts a fresh one.</div></div>
     <div id="composer" style="display:none">
       <button class="btn ghost" id="attach" title="Upload a file">&#x1F4CE;</button>
@@ -103,7 +135,7 @@
   </div>
 </main>
 
-<!-- Drop overlay (ported from V1 chat.html) -->
+<!-- Drop overlay -->
 <div class="drop-overlay" id="dropOverlay">
   <div class="drop-overlay-box">
     <svg class="drop-overlay-icon" width="48" height="48" viewBox="0 0 24 24" fill="none">
@@ -114,18 +146,34 @@
   </div>
 </div>
 
+<!-- Save template modal -->
+<div class="modal-overlay" id="saveTemplateModal">
+  <div class="modal-box">
+    <h3>Save as New Template</h3>
+    <div class="bf-field">
+      <label>Template Name</label>
+      <input type="text" id="newTemplateName" placeholder="e.g. Summer Blast 2026">
+    </div>
+    <div class="bf-actions">
+      <button class="btn" id="saveTemplateConfirm">Save</button>
+      <button class="btn ghost" id="saveTemplateCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script src="/app.js?v=2"></script>
 <script>
-let session = null;
-let currentPath = null;
-let joFormActive = false;
-const PATH_LABELS = { job_order: 'New Job Order', blast: 'Send Magic Blast', review: 'Review Magic Blasts', help: 'Help / FAQ' };
+var session = null;
+var currentPath = null;
+var joFormActive = false;
+var blastFormActive = false;
+var blastFormData = null;
+var PATH_LABELS = { job_order: 'New Job Order', blast: 'Send Magic Blast', review: 'Review Magic Blasts', help: 'Help / FAQ' };
 
-const CATEGORIES = ['Industrial', 'Administrative', 'Skilled Trade'];
-const STATUSES = ['Published', 'Unpublished'];
+var CATEGORIES = ['Industrial', 'Administrative', 'Skilled Trade'];
+var STATUSES = ['Published', 'Unpublished'];
 
-// Visibility annotations for JO fields
-const FIELD_VISIBILITY = {
+var FIELD_VISIBILITY = {
   title: '(visible to candidates)',
   category: '(visible)',
   pay: '(visible)',
@@ -138,8 +186,7 @@ const FIELD_VISIBILITY = {
   status: '(internal)',
 };
 
-// JO fields definition (mirrors server-side)
-const JO_FIELDS = [
+var JO_FIELDS = [
   { key: 'title', label: 'Title', required: true },
   { key: 'category', label: 'Category', required: true },
   { key: 'pay', label: 'Pay', required: true },
@@ -180,13 +227,14 @@ function md(s) {
     .replace(/\n/g, '<br>');
 }
 
-// ---- Full-width JO Form (Feature 1) ----
+// ---- Full-width JO Form ----
 function showJOForm(draft, warnings) {
   joFormActive = true;
   var panel = document.getElementById('jo-form-panel');
   panel.className = 'active';
   panel.innerHTML = '';
   document.getElementById('chat').style.display = 'none';
+  document.getElementById('blast-form-panel').className = '';
 
   var title = document.createElement('div');
   title.className = 'form-title';
@@ -272,7 +320,6 @@ function showJOForm(draft, warnings) {
   actions.appendChild(startOverBtn);
   panel.appendChild(actions);
 
-  // Update composer hint
   document.getElementById('input').placeholder = 'Edit fields directly in the form above, or click Start Over to re-parse.';
 }
 
@@ -301,12 +348,10 @@ async function submitJOForm(action) {
   var r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, action: action, payload: { draft: draft } } });
   hideLoading();
   if (r.showForm && r.draft) {
-    // Re-render form with validation errors
     showJOForm(r.draft, r.warnings || []);
     return;
   }
   if (r.error && r.state === 'review') {
-    // Show validation error on current form
     var panel = document.getElementById('jo-form-panel');
     var existing = panel.querySelector('.form-warn');
     if (existing) existing.remove();
@@ -321,6 +366,314 @@ async function submitJOForm(action) {
   handleReply(r);
 }
 
+// ---- Full-width Blast Settings Form ----
+function showBlastForm(data) {
+  blastFormActive = true;
+  blastFormData = data;
+  var panel = document.getElementById('blast-form-panel');
+  panel.className = 'active';
+  panel.innerHTML = '';
+  document.getElementById('chat').style.display = 'none';
+  document.getElementById('jo-form-panel').className = '';
+  document.getElementById('composer').style.display = 'none';
+
+  var title = document.createElement('div');
+  title.className = 'bf-title';
+  title.textContent = 'Blast Settings';
+  panel.appendChild(title);
+
+  // Stats line
+  var stat = document.createElement('div');
+  stat.className = 'bf-stat';
+  var statParts = ['<strong>' + data.contactCount + ' contacts parsed</strong>'];
+  if (data.invalidCount) statParts.push('(' + data.invalidCount + ' bad phone numbers excluded)');
+  if (data.importCounts) {
+    var ic = data.importCounts;
+    statParts.push('\u2014 ' + (ic.created || 0) + ' new, ' + (ic.updated || 0) + ' updated, ' + (ic.unchanged || 0) + ' unchanged');
+  }
+  stat.innerHTML = statParts.join(' ');
+  panel.appendChild(stat);
+
+  var form = document.createElement('div');
+  form.className = 'bf-form';
+  form.id = 'blast-settings-form';
+
+  // --- Recipients ---
+  var recipField = document.createElement('div');
+  recipField.className = 'bf-field';
+  var recipLabel = document.createElement('label');
+  recipLabel.textContent = 'Recipients';
+  recipField.appendChild(recipLabel);
+  var recipGroup = document.createElement('div');
+  recipGroup.className = 'bf-radio-group';
+  recipGroup.innerHTML =
+    '<label><input type="radio" name="recipientMode" value="all" checked> All</label>' +
+    '<label><input type="radio" name="recipientMode" value="top"> Top</label>' +
+    '<input type="number" id="recipientCount" value="300" min="1" max="' + data.contactCount + '" style="display:none">';
+  recipField.appendChild(recipGroup);
+  form.appendChild(recipField);
+
+  // Toggle number input visibility
+  setTimeout(function() {
+    var radios = recipGroup.querySelectorAll('input[name="recipientMode"]');
+    var numInput = document.getElementById('recipientCount');
+    radios.forEach(function(r) {
+      r.addEventListener('change', function() {
+        numInput.style.display = r.value === 'top' && r.checked ? 'inline-block' : 'none';
+      });
+    });
+  }, 0);
+
+  // --- Sort By ---
+  if (data.hasLastContacted) {
+    var sortField = document.createElement('div');
+    sortField.className = 'bf-field';
+    var sortLabel = document.createElement('label');
+    sortLabel.textContent = 'Sort by';
+    sortField.appendChild(sortLabel);
+    var sortSel = document.createElement('select');
+    sortSel.id = 'blastSortBy';
+    (data.sortOptions || []).forEach(function(o) {
+      var opt = document.createElement('option');
+      opt.value = o.value; opt.textContent = o.label;
+      sortSel.appendChild(opt);
+    });
+    sortField.appendChild(sortSel);
+    form.appendChild(sortField);
+  }
+
+  // --- Category ---
+  var catField = document.createElement('div');
+  catField.className = 'bf-field';
+  var catLabel = document.createElement('label');
+  catLabel.textContent = 'Category *';
+  catField.appendChild(catLabel);
+  var catGroup = document.createElement('div');
+  catGroup.className = 'bf-btn-group';
+  catGroup.id = 'blastCategoryGroup';
+  (data.categories || []).forEach(function(c) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = c;
+    btn.dataset.cat = c;
+    btn.addEventListener('click', function() {
+      catGroup.querySelectorAll('button').forEach(function(b) { b.classList.remove('selected'); });
+      btn.classList.add('selected');
+    });
+    catGroup.appendChild(btn);
+  });
+  catField.appendChild(catGroup);
+  form.appendChild(catField);
+
+  // --- Template ---
+  var tplField = document.createElement('div');
+  tplField.className = 'bf-field';
+  var tplLabel = document.createElement('label');
+  tplLabel.textContent = 'Template';
+  tplField.appendChild(tplLabel);
+  var tplSel = document.createElement('select');
+  tplSel.id = 'blastTemplateSelect';
+  (data.templates || []).forEach(function(t) {
+    var opt = document.createElement('option');
+    opt.value = t.id;
+    opt.textContent = t.name + (t.category ? ' (' + t.category + ')' : '') + (t.is_default ? ' \u2605' : '');
+    opt.dataset.body = t.body;
+    if (data.defaultTemplateId && t.id === data.defaultTemplateId) opt.selected = true;
+    tplSel.appendChild(opt);
+  });
+  tplField.appendChild(tplSel);
+  form.appendChild(tplField);
+
+  // --- Template body (editable) ---
+  var bodyField = document.createElement('div');
+  bodyField.className = 'bf-field';
+  var bodyLabel = document.createElement('label');
+  bodyLabel.textContent = 'Message (editable)';
+  bodyField.appendChild(bodyLabel);
+  var bodyArea = document.createElement('textarea');
+  bodyArea.id = 'blastTemplateBody';
+  var defaultTpl = (data.templates || []).find(function(t) { return data.defaultTemplateId && t.id === data.defaultTemplateId; }) || (data.templates || [])[0];
+  bodyArea.value = defaultTpl ? defaultTpl.body : '';
+  bodyField.appendChild(bodyArea);
+
+  // Preview box
+  var previewBox = document.createElement('div');
+  previewBox.className = 'bf-preview-box';
+  previewBox.id = 'blastTemplatePreview';
+  previewBox.textContent = bodyArea.value
+    .replace(/\{first_name\}/g, 'John')
+    .replace(/\{link\}/g, 'https://app.joblinkplatform.com/m/abc123');
+  bodyField.appendChild(previewBox);
+
+  // Save as new template link
+  var saveLink = document.createElement('a');
+  saveLink.className = 'bf-save-link';
+  saveLink.textContent = 'Save as new template';
+  saveLink.addEventListener('click', function(e) {
+    e.preventDefault();
+    document.getElementById('saveTemplateModal').classList.add('active');
+  });
+  bodyField.appendChild(saveLink);
+
+  form.appendChild(bodyField);
+
+  // Sync template select <-> body
+  tplSel.addEventListener('change', function() {
+    var selOpt = tplSel.options[tplSel.selectedIndex];
+    if (selOpt && selOpt.dataset.body) {
+      bodyArea.value = selOpt.dataset.body;
+      updateTemplatePreview();
+    }
+  });
+  bodyArea.addEventListener('input', function() { updateTemplatePreview(); });
+
+  // --- Recruiter ---
+  var recField = document.createElement('div');
+  recField.className = 'bf-field';
+  var recLabel = document.createElement('label');
+  recLabel.textContent = 'Recruiter';
+  recField.appendChild(recLabel);
+  var recSel = document.createElement('select');
+  recSel.id = 'blastRecruiter';
+  var noneOpt = document.createElement('option');
+  noneOpt.value = ''; noneOpt.textContent = '\u2014 None \u2014';
+  recSel.appendChild(noneOpt);
+  // Prefer Whippy users, fall back to local
+  var users = (data.whippyUsers && data.whippyUsers.length) ? data.whippyUsers : (data.localUsers || []);
+  users.forEach(function(u) {
+    var opt = document.createElement('option');
+    opt.value = u.id;
+    opt.textContent = u.name || u.username || u.email || 'User ' + u.id;
+    recSel.appendChild(opt);
+  });
+  recField.appendChild(recSel);
+  form.appendChild(recField);
+
+  panel.appendChild(form);
+
+  // --- Action buttons ---
+  var actions = document.createElement('div');
+  actions.className = 'bf-actions';
+
+  var previewBtn = document.createElement('button');
+  previewBtn.className = 'btn';
+  previewBtn.textContent = 'Preview Blast';
+  previewBtn.addEventListener('click', function() { submitBlastForm(); });
+
+  var startOverBtn = document.createElement('button');
+  startOverBtn.className = 'btn ghost';
+  startOverBtn.textContent = 'Start Over';
+  startOverBtn.addEventListener('click', function() { hideBlastForm(); sendAction('start_over', {}); });
+
+  actions.appendChild(previewBtn);
+  actions.appendChild(startOverBtn);
+  panel.appendChild(actions);
+}
+
+function updateTemplatePreview() {
+  var body = document.getElementById('blastTemplateBody');
+  var preview = document.getElementById('blastTemplatePreview');
+  if (!body || !preview) return;
+  preview.textContent = body.value
+    .replace(/\{first_name\}/g, 'John')
+    .replace(/\{link\}/g, 'https://app.joblinkplatform.com/m/abc123');
+}
+
+function hideBlastForm() {
+  blastFormActive = false;
+  blastFormData = null;
+  var panel = document.getElementById('blast-form-panel');
+  panel.className = '';
+  panel.innerHTML = '';
+  document.getElementById('chat').style.display = 'flex';
+  document.getElementById('composer').style.display = 'flex';
+  document.getElementById('input').placeholder = 'Type here\u2026';
+}
+
+function getBlastFormValues() {
+  var modeRadio = document.querySelector('input[name="recipientMode"]:checked');
+  var recipientMode = modeRadio ? modeRadio.value : 'all';
+  var recipientCount = document.getElementById('recipientCount') ? document.getElementById('recipientCount').value : '300';
+  var sortEl = document.getElementById('blastSortBy');
+  var sortBy = sortEl ? sortEl.value : 'most_recent';
+  var catBtn = document.querySelector('#blastCategoryGroup button.selected');
+  var category = catBtn ? catBtn.dataset.cat : null;
+  var tplSel = document.getElementById('blastTemplateSelect');
+  var templateId = tplSel ? tplSel.value : null;
+  var bodyEl = document.getElementById('blastTemplateBody');
+  var templateBody = bodyEl ? bodyEl.value : '';
+  var recSel = document.getElementById('blastRecruiter');
+  var recruiterId = recSel ? recSel.value : '';
+
+  return {
+    recipientMode: recipientMode,
+    recipientCount: recipientCount,
+    sortBy: sortBy,
+    category: category,
+    templateId: templateId,
+    templateBody: templateBody,
+    recruiterId: recruiterId || null,
+  };
+}
+
+async function submitBlastForm() {
+  var vals = getBlastFormValues();
+  if (!vals.category) {
+    toast('Select a category before previewing.');
+    return;
+  }
+  if (!vals.templateBody.trim()) {
+    toast('Template message cannot be empty.');
+    return;
+  }
+  hideBlastForm();
+  showLoading();
+  var r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, action: 'preview_blast', payload: vals } });
+  hideLoading();
+  if (r.showBlastForm && r.keepForm) {
+    showBlastForm(blastFormData || r);
+    if (r.text) toast(r.text);
+    return;
+  }
+  handleReply(r);
+}
+
+// ---- Save Template Modal ----
+document.getElementById('saveTemplateConfirm').addEventListener('click', async function() {
+  var nameEl = document.getElementById('newTemplateName');
+  var name = nameEl.value.trim();
+  if (!name) { toast('Enter a template name.'); return; }
+  var bodyEl = document.getElementById('blastTemplateBody');
+  var body = bodyEl ? bodyEl.value : '';
+  var catBtn = document.querySelector('#blastCategoryGroup button.selected');
+  var category = catBtn ? catBtn.dataset.cat : null;
+  document.getElementById('saveTemplateModal').classList.remove('active');
+  nameEl.value = '';
+  showLoading();
+  var r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, action: 'save_template', payload: { name: name, body: body, category: category } } });
+  hideLoading();
+  if (r.templates && r.savedTemplate) {
+    var tplSel = document.getElementById('blastTemplateSelect');
+    if (tplSel) {
+      tplSel.innerHTML = '';
+      r.templates.forEach(function(t) {
+        var opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = t.name + (t.category ? ' (' + t.category + ')' : '') + (t.is_default ? ' \u2605' : '');
+        opt.dataset.body = t.body;
+        if (t.id === r.savedTemplate.id) opt.selected = true;
+        tplSel.appendChild(opt);
+      });
+    }
+    toast('Template "' + r.savedTemplate.name + '" saved.');
+  }
+});
+document.getElementById('saveTemplateCancel').addEventListener('click', function() {
+  document.getElementById('saveTemplateModal').classList.remove('active');
+  document.getElementById('newTemplateName').value = '';
+});
+
+// ---- Blast Review Cards ----
 function renderBlastCards(blasts) {
   var container = document.createElement('div');
   (blasts || []).forEach(function(b) {
@@ -400,29 +753,6 @@ function renderRecipientToggle(plan) {
   return wrap;
 }
 
-// Recruiter dropdown for blast preview (Feature 3)
-function renderRecruiterSelect(recruiters, selectedId) {
-  var wrap = document.createElement('div');
-  wrap.className = 'recruiter-select';
-  var label = document.createElement('label');
-  label.textContent = 'Assign recruiter:';
-  wrap.appendChild(label);
-  var sel = document.createElement('select');
-  sel.id = 'blast-recruiter';
-  var none = document.createElement('option');
-  none.value = ''; none.textContent = '\u2014 None \u2014';
-  sel.appendChild(none);
-  (recruiters || []).forEach(function(u) {
-    var opt = document.createElement('option');
-    opt.value = u.id;
-    opt.textContent = u.username + (u.role === 'admin' ? ' (admin)' : '');
-    if (selectedId && String(u.id) === String(selectedId)) opt.selected = true;
-    sel.appendChild(opt);
-  });
-  wrap.appendChild(sel);
-  return wrap;
-}
-
 function addMsg(who, text, extra) {
   var chat = document.getElementById('chat');
   var hint = chat.querySelector('.hint');
@@ -433,7 +763,6 @@ function addMsg(who, text, extra) {
   var richRendered = false;
 
   if (extra) {
-    // Clickable blast cards for review
     if (extra.blasts && extra.blasts.length) {
       richRendered = true;
       var textPre2 = document.createElement('div');
@@ -463,21 +792,14 @@ function addMsg(who, text, extra) {
     if (extra.confirmButton) {
       var b = document.createElement('button');
       b.className = 'btn gold';
-      b.textContent = '\u{1F680} ' + extra.confirmButton.label;
+      b.textContent = '\uD83D\uDE80 ' + extra.confirmButton.label;
       b.onclick = function() {
         b.disabled = true;
-        var recruiterSel = document.getElementById('blast-recruiter');
-        var recruiterId = recruiterSel ? recruiterSel.value : '';
-        sendAction(extra.confirmButton.action, { recruiter_id: recruiterId || null });
+        sendAction(extra.confirmButton.action, {});
       };
       choices.appendChild(b);
     }
     if (choices.children.length) div.appendChild(choices);
-
-    // Recruiter dropdown in blast preview (Feature 3)
-    if (extra.recruiters && extra.confirmButton) {
-      div.appendChild(renderRecruiterSelect(extra.recruiters));
-    }
 
     // Expandable recipient list in blast preview
     if (extra.confirmButton && extra.plan) {
@@ -505,10 +827,22 @@ function handleReply(r) {
   if (r.error) { addMsg('tom', r.text || r.error); return; }
   session = r.sessionId;
 
-  // Feature 1: If server returns showForm, render the full-width form
+  // JO form
   if (r.showForm && r.draft) {
     showJOForm(r.draft, r.warnings || []);
     return;
+  }
+
+  // Blast settings form
+  if (r.showBlastForm && !r.keepForm) {
+    showBlastForm(r);
+    return;
+  }
+
+  // If we were on blast form and got a non-form reply, hide it
+  if (blastFormActive && !r.showBlastForm) {
+    hideBlastForm();
+    document.getElementById('composer').style.display = 'flex';
   }
 
   addMsg('tom', r.text, r);
@@ -517,6 +851,7 @@ function handleReply(r) {
 async function startPath(path) {
   currentPath = path;
   hideJOForm();
+  if (blastFormActive) hideBlastForm();
   document.querySelectorAll('.paths button').forEach(function(b) {
     b.classList.toggle('on', b.dataset.path === path);
   });
@@ -524,7 +859,7 @@ async function startPath(path) {
   document.getElementById('composer').style.display = path === 'review' ? 'none' : 'flex';
   document.getElementById('input').placeholder = 'Type here\u2026';
   showLoading();
-  var r = await api('/api/tom/start', { method: 'POST', body: { path } });
+  var r = await api('/api/tom/start', { method: 'POST', body: { path: path } });
   hideLoading();
   handleReply(r);
 }
@@ -542,14 +877,18 @@ async function sendText() {
   var text = inputEl.value.trim();
   if (!session) return;
 
-  // Feature 1: If JO form is active, show hint instead of chat-editing
   if (joFormActive) {
     inputEl.value = '';
     if (text) toast('Edit fields directly in the form above, or click Start Over to re-parse.');
     return;
   }
 
-  // If a gold confirm button is visible, trigger it instead of sending text
+  if (blastFormActive) {
+    inputEl.value = '';
+    if (text) toast('Use the blast settings form above, then click Preview Blast.');
+    return;
+  }
+
   var goldBtn = document.querySelector('.choices .btn.gold:not([disabled])');
   if (goldBtn) { inputEl.value = ''; goldBtn.click(); return; }
   if (!text) return;
@@ -571,7 +910,7 @@ async function sendAction(action, payload, label) {
 
 async function uploadFile(file) {
   if (!file || !session) return;
-  addMsg('me', '\u{1F4CE} ' + file.name);
+  addMsg('me', '\uD83D\uDCCE ' + file.name);
   showLoading();
   var fd = new FormData();
   fd.append('sessionId', session);
@@ -581,7 +920,7 @@ async function uploadFile(file) {
   handleReply(await res.json());
 }
 
-// ---- Feature 2: Drag and Drop (ported from V1 chat.html) ----
+// ---- Drag and Drop ----
 (function() {
   var dropOverlay = document.getElementById('dropOverlay');
   var dragCounter = 0;
@@ -597,16 +936,14 @@ async function uploadFile(file) {
     dropOverlay.classList.remove('active'); dragCounter = 0;
     var files = Array.from(e.dataTransfer.files || []);
     if (!files.length) return;
-    var file = files[0]; // one file at a time
+    var file = files[0];
     if (file.size > 5 * 1024 * 1024) { toast(file.name + ' is too large (max 5 MB).'); return; }
     if (!/\.(csv|tsv|txt|xlsx|xls|docx|doc)$/i.test(file.name)) { toast(file.name + ': unsupported format. Use .docx, .xlsx, .csv, or .txt'); return; }
 
-    // If we have an active session, send as file upload
     if (session) {
       uploadFile(file);
       return;
     }
-    // No active session
     toast('Pick a task above first, then drop your file.');
   }
 

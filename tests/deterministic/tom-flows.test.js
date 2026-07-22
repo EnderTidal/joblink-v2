@@ -1,10 +1,13 @@
 // Tom's deterministic paths, end-to-end at the state-machine level:
 // the category gate can't be skipped, the send gate is a BUTTON (typed "yes"
 // rejected), and the job-order path publishes exactly what was confirmed.
+//
+// V2.2: blast path overhauled to form-based flow — contacts parsed -> blast_form state
+// -> preview_blast action submits all settings at once -> preview -> confirm_send.
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { openDb, setSetting } = require('../../src/db');
-const { createTom, BLAST_CONFIRM_REJECTION, parseFieldEdit, parseManualContacts } = require('../../src/tom');
+const { createTom, BLAST_CONFIRM_REJECTION, parseFieldEdit, parseManualContacts, sortContacts } = require('../../src/tom');
 
 function freshTom() {
   const db = openDb(':memory:');
@@ -21,7 +24,7 @@ City/State: Waxahachie, TX
 Requirements: 6 months forklift experience
 Description: Move palletized goods in a warehouse.`;
 
-test('job order path: type → parse → edit → publish', async () => {
+test('job order path: type \u2192 parse \u2192 edit \u2192 publish', async () => {
   const { db, tom } = freshTom();
   const s = await tom.start('job_order', 'josh');
   const r1 = await tom.message(s.sessionId, { text: JOB_TEXT });
@@ -52,22 +55,44 @@ test('job order path: "done" saves unpublished (draft stays a draft)', async () 
   assert.strictEqual(db.prepare('SELECT status FROM job_orders').get().status, 'Unpublished');
 });
 
-test('blast path: category gate cannot be skipped or assumed', async () => {
+test('blast path: contacts parsed \u2192 blast_form state with form data', async () => {
   const { tom } = freshTom();
   const s = await tom.start('blast', 'josh');
   const r1 = await tom.message(s.sessionId, { text: 'John Smith 555-123-4567\nJane Doe 555-987-6543' });
-  assert.strictEqual(r1.state, 'await_category');
-  // Try to bulldoze past it with free text
-  const r2 = await tom.message(s.sessionId, { text: 'just send it to everyone' });
-  assert.strictEqual(r2.state, 'await_category', 'category gate must hold');
-  assert.match(r2.text, /category/i);
+  assert.strictEqual(r1.state, 'blast_form');
+  assert.ok(r1.showBlastForm, 'should return showBlastForm flag');
+  assert.strictEqual(r1.contactCount, 2);
+  assert.ok(r1.categories, 'should include categories');
+  assert.ok(r1.templates, 'should include templates');
 });
 
-test('blast path: typed "yes" NEVER sends — only the button action does', async () => {
+test('blast path: preview_blast requires category', async () => {
+  const { tom } = freshTom();
+  const s = await tom.start('blast', 'josh');
+  await tom.message(s.sessionId, { text: 'John Smith 555-123-4567' });
+  const r = await tom.message(s.sessionId, {
+    action: 'preview_blast',
+    payload: { recipientMode: 'all', sortBy: 'most_recent', category: null, templateBody: 'Hi {first_name} {link}' },
+  });
+  assert.ok(r.showBlastForm, 'should stay on form');
+  assert.ok(r.keepForm, 'keepForm should be true');
+  assert.match(r.text, /category/i);
+});
+
+test('blast path: typed "yes" NEVER sends \u2014 only the button action does', async () => {
   const { db, tom } = freshTom();
   const s = await tom.start('blast', 'josh');
   await tom.message(s.sessionId, { text: 'John Smith 555-123-4567' });
-  const preview = await tom.message(s.sessionId, { action: 'choose_category', payload: { category: 'Industrial' } });
+  // Submit form with all settings via preview_blast action
+  const preview = await tom.message(s.sessionId, {
+    action: 'preview_blast',
+    payload: {
+      recipientMode: 'all',
+      sortBy: 'most_recent',
+      category: 'Industrial',
+      templateBody: 'Hi {first_name} check {link}',
+    },
+  });
   assert.strictEqual(preview.state, 'preview');
   assert.ok(preview.confirmButton, 'preview must offer the send button');
 
@@ -89,25 +114,45 @@ test('blast path: preview shows guard results BEFORE sending', async () => {
     .run(new Date(Date.now() - 36e5).toISOString());
   const s = await tom.start('blast', 'josh');
   await tom.message(s.sessionId, { text: 'John Smith 555-123-4567\nJane Doe 555-987-6543' });
-  const preview = await tom.message(s.sessionId, { action: 'choose_category', payload: { category: 'Industrial' } });
+  const preview = await tom.message(s.sessionId, {
+    action: 'preview_blast',
+    payload: {
+      recipientMode: 'all',
+      sortBy: 'most_recent',
+      category: 'Industrial',
+      templateBody: 'Hi {first_name} check {link}',
+    },
+  });
   assert.match(preview.text, /1 will be sent/);
   assert.match(preview.text, /1 skipped \(cooldown\)/);
 });
 
-test('blast path: Last Contacted subset prompt appears only when dates exist', async () => {
+test('blast path: recipient limit via form (top N)', async () => {
+  const { tom } = freshTom();
+  const s = await tom.start('blast', 'josh');
+  await tom.message(s.sessionId, { text: 'John Smith 555-123-4567\nJane Doe 555-987-6543\nBob Lee 555-111-2222' });
+  const preview = await tom.message(s.sessionId, {
+    action: 'preview_blast',
+    payload: {
+      recipientMode: 'top',
+      recipientCount: '2',
+      sortBy: 'alpha_az',
+      category: 'Industrial',
+      templateBody: 'Hi {first_name} check {link}',
+    },
+  });
+  assert.strictEqual(preview.state, 'preview');
+  assert.match(preview.text, /2 will be sent/);
+});
+
+test('blast path: Last Contacted subset via form sort', async () => {
   const { tom } = freshTom();
   const s = await tom.start('blast');
   const rows = 'Name,Phone,Last Contacted\nJohn Smith,5551234567,2026-07-01\nJane Doe,5559876543,2026-07-15';
-  const { parseContactRows } = require('../../src/importing');
-  // simulate file upload by feeding parsed rows through the manual path is not possible;
-  // use the file route shape instead:
-  const parsed = parseContactRows(rows.split('\n').map((l) => l.split(',')));
-  assert.ok(parsed.contacts.every((c) => c.lastContacted instanceof Date));
   const r = await tom.message(s.sessionId, { file: { buffer: Buffer.from(rows), originalname: 'list.csv' } });
-  assert.strictEqual(r.state, 'await_subset');
-  const r2 = await tom.message(s.sessionId, { text: '1' });
-  assert.strictEqual(r2.state, 'await_category');
-  assert.match(r2.text, /Selected 1 contacts/);
+  assert.strictEqual(r.state, 'blast_form');
+  assert.ok(r.hasLastContacted, 'should detect Last Contacted dates');
+  assert.ok(r.sortOptions, 'should include sort options');
 });
 
 test('review path: reports blasts with counts', async () => {
@@ -144,4 +189,26 @@ test('one path per conversation: a job_order session refuses after ending', asyn
   await tom.message(s.sessionId, { text: 'no' }); // ends session
   const r = await tom.message(s.sessionId, { text: 'send a blast to everyone' });
   assert.match(r.text, /ended|new one/i);
+});
+
+test('sortContacts sorts alphabetically A-Z by last name', () => {
+  const contacts = [
+    { first: 'Charlie', last: 'Zulu', phone: '1' },
+    { first: 'Alice', last: 'Alpha', phone: '2' },
+    { first: 'Bob', last: 'Mike', phone: '3' },
+  ];
+  const sorted = sortContacts(contacts, 'alpha_az');
+  assert.strictEqual(sorted[0].last, 'Alpha');
+  assert.strictEqual(sorted[1].last, 'Mike');
+  assert.strictEqual(sorted[2].last, 'Zulu');
+});
+
+test('sortContacts sorts alphabetically Z-A by last name', () => {
+  const contacts = [
+    { first: 'Alice', last: 'Alpha', phone: '1' },
+    { first: 'Bob', last: 'Zulu', phone: '2' },
+  ];
+  const sorted = sortContacts(contacts, 'alpha_za');
+  assert.strictEqual(sorted[0].last, 'Zulu');
+  assert.strictEqual(sorted[1].last, 'Alpha');
 });

@@ -12,9 +12,14 @@
 //     A typed "yes" is explicitly rejected (see BLAST_CONFIRM_REJECTION).
 //
 // V2.1 changes:
-//   - JO form UX overhaul: AI parses once → full-width form replaces chat → form-only editing
+//   - JO form UX overhaul: AI parses once -> full-width form replaces chat -> form-only editing
 //   - Drag-and-drop upload support (client-side in tom.html, server already handled uploads)
 //   - Recruiter assignment on blasts: recruiter dropdown in preview, passed through to executeBlast
+//
+// V2.2 changes:
+//   - Blast form UX overhaul: after contacts parsed, full-width blast settings form replaces chat
+//   - All blast settings (recipients, sort, category, template, recruiter) set via form, not chat
+//   - Form submits all settings at once for preview, then gold confirm button sends
 
 const crypto = require('node:crypto');
 const { parseContactRows, parseContactFile, upsertCandidates, selectByLastContacted } = require('./importing');
@@ -31,7 +36,7 @@ const PATHS = ['job_order', 'blast', 'review', 'help'];
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 
 const BLAST_CONFIRM_REJECTION =
-  'For safety, sending requires pressing the Send button — a typed "yes" isn\'t enough. ' +
+  'For safety, sending requires pressing the Send button \u2014 a typed "yes" isn\'t enough. ' +
   'Real texts to real people get the strongest gate we have.';
 
 const JOB_ORDER_EXAMPLE =
@@ -41,13 +46,20 @@ const JOB_ORDER_EXAMPLE =
   'City/State: Waxahachie, TX\n' +
   'Requirements: 6+ months forklift experience\nDescription: Move palletized goods in a climate-controlled warehouse.';
 
+const SORT_OPTIONS = [
+  { value: 'most_recent', label: 'Most Recently Contacted' },
+  { value: 'least_recent', label: 'Least Recently Contacted' },
+  { value: 'alpha_az', label: 'Alphabetical (A-Z)' },
+  { value: 'alpha_za', label: 'Alphabetical (Z-A)' },
+];
+
 function draftSummary(draft) {
-  const lines = JOB_ORDER_FIELDS.map((f) => `${f.label}: ${draft[f.key] || '—'}`);
+  const lines = JOB_ORDER_FIELDS.map((f) => `${f.label}: ${draft[f.key] || '\u2014'}`);
   const v = validateJobOrder(draft);
   if (!v.ok) {
     lines.push('');
-    if (v.missing.length) lines.push(`⚠ Missing required: ${v.missing.join(', ')}`);
-    v.errors.forEach((e) => lines.push(`⚠ ${e}`));
+    if (v.missing.length) lines.push(`\u26A0 Missing required: ${v.missing.join(', ')}`);
+    v.errors.forEach((e) => lines.push(`\u26A0 ${e}`));
   }
   return lines.join('\n');
 }
@@ -71,7 +83,7 @@ function parseFieldEdit(text) {
   return { field: key, value: m[2].trim() };
 }
 
-// Manual contact entry: one contact per line — "John Smith 555-123-4567" / "Smith, John, 5551234567"
+// Manual contact entry: one contact per line
 function parseManualContacts(text) {
   const rows = [];
   for (const line of String(text).split('\n')) {
@@ -84,6 +96,44 @@ function parseManualContacts(text) {
   return parseContactRows(rows.map(([name, phone]) => [name, phone]));
 }
 
+/** Sort contacts by the chosen sort option */
+function sortContacts(contacts, sortBy) {
+  const sorted = [...contacts];
+  switch (sortBy) {
+    case 'most_recent':
+      sorted.sort((a, b) => {
+        const ta = a.lastContacted ? a.lastContacted.getTime() : -Infinity;
+        const tb = b.lastContacted ? b.lastContacted.getTime() : -Infinity;
+        return tb - ta;
+      });
+      break;
+    case 'least_recent':
+      sorted.sort((a, b) => {
+        const ta = a.lastContacted ? a.lastContacted.getTime() : Infinity;
+        const tb = b.lastContacted ? b.lastContacted.getTime() : Infinity;
+        return ta - tb;
+      });
+      break;
+    case 'alpha_az':
+      sorted.sort((a, b) => {
+        const na = `${a.last || ''} ${a.first || ''}`.trim().toLowerCase();
+        const nb = `${b.last || ''} ${b.first || ''}`.trim().toLowerCase();
+        return na.localeCompare(nb);
+      });
+      break;
+    case 'alpha_za':
+      sorted.sort((a, b) => {
+        const na = `${a.last || ''} ${a.first || ''}`.trim().toLowerCase();
+        const nb = `${b.last || ''} ${b.first || ''}`.trim().toLowerCase();
+        return nb.localeCompare(na);
+      });
+      break;
+    default:
+      break;
+  }
+  return sorted;
+}
+
 function createTom(db) {
   const sessions = new Map();
 
@@ -92,7 +142,6 @@ function createTom(db) {
     const id = crypto.randomBytes(12).toString('base64url');
     const s = { id, path, user: user || null, state: 'start', data: {}, createdAt: Date.now() };
     sessions.set(id, s);
-    // TTL sweep
     for (const [k, v] of sessions) if (Date.now() - v.createdAt > SESSION_TTL_MS) sessions.delete(k);
     return s;
   }
@@ -109,7 +158,6 @@ function createTom(db) {
 
   async function handleJobOrder(s, { text, action, payload, file }) {
     if (s.state === 'await_input') {
-      // Feature 1: "Start with blank form" action
       if (action === 'blank_form') {
         s.data.draft = {
           title: '', category: '', pay: '', shift_hours: '', address: '',
@@ -123,25 +171,21 @@ function createTom(db) {
       if (file) docText = await extractText(file.buffer, file.originalname);
       if (!docText.trim()) return reply(s, 'Type the job details or upload a .docx/.txt file to get started.', { showBlankFormLink: true });
       const parsed = await parseJobOrderText(docText);
-      if (!parsed.fields) return reply(s, 'That document looks empty — try again?', { showBlankFormLink: true });
+      if (!parsed.fields) return reply(s, 'That document looks empty \u2014 try again?', { showBlankFormLink: true });
       s.data.draft = parsed.fields;
       s.state = 'review';
-      // Feature 1: return showForm flag so client renders full-width form
       return reply(s, '', { showForm: true, draft: s.data.draft, warnings: parsed.warnings, fields: JOB_ORDER_FIELDS });
     }
 
     if (s.state === 'review') {
       const draft = s.data.draft;
 
-      // Feature 1: "Start Over" action — reset to await_input
       if (action === 'start_over') {
         s.data = {};
         return startJobOrder(s);
       }
 
-      // Feature 1: form-based publish/done with full draft payload
       if ((action === 'publish' || action === 'done') && payload?.draft) {
-        // Apply all form fields from the client
         Object.assign(draft, payload.draft);
         if (action === 'publish') draft.status = 'Published';
         else if (draft.status === 'Published') { /* keep */ } else draft.status = 'Unpublished';
@@ -149,40 +193,38 @@ function createTom(db) {
         const v = validateJobOrder(draft);
         if (!v.ok) {
           const errors = [...v.missing.map((m) => `missing ${m}`), ...v.errors];
-          return reply(s, `Can't save yet — ${errors.join('; ')}.`,
+          return reply(s, `Can't save yet \u2014 ${errors.join('; ')}.`,
             { showForm: true, draft, warnings: errors });
         }
         const id = createJobOrder(db, draft);
         s.state = 'ask_another';
         if (action === 'publish') {
-          return reply(s, `✅ Published job order #${id}: ${draft.title} (${draft.category}). It's live on the job board now.\n\nWant to create another? (yes / no)`);
+          return reply(s, `\u2705 Published job order #${id}: ${draft.title} (${draft.category}). It's live on the job board now.\n\nWant to create another? (yes / no)`);
         }
-        return reply(s, `💾 Saved job order #${id}: ${draft.title} (${draft.status}). You can publish it later from the Dashboard.\n\nWant to create another? (yes / no)`);
+        return reply(s, `\uD83D\uDCBE Saved job order #${id}: ${draft.title} (${draft.status}). You can publish it later from the Dashboard.\n\nWant to create another? (yes / no)`);
       }
 
-      // Legacy: inline field edit via action (from old in-chat form)
       if (action === 'edit_field' && payload?.field) {
         draft[payload.field] = String(payload.value ?? '').trim();
         return reply(s, `Updated.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: [] });
       }
 
-      // Legacy: text-based commands (still work if someone types in composer)
       const t = String(text || '').trim();
       if (/\b(publish|go live|publish it|ship it|looks good|good to go|make it live)\b/i.test(t)) {
         draft.status = 'Published';
         const v = validateJobOrder(draft);
-        if (!v.ok) return reply(s, `Can't publish yet — ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: v.missing });
+        if (!v.ok) return reply(s, `Can't publish yet \u2014 ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: v.missing });
         const id = createJobOrder(db, draft);
         s.state = 'ask_another';
-        return reply(s, `✅ Published job order #${id}: ${draft.title} (${draft.category}). It's live on the job board now.\n\nWant to create another? (yes / no)`);
+        return reply(s, `\u2705 Published job order #${id}: ${draft.title} (${draft.category}). It's live on the job board now.\n\nWant to create another? (yes / no)`);
       }
       if (/\b(done|save|keep it|finish|save it)\b/i.test(t)) {
         draft.status = draft.status === 'Published' ? 'Published' : 'Unpublished';
         const v = validateJobOrder(draft);
-        if (!v.ok) return reply(s, `Almost — ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: v.missing });
+        if (!v.ok) return reply(s, `Almost \u2014 ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: v.missing });
         const id = createJobOrder(db, draft);
         s.state = 'ask_another';
-        return reply(s, `💾 Saved job order #${id}: ${draft.title} (${draft.status}). You can publish it later from the Dashboard.\n\nWant to create another? (yes / no)`);
+        return reply(s, `\uD83D\uDCBE Saved job order #${id}: ${draft.title} (${draft.status}). You can publish it later from the Dashboard.\n\nWant to create another? (yes / no)`);
       }
       const edit = parseFieldEdit(t);
       if (edit) {
@@ -192,7 +234,7 @@ function createTom(db) {
           if (!cat) return reply(s, `Category has to be one of: ${CATEGORIES.join(', ')}.`, { showForm: true, draft, warnings: [] });
           draft.category = cat;
         } else if (edit.field === 'status') {
-          return reply(s, 'Say "publish" to publish, or "done" to save unpublished — status changes go through those.', { showForm: true, draft, warnings: [] });
+          return reply(s, 'Say "publish" to publish, or "done" to save unpublished \u2014 status changes go through those.', { showForm: true, draft, warnings: [] });
         } else {
           draft[edit.field] = edit.value;
         }
@@ -206,7 +248,7 @@ function createTom(db) {
       s.state = 'ended';
       return reply(s, 'All set. Start a new conversation any time you need another job order.');
     }
-    return reply(s, 'This conversation has ended — start a new one from the buttons above.');
+    return reply(s, 'This conversation has ended \u2014 start a new one from the buttons above.');
   }
 
   // ---------- path: blast ----------
@@ -215,6 +257,22 @@ function createTom(db) {
     return reply(s,
       'Let\'s send a Magic Blast. Upload a contact list (.csv or Excel), or type contacts one per line like:\n\n' +
       'John Smith 555-123-4567\nJane Doe (555) 987-6543');
+  }
+
+  /** Load templates and Whippy users for blast form */
+  function loadBlastFormData(category) {
+    const templates = db.prepare('SELECT * FROM templates ORDER BY is_default DESC, id').all();
+    const catDefault = category ? templates.find(t => t.is_default && t.category === category) : null;
+    const globalDefault = templates.find(t => t.is_default && (!t.category || t.category === ''));
+    const defaultTemplate = catDefault || globalDefault || templates[0] || null;
+
+    let whippyUsers = [];
+    const wu = getSetting(db, 'whippy_users');
+    if (wu) { try { whippyUsers = JSON.parse(wu); } catch { /* ignore */ } }
+
+    const localUsers = db.prepare('SELECT id, username, role FROM users ORDER BY username').all();
+
+    return { templates, defaultTemplate, whippyUsers, localUsers };
   }
 
   async function handleBlast(s, { text, action, payload, file, user, reqHost, reqProto }) {
@@ -228,98 +286,150 @@ function createTom(db) {
       }
       const counts = upsertCandidates(db, parsed.contacts);
       s.data.contacts = parsed.contacts;
-      s.data.selection = parsed.contacts;
+      s.data.invalidCount = parsed.invalid.length;
+      s.data.importCounts = counts;
       const hasLC = parsed.contacts.some((c) => c.lastContacted);
-      const invalidNote = parsed.invalid.length ? ` ${parsed.invalid.length} rows had bad phone numbers and were set aside.` : '';
-      const importNote = `${counts.created} new, ${counts.updated} name-updated, ${counts.unchanged} already on file.`;
-      if (hasLC) {
-        s.state = 'await_subset';
-        return reply(s, `Got ${parsed.contacts.length} contacts (${importNote})${invalidNote}\n\n` +
-          'This list has Last Contacted dates. Blast everyone, or a subset? ' +
-          'Type a number (e.g. "300") for the most recently contacted, or "all". ' +
-          '(These dates are used once for this selection, then discarded — never stored.)');
-      }
-      s.state = 'await_category';
-      return reply(s, `Got ${parsed.contacts.length} contacts (${importNote})${invalidNote}\n\nWhich category is this blast for? This can't be skipped.`,
-        { choices: CATEGORIES, choiceAction: 'choose_category' });
+      s.data.hasLastContacted = hasLC;
+
+      const formData = loadBlastFormData(null);
+
+      s.state = 'blast_form';
+      return reply(s, '', {
+        showBlastForm: true,
+        contactCount: parsed.contacts.length,
+        invalidCount: parsed.invalid.length,
+        importCounts: counts,
+        hasLastContacted: hasLC,
+        categories: CATEGORIES,
+        sortOptions: SORT_OPTIONS,
+        templates: formData.templates.map(t => ({ id: t.id, name: t.name, body: t.body, category: t.category || '', is_default: !!t.is_default })),
+        defaultTemplateId: formData.defaultTemplate ? formData.defaultTemplate.id : null,
+        whippyUsers: formData.whippyUsers,
+        localUsers: formData.localUsers.map(u => ({ id: u.id, username: u.username, role: u.role })),
+      });
     }
 
-    if (s.state === 'await_subset') {
-      const t = String(text || '').trim().toLowerCase();
-      if (/^all\b/.test(t)) s.data.selection = s.data.contacts;
-      else {
-        const n = parseInt(t.replace(/\D/g, ''), 10);
-        if (!n || n < 1) return reply(s, 'Type a number (like "300") or "all".');
-        s.data.selection = selectByLastContacted(s.data.contacts, n);
+    if (s.state === 'blast_form') {
+      if (action === 'start_over') {
+        s.data = {};
+        return startBlast(s);
       }
-      s.state = 'await_category';
-      return reply(s, `Selected ${s.data.selection.length} contacts.\n\nWhich category is this blast for? This can't be skipped.`,
-        { choices: CATEGORIES, choiceAction: 'choose_category' });
-    }
 
-    if (s.state === 'await_category') {
-      let category = null;
-      if (action === 'choose_category') category = payload?.category;
-      else {
-        const t = String(text || '').trim().toLowerCase();
-        category = CATEGORIES.find((c) => c.toLowerCase() === t || t === c.toLowerCase().replace(' ', ''));
-      }
-      if (!CATEGORIES.includes(category)) {
-        return reply(s, `I need a positive confirmation of the category — pick one: ${CATEGORIES.join(', ')}.`,
-          { choices: CATEGORIES, choiceAction: 'choose_category' });
-      }
-      s.data.category = category;
-      // Blast Guard BEFORE the preview (docs/DECISIONS.md) — recruiter confirms reality
-      const plan = planBlast(db, { phones: s.data.selection.map((c) => c.phone), category });
-      s.data.plan = plan;
-      const templates = db.prepare('SELECT * FROM templates ORDER BY is_default DESC, id').all();
-      // Category-specific default > global default > first template
-      const catDefault = templates.find(t => t.is_default && t.category === category);
-      const globalDefault = templates.find(t => t.is_default && (!t.category || t.category === ''));
-      s.data.template = catDefault || globalDefault || templates[0];
-      s.state = 'preview';
-      const sample = plan.sendable[0]
-        ? renderMessage(s.data.template.body, plan.sendable[0], getSetting(db, 'base_url') || '')
-        : '(no sendable recipients)';
-      const skippedBits = [];
-      if (plan.skippedCooldown.length) skippedBits.push(`${plan.skippedCooldown.length} skipped (cooldown)`);
-      if (plan.skippedDnc.length) skippedBits.push(`${plan.skippedDnc.length} skipped (do not contact)`);
-
-      // Feature 3: Load recruiters (users) for assignment dropdown
-      const recruiters = db.prepare('SELECT id, username, role FROM users ORDER BY username').all();
-
-      return reply(s,
-        `Blast preview — ${category}\n` +
-        `Template: ${s.data.template.name}\n` +
-        `Sample message: "${sample}"\n\n` +
-        `${plan.sendable.length} will be sent${skippedBits.length ? ', ' + skippedBits.join(', ') : ''}.\n\n` +
-        'Press the Send button to send. (Typing "yes" won\'t send it — the button is the gate.)',
-        {
-          confirmButton: { action: 'confirm_send', label: `Send to ${plan.sendable.length} people` },
-          templates: templates.map((t) => ({ id: t.id, name: t.name })),
-          plan: { sendable: plan.sendable.map(c => ({ first_name: c.first_name, last_name: c.last_name, phone: c.phone })) },
-          recruiters,
+      if (action === 'save_template') {
+        const name = String(payload?.name || '').trim();
+        const body = String(payload?.body || '').trim();
+        const category = payload?.category || null;
+        if (!name || !body) return reply(s, 'Template needs a name and body.', { showBlastForm: true, keepForm: true });
+        const r = db.prepare('INSERT INTO templates (name, body, category) VALUES (?, ?, ?)').run(name, body, category || null);
+        const newTemplate = db.prepare('SELECT * FROM templates WHERE id = ?').get(Number(r.lastInsertRowid));
+        const allTemplates = db.prepare('SELECT * FROM templates ORDER BY is_default DESC, id').all();
+        return reply(s, '', {
+          showBlastForm: true,
+          keepForm: true,
+          savedTemplate: { id: newTemplate.id, name: newTemplate.name, body: newTemplate.body, category: newTemplate.category || '', is_default: !!newTemplate.is_default },
+          templates: allTemplates.map(t => ({ id: t.id, name: t.name, body: t.body, category: t.category || '', is_default: !!t.is_default })),
         });
-    }
-
-    if (s.state === 'preview') {
-      if (action === 'choose_template' && payload?.id) {
-        const t = db.prepare('SELECT * FROM templates WHERE id = ?').get(Number(payload.id));
-        if (t) { s.data.template = t; return reply(s, `Template switched to "${t.name}". Press Send when ready.`); }
       }
-      if (action === 'confirm_send') {
-        if (!s.data.plan.sendable.length) return reply(s, 'Nobody to send to — everyone was skipped.');
-        s.state = 'sending';
-        const provider = getProvider(db);
-        const autoBaseUrl = reqHost ? ((reqProto === 'http' && reqHost.includes('localhost')) ? `http://${reqHost}` : `https://${reqHost}`) : undefined;
 
-        // Feature 3: capture recruiter assignment from payload
-        const recruiterId = payload?.recruiter_id ? Number(payload.recruiter_id) : null;
+      if (action === 'preview_blast') {
+        const recipientMode = payload?.recipientMode || 'all';
+        const recipientCount = parseInt(payload?.recipientCount || '0', 10);
+        const sortBy = payload?.sortBy || 'most_recent';
+        const category = payload?.category;
+        const templateId = payload?.templateId ? Number(payload.templateId) : null;
+        const templateBody = payload?.templateBody || '';
+        const recruiterId = payload?.recruiterId ? Number(payload.recruiterId) : null;
+
+        if (!CATEGORIES.includes(category)) {
+          return reply(s, 'Select a category before previewing.', { showBlastForm: true, keepForm: true });
+        }
+        if (!templateBody.trim()) {
+          return reply(s, 'Template message cannot be empty.', { showBlastForm: true, keepForm: true });
+        }
+
+        let selected = sortContacts(s.data.contacts, sortBy);
+
+        if (recipientMode === 'top' && recipientCount > 0 && recipientCount < selected.length) {
+          selected = selected.slice(0, recipientCount);
+        }
+
+        s.data.selection = selected;
+        s.data.category = category;
+
+        if (templateId) {
+          const t = db.prepare('SELECT * FROM templates WHERE id = ?').get(templateId);
+          if (t) s.data.template = t;
+          else s.data.template = { id: null, name: 'Custom', body: templateBody };
+        } else {
+          s.data.template = { id: null, name: 'Custom', body: templateBody };
+        }
+        if (templateBody && templateBody !== s.data.template.body) {
+          s.data.template = { ...s.data.template, body: templateBody };
+        }
+
+        s.data.recruiterId = recruiterId;
+
+        const plan = planBlast(db, { phones: selected.map(c => c.phone), category });
+        s.data.plan = plan;
+
+        const sample = plan.sendable[0]
+          ? renderMessage(s.data.template.body, plan.sendable[0], getSetting(db, 'base_url') || '')
+          : '(no sendable recipients)';
+        const skippedBits = [];
+        if (plan.skippedCooldown.length) skippedBits.push(`${plan.skippedCooldown.length} skipped (cooldown)`);
+        if (plan.skippedDnc.length) skippedBits.push(`${plan.skippedDnc.length} skipped (do not contact)`);
+
         let recruiterUsername = null;
         if (recruiterId) {
           const rec = db.prepare('SELECT username FROM users WHERE id = ?').get(recruiterId);
           if (rec) recruiterUsername = rec.username;
         }
+        s.data.recruiterUsername = recruiterUsername;
+
+        s.state = 'preview';
+        return reply(s,
+          `Blast preview \u2014 ${category}\n` +
+          `Template: ${s.data.template.name}\n` +
+          `Sample message: "${sample}"\n\n` +
+          `${plan.sendable.length} will be sent${skippedBits.length ? ', ' + skippedBits.join(', ') : ''}.\n` +
+          (recruiterUsername ? `Recruiter: ${recruiterUsername}\n` : '') +
+          '\nPress the Send button to send. (Typing "yes" won\'t send it \u2014 the button is the gate.)',
+          {
+            confirmButton: { action: 'confirm_send', label: `Send to ${plan.sendable.length} people` },
+            plan: { sendable: plan.sendable.map(c => ({ first_name: c.first_name, last_name: c.last_name, phone: c.phone })) },
+          });
+      }
+
+      return reply(s, 'Use the blast settings form to configure your blast, then click Preview Blast.', { showBlastForm: true, keepForm: true });
+    }
+
+    if (s.state === 'preview') {
+      if (action === 'back_to_form') {
+        s.state = 'blast_form';
+        const formData = loadBlastFormData(s.data.category);
+        return reply(s, '', {
+          showBlastForm: true,
+          contactCount: s.data.contacts.length,
+          invalidCount: s.data.invalidCount || 0,
+          importCounts: s.data.importCounts || {},
+          hasLastContacted: s.data.hasLastContacted || false,
+          categories: CATEGORIES,
+          sortOptions: SORT_OPTIONS,
+          templates: formData.templates.map(t => ({ id: t.id, name: t.name, body: t.body, category: t.category || '', is_default: !!t.is_default })),
+          defaultTemplateId: s.data.template?.id || (formData.defaultTemplate ? formData.defaultTemplate.id : null),
+          whippyUsers: formData.whippyUsers,
+          localUsers: formData.localUsers.map(u => ({ id: u.id, username: u.username, role: u.role })),
+        });
+      }
+
+      if (action === 'confirm_send') {
+        if (!s.data.plan.sendable.length) return reply(s, 'Nobody to send to \u2014 everyone was skipped.');
+        s.state = 'sending';
+        const provider = getProvider(db);
+        const autoBaseUrl = reqHost ? ((reqProto === 'http' && reqHost.includes('localhost')) ? `http://${reqHost}` : `https://${reqHost}`) : undefined;
+
+        const recruiterId = s.data.recruiterId || null;
+        const recruiterUsername = s.data.recruiterUsername || null;
 
         const result = await executeBlast(db, s.data.plan, {
           templateId: s.data.template.id,
@@ -332,16 +442,15 @@ function createTom(db) {
         });
         s.state = 'ask_another';
         const mockNote = provider.name === 'mock'
-          ? '\n\n⚠ SMS provider is in mock mode (no real texts were sent). Add Whippy credentials in Admin → Settings to send for real.'
+          ? '\n\n\u26A0 SMS provider is in mock mode (no real texts were sent). Add Whippy credentials in Admin \u2192 Settings to send for real.'
           : '';
         const bits = [`${result.sent} sent`];
         if (result.skippedCooldown) bits.push(`${result.skippedCooldown} skipped (cooldown)`);
         if (result.skippedDnc) bits.push(`${result.skippedDnc} skipped (do not contact)`);
         if (result.failed) bits.push(`${result.failed} failed (their cooldowns were NOT burned)`);
         const recruiterNote = recruiterUsername ? `\nRecruiter assigned: ${recruiterUsername}` : '';
-        return reply(s, `✅ Blast #${result.blastId} complete: ${bits.join(', ')}.${recruiterNote}${mockNote}\n\nSend another? (yes / no)`);
+        return reply(s, `\u2705 Blast #${result.blastId} complete: ${bits.join(', ')}.${recruiterNote}${mockNote}\n\nSend another? (yes / no)`);
       }
-      // Typed confirmation attempts are rejected — the button is the gate.
       if (/\b(yes|send|confirm|go|do it)\b/i.test(String(text || ''))) {
         return reply(s, BLAST_CONFIRM_REJECTION, {
           confirmButton: { action: 'confirm_send', label: `Send to ${s.data.plan.sendable.length} people` },
@@ -355,7 +464,7 @@ function createTom(db) {
       s.state = 'ended';
       return reply(s, 'Done. Start a new conversation any time.');
     }
-    return reply(s, 'This conversation has ended — start a new one from the buttons above.');
+    return reply(s, 'This conversation has ended \u2014 start a new one from the buttons above.');
   }
 
   // ---------- path: review ----------
@@ -370,7 +479,7 @@ function createTom(db) {
       if (b.skipped_dnc_count) bits.push(`${b.skipped_dnc_count} skipped (DNC)`);
       if (b.failed_count) bits.push(`${b.failed_count} failed`);
       bits.push(`${b.interested_count} interested`);
-      return `#${b.id} · ${d} · ${b.category}${b.sent_by ? ' · by ' + b.sent_by : ''} — ${bits.join(', ')}`;
+      return `#${b.id} \u00B7 ${d} \u00B7 ${b.category}${b.sent_by ? ' \u00B7 by ' + b.sent_by : ''} \u2014 ${bits.join(', ')}`;
     });
     return reply(s, `Recent Magic Blasts:\n\n${lines.join('\n')}`, { blasts });
   }
@@ -381,16 +490,14 @@ function createTom(db) {
     if (path === 'job_order') return startJobOrder(s);
     if (path === 'blast') return startBlast(s);
     if (path === 'review') return startReview(s);
-    // help — sandboxed: no db access anywhere in its handling
     s.state = 'chat';
-    return reply(s, 'Help & Tutorials — ask me anything about how JobLink works. I can also simulate a walkthrough of any flow. (This is a sandbox: nothing I show is ever saved, sent, or published.)');
+    return reply(s, 'Help & Tutorials \u2014 ask me anything about how JobLink works. I can also simulate a walkthrough of any flow. (This is a sandbox: nothing I show is ever saved, sent, or published.)');
   }
 
   async function message(sessionId, input) {
     const s = sessions.get(sessionId);
-    if (!s) return { error: 'session_not_found', text: 'That conversation expired — start a new one from the buttons above.' };
+    if (!s) return { error: 'session_not_found', text: 'That conversation expired \u2014 start a new one from the buttons above.' };
     if (s.path === 'help') {
-      // The ONLY thing the help path can do is produce text (src/ai/help-faq.js).
       const text = await answerHelpQuestion(input.text);
       return reply(s, text);
     }
@@ -403,4 +510,4 @@ function createTom(db) {
   return { start, message, sessions, BLAST_CONFIRM_REJECTION };
 }
 
-module.exports = { createTom, BLAST_CONFIRM_REJECTION, parseFieldEdit, parseManualContacts };
+module.exports = { createTom, BLAST_CONFIRM_REJECTION, parseFieldEdit, parseManualContacts, sortContacts };
