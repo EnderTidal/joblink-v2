@@ -2,6 +2,7 @@
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JobLink &mdash; Dashboard</title>
+<script>(function(){if(localStorage.getItem("joblink_light_mode")==="true"){document.documentElement.classList.add("light-mode")}})();</script>
 <link rel="stylesheet" href="/app.css">
 <style>
   /* Pipeline table enhancements */
@@ -106,7 +107,7 @@
   <div class="card">
     <div class="pipeline-head">
       <h2>Job Orders &mdash; Pipeline</h2>
-      <div style="display:flex;align-items:center;gap:6px"><select id="previewCategory" style="padding:5px 8px;border:1.5px solid var(--blue);border-radius:8px;font-size:.82rem;background:#fff;color:var(--blue);"><option value="">All</option><option value="Industrial">Industrial</option><option value="Administrative">Administrative</option><option value="Skilled Trade">Skilled Trade</option></select><button class="preview-btn" id="previewBtn" onclick="openPreview()">&#x1F441; Preview as Candidate</button></div>
+      <div style="display:flex;align-items:center;gap:6px"><select id="previewCategory" style="padding:5px 8px;border:1.5px solid var(--blue);border-radius:8px;font-size:.82rem;background:var(--bg);color:var(--blue);"><option value="">All</option><option value="Industrial">Industrial</option><option value="Administrative">Administrative</option><option value="Skilled Trade">Skilled Trade</option></select><button class="preview-btn" id="previewBtn" onclick="openPreview()">&#x1F441; Preview as Candidate</button></div>
     </div>
 
     <!-- Filter pills -->
