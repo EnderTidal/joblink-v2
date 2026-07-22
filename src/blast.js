@@ -75,6 +75,12 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
     `UPDATE candidates SET last_blast = ?, blast_count = blast_count + 1, current_category = ? WHERE phone = ?`,
   );
 
+  // Snapshot open conversations BEFORE blast (only close NEW ones after)
+  let preBlastConvoIds = new Set();
+  if (typeof provider.getOpenConversationIds === 'function') {
+    try { preBlastConvoIds = new Set(await provider.getOpenConversationIds()); } catch(e) {}
+  }
+
   let sent = 0, failed = 0;
   for (const c of plan.sendable) {
     const body = renderMessage(templateBody, c, baseUrl);
@@ -95,8 +101,10 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
 
   // Extension point (PORTING_FROM_V1): close the conversation threads the blast opened
   let conversationsClosed = 0;
-  if (typeof provider.closeOpenConversations === 'function') {
-    try { conversationsClosed = (await provider.assignAndCloseConversations(opts.recruiterId || null)).closed || 0; } catch { /* best-effort */ }
+  if (typeof provider.assignAndCloseNewConversations === 'function') {
+    try { const r = await provider.assignAndCloseNewConversations(recruiterId || null, preBlastConvoIds); conversationsClosed = r.closed || 0; } catch { /* best-effort */ }
+  } else if (typeof provider.closeOpenConversations === 'function') {
+    try { conversationsClosed = (await provider.closeOpenConversations()).closed || 0; } catch { /* best-effort */ }
   }
 
   return {

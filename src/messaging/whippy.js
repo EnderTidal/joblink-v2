@@ -65,6 +65,30 @@ function create(config) {
     // Ported V1 behavior: a blast opens conversation threads in Whippy;
     // close them back out to keep the inbox clean (PORTING_FROM_V1.md).
 
+
+    async getOpenConversationIds() {
+      try {
+        const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=300&status=open', null);
+        return (result?.data || []).map(c => c.id);
+      } catch(e) { return []; }
+    },
+
+    async assignAndCloseNewConversations(recruiterId, preBlastIds) {
+      try {
+        const pre = preBlastIds || new Set();
+        const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=300&status=open', null);
+        const allOpen = result?.data || [];
+        const newConvos = allOpen.filter(c => !pre.has(c.id));
+        let assigned = 0, closed = 0;
+        for (const c of newConvos) {
+          if (recruiterId) {
+            try { await whippyRequest(config, 'PATCH', '/v1/conversations/' + c.id, { assigned_user_id: recruiterId }); assigned++; } catch(e) {}
+          }
+          try { await whippyRequest(config, 'PATCH', '/v1/conversations/' + c.id, { status: 'closed' }); closed++; } catch(e) {}
+        }
+        return { assigned, closed, total: allOpen.length, newOnly: newConvos.length };
+      } catch(e) { return { assigned: 0, closed: 0 }; }
+    },
     async assignConversation(conversationId, userId) {
       try {
         await whippyRequest(config, 'PATCH', '/v1/conversations/' + conversationId, { assigned_user_id: userId });

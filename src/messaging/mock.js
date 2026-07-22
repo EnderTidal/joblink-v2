@@ -18,7 +18,9 @@ function create(opts = {}) {
     async testConnection() {
       return { ok: true, mock: true };
     },
-    async assignConversation(cid, uid) { return { ok: true }; },
+    async getOpenConversationIds() { return []; },
+    assignAndCloseNewConversations(rid, pre) { return { assigned: 0, closed: 0 }; },
+    assignConversation(cid, uid) { return { ok: true }; },
     assignAndCloseConversations(rid) { return { assigned: 0, closed: 0 }; },
     closeOpenConversations() {
       return { closed: 0 };
