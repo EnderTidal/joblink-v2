@@ -89,7 +89,7 @@ function createAdminRoutes(db, auth) {
 
   // ---- Dashboard ----
   router.get('/api/job-orders', (req, res) => {
-    res.json(listJobOrders(db, { status: req.query.status, category: req.query.category }));
+    res.json(listJobOrders(db, { status: req.query.status, category: req.query.category, recruiter: req.query.recruiter }));
   });
 
   router.post('/api/job-orders/:id/status', (req, res, next) => {

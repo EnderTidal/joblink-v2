@@ -125,6 +125,11 @@
         <button data-v="Skilled Trade">Skilled Trades</button>
       </div>
     </div>
+      <span style="width:1px;height:24px;background:var(--line);margin:0 2px"></span>
+      <select id="recruiterFilter" onchange="recruiterFilter=this.value; loadRows()" class="sort-select" style="min-width:140px">
+        <option value="">All recruiters</option>
+      </select>
+    </div>
 
     <!-- Search + sort row -->
     <div class="pipeline-controls">
@@ -199,7 +204,7 @@
 </main>
 <script src="/app.js?v=2"></script>
 <script>
-let statusFilter = '', categoryFilter = '', searchQuery = '', currentSort = 'interested';
+let statusFilter = '', categoryFilter = '', recruiterFilter = '', searchQuery = '', currentSort = 'interested';
 let allJobs = [];
 
 async function loadStats() {
@@ -218,6 +223,7 @@ async function loadRows() {
   const params = new URLSearchParams();
   if (statusFilter) params.set('status', statusFilter);
   if (categoryFilter) params.set('category', categoryFilter);
+  if (recruiterFilter) params.set('recruiter', recruiterFilter);
   try {
     allJobs = await api('/api/job-orders?' + params);
   } catch(e) {
@@ -499,6 +505,21 @@ async function toggleBlast(id) {
 }
 document.getElementById('joModal').addEventListener('click', function(e) { if (e.target === this) closeJoModal(); });
 
-boot('dash').then(function() { loadStats(); loadRows(); loadBlasts(); });
+
+async function loadRecruiterFilter() {
+  try {
+    var users = await api('/api/users');
+    var sel = document.getElementById('recruiterFilter');
+    if (!sel) return;
+    users.forEach(function(u) {
+      var opt = document.createElement('option');
+      opt.value = u.display_name || u.username;
+      opt.textContent = u.display_name || u.username;
+      sel.appendChild(opt);
+    });
+  } catch(e) { /* non-admin may not have access */ }
+}
+
+boot('dash').then(function() { loadStats(); loadRows(); loadBlasts(); loadRecruiterFilter(); });
 </script>
 </body></html>

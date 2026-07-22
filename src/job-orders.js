@@ -72,7 +72,7 @@ function setStatus(db, id, status) {
   return updateJobOrder(db, id, { status });
 }
 
-function listJobOrders(db, { status, category } = {}) {
+function listJobOrders(db, { status, category, recruiter } = {}) {
   let sql = `SELECT jo.*,
     (SELECT COUNT(*) FROM interests i WHERE i.job_order_id = jo.id) AS interested_count,
     (SELECT COUNT(*) FROM interests i WHERE i.job_order_id = jo.id AND i.status = 'yes_listed') AS yeslisted_count,
@@ -82,6 +82,7 @@ function listJobOrders(db, { status, category } = {}) {
   const params = [];
   if (status) { sql += ' AND jo.status = ?'; params.push(status); }
   if (category) { sql += ' AND jo.category = ?'; params.push(category); }
+  if (recruiter) { sql += ' AND jo.assigned_recruiter = ?'; params.push(recruiter); }
   sql += ' ORDER BY jo.id DESC';
   return db.prepare(sql).all(...params);
 }
