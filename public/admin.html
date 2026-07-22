@@ -364,7 +364,7 @@ async function loadWhippyUsers() {
         '<span class="user-label">' + esc(u.name) + '</span>' +
         '<span class="mut" style="font-size:.82rem">' + esc(u.id || '') + '</span>' +
         '<span class="mut" style="font-size:.82rem">' + esc(u.email || '') + '</span>' +
-        '<button class="btn sm ghost" style="color:#ef4444" onclick="removeWhippyUser('' + esc(u.id) + '')">Remove</button>' +
+        '<button class="btn sm ghost" style="color:#ef4444" onclick="removeWhippyUser(' + "'" + esc(u.id) + "'" + ')">Remove</button>' +
       '</div>';
     }).join('');
   } catch(e) { document.getElementById('whippy-list').innerHTML = '<p class="mut">Error loading messaging users.</p>'; }
