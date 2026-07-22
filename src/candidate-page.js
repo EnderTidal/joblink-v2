@@ -40,8 +40,8 @@ function renderCandidatePage(db, candidate) {
         ${jo.shift_hours ? `<span class="chip">\u{1F550} ${esc(jo.shift_hours)}</span>` : ''}
         ${jo.city_state ? `<span class="chip">\u{1F4CD} ${esc(jo.city_state)}</span>` : ''}
       </div>
+      ${jo.description ? `<p class="req"><strong>Description:</strong> ${esc(jo.description)}</p>` : ''}
       ${jo.requirements ? `<p class="req"><strong>Requirements:</strong> ${esc(jo.requirements)}</p>` : ''}
-      ${jo.description ? `<p>${esc(jo.description)}</p>` : ''}
       <button class="interest ${done ? 'done' : ''}" data-id="${jo.id}" ${done ? 'disabled' : ''}>
         ${done ? "\u2713 You're on the list!" : "I'm Interested"}
       </button>
@@ -117,8 +117,8 @@ function renderPreviewPage(db, preSelectedCategory) {
         ${jo.shift_hours ? '<span class="chip">\u{1F550} ' + esc(jo.shift_hours) + '</span>' : ''}
         ${jo.city_state ? '<span class="chip">\u{1F4CD} ' + esc(jo.city_state) + '</span>' : ''}
       </div>
+      ${jo.description ? '<p class="req"><strong>Description:</strong> ' + esc(jo.description) + '</p>' : ''}
       ${jo.requirements ? '<p class="req"><strong>Requirements:</strong> ' + esc(jo.requirements) + '</p>' : ''}
-      ${jo.description ? '<p>' + esc(jo.description) + '</p>' : ''}
       <button class="interest done" disabled>Preview only</button>
     </div>`).join('\n');
 
