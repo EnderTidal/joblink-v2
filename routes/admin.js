@@ -248,12 +248,6 @@ function createAdminRoutes(db, auth) {
   router.post('/api/settings/test-sms', auth.requireAdmin, async (_req, res) => {
     const provider = getProvider(db);
     const result = await provider.testConnection();
-    // Auto-sync Whippy users on successful connection test
-    if (result.ok && provider.name === 'whippy') {
-      const sync = await syncWhippyUsers(db);
-      result.whippy_users_synced = sync.ok;
-      result.whippy_users_count = sync.count || 0;
-    }
     res.json({ provider: provider.name, ...result });
   });
 

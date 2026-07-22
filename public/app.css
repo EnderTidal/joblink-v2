@@ -55,6 +55,8 @@ html.light-mode .filters button { color:#475569; }
 html.light-mode .toast { background:#1e293b; color:#f1f5f9; }
 html.light-mode #whoami { color:#475569 !important; }
 html.light-mode .card { box-shadow:0 1px 6px rgba(0,0,0,.06); }
+html.light-mode .tabs button { background:#e2e8f0; color:#1e293b; border-color:#cbd5e1; }
+html.light-mode .tabs button.on { background:#4b8df8; color:#fff; border-color:#4b8df8; }
 .theme-toggle { background:transparent; border:1px solid #ffffff55; color:#fff; border-radius:7px; padding:5px 8px; cursor:pointer; display:flex; align-items:center; }
 .theme-toggle svg { width:18px; height:18px; }
 html.light-mode .theme-toggle { border-color:#cbd5e1; color:#1e293b; }

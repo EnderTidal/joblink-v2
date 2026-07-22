@@ -72,7 +72,7 @@ function createAuth(db) {
 
   function createSession(res, user) {
     const token = crypto.randomBytes(24).toString('base64url');
-    sessions.set(token, { username: user.username, role: user.role, email: user.email || '', expires: Date.now() + SESSION_TTL_MS });
+    sessions.set(token, { username: user.username, role: user.role, email: user.email || '', display_name: user.display_name || '', expires: Date.now() + SESSION_TTL_MS });
     res.setHeader('Set-Cookie', `jl_session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${SESSION_TTL_MS / 1000}`);
     return token;
   }
@@ -113,7 +113,7 @@ function createAuth(db) {
   router.get('/api/me', (req, res) => {
     const s = getSession(req);
     if (!s) return res.status(401).json({ error: 'not_logged_in' });
-    res.json({ username: s.username, role: s.role, email: s.email, onboarded: getSetting(db, 'onboarded') === '1' });
+    res.json({ username: s.username, role: s.role, email: s.email, display_name: s.display_name || '', onboarded: getSetting(db, 'onboarded') === '1' });
   });
 
   // ---- Invite User (admin sends invitation email) ----

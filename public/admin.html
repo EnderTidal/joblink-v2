@@ -23,18 +23,23 @@
   .divider-or { display:flex; align-items:center; margin:14px 0; gap:10px; }
   .divider-or span { color:var(--mut); font-size:.82rem; }
   .divider-or hr { flex:1; border:0; border-top:1px solid var(--line); }
+  .cl-entry { background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:10px; }
+  .cl-entry .cl-header { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .cl-version-badge { display:inline-block; background:rgba(96,165,250,0.15); color:var(--blue); font-size:.82rem; font-weight:700; padding:3px 10px; border-radius:6px; }
+  .cl-date { color:var(--mut); font-size:.82rem; }
+  .cl-notes { font-size:.92rem; line-height:1.5; white-space:pre-wrap; }
 </style></head>
 <body>
 <main class="page">
   <h1 class="pagetitle">Admin</h1>
   <div class="tabs" id="tabs">
     <button data-t="settings" class="on">Settings</button>
-    <button data-t="templates">Templates</button>
     <button data-t="users">Users</button>
+    <button data-t="whippy">Messaging</button>
     <button data-t="candidates">Candidates</button>
+    <button data-t="templates">Templates</button>
     <button data-t="feedback">Feedback</button>
     <button data-t="changelog">Changelog</button>
-    <button data-t="whippy">Messaging</button>
   </div>
 
   <section id="s-settings" class="on"><div class="card half">
@@ -58,24 +63,6 @@
     <div id="whippy-users-info" style="margin-top:10px"></div>
   </div></section>
 
-  <section id="s-templates"><div class="card half">
-    <h3 style="margin-bottom:12px">Blast message templates</h3>
-    <p class="mut" style="margin-bottom:10px">Placeholders: {first_name} and {link}. {link} is required.</p>
-    <div id="tpl-list"></div>
-    <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
-    <label class="f">Name <input id="tpl-name"></label>
-    <label class="f">Category
-      <select id="tpl-cat">
-        <option value="">All (global)</option>
-        <option value="Industrial">Industrial</option>
-        <option value="Administrative">Administrative</option>
-        <option value="Skilled Trade">Skilled Trades</option>
-      </select>
-    </label>
-    <label class="f">Body <textarea id="tpl-body" rows="3"></textarea></label>
-    <button class="btn" onclick="addTemplate()">Add template</button>
-  </div></section>
-
   <section id="s-users"><div class="card half">
     <h3 style="margin-bottom:12px">Users</h3>
     <div id="user-list"></div>
@@ -97,10 +84,35 @@
     <button class="btn ghost" onclick="addUser()">Add user manually</button>
   </div></section>
 
+  <section id="s-whippy"><div class="card half">
+    <h3 style="margin-bottom:12px">Messaging Users</h3>
+    <p class="mut" style="margin-bottom:10px">Manage synced messaging team members. These are used for blast recruiter assignment.</p>
+    <button class="btn" onclick="syncWhippyUsersTab()" style="margin-bottom:14px">Sync from Provider</button>
+    <div id="whippy-list"></div>
+  </div></section>
+
   <section id="s-candidates"><div class="card">
     <h3 style="margin-bottom:12px">Candidates</h3>
     <div class="row" style="margin-bottom:12px"><input id="cand-q" placeholder="Search name or phone..." style="max-width:300px"><button class="btn" onclick="loadCandidates()">Search</button></div>
     <table><thead><tr><th>Name</th><th>Phone</th><th>Category</th><th>Last blast</th><th>Blasts</th><th>DNC</th></tr></thead><tbody id="cand-rows"></tbody></table>
+  </div></section>
+
+  <section id="s-templates"><div class="card half">
+    <h3 style="margin-bottom:12px">Blast message templates</h3>
+    <p class="mut" style="margin-bottom:10px">Placeholders: {first_name} and {link}. {link} is required.</p>
+    <div id="tpl-list"></div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+    <label class="f">Name <input id="tpl-name"></label>
+    <label class="f">Category
+      <select id="tpl-cat">
+        <option value="">All (global)</option>
+        <option value="Industrial">Industrial</option>
+        <option value="Administrative">Administrative</option>
+        <option value="Skilled Trade">Skilled Trades</option>
+      </select>
+    </label>
+    <label class="f">Body <textarea id="tpl-body" rows="3"></textarea></label>
+    <button class="btn" onclick="addTemplate()">Add template</button>
   </div></section>
 
   <section id="s-feedback"><div class="card half">
@@ -112,20 +124,13 @@
 
   <section id="s-changelog"><div class="card half">
     <h3 style="margin-bottom:12px">Changelog</h3>
-    <div id="cl-list"></div>
-    <div id="cl-form" style="display:none">
-      <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+    <div id="cl-form" style="display:none;margin-bottom:16px">
       <label class="f">Version <input id="cl-version" placeholder="2.0.1"></label>
-      <label class="f">Notes <textarea id="cl-notes" rows="3"></textarea></label>
-      <button class="btn" onclick="addChangelog()">Post</button>
+      <label class="f">Notes <textarea id="cl-notes" rows="3" placeholder="What changed?"></textarea></label>
+      <button class="btn" onclick="addChangelog()">Post Update</button>
+      <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
     </div>
-  </div></section>
-
-  <section id="s-whippy"><div class="card half">
-    <h3 style="margin-bottom:12px">Messaging Users</h3>
-    <p class="mut" style="margin-bottom:10px">Manage synced messaging team members. These are used for blast recruiter assignment.</p>
-    <button class="btn" onclick="syncWhippyUsersTab()" style="margin-bottom:14px">Sync from Provider</button>
-    <div id="whippy-list"></div>
+    <div id="cl-list"></div>
   </div></section>
 </main>
 <script src="/app.js?v=2"></script>
@@ -147,7 +152,6 @@ async function loadSettings() {
     document.getElementById('set-wkey').value = s.whippy_api_key || '';
     document.getElementById('set-wchan').value = s.whippy_channel_id || '';
     document.getElementById('set-wfrom').value = s.whippy_from_number || '';
-    // Show cached messaging users count
     if (s.whippy_users && s.whippy_users.length > 0) {
       document.getElementById('whippy-users-info').innerHTML =
         '<span class="whippy-users-badge">' + s.whippy_users.length + ' messaging users synced</span> ' +
@@ -168,10 +172,9 @@ async function saveSettings() {
 async function testSms() {
   const r = await api('/api/settings/test-sms', { method: 'POST' });
   if (r.ok) {
-    let msg = '\u2713 ' + r.provider + ' connection OK' + (r.mock ? ' (mock mode)' : '');
-    if (r.whippy_users_synced) msg += ' \u2014 ' + r.whippy_users_count + ' messaging users synced';
+    var msg = '\u2713 ' + r.provider + ' connection OK' + (r.mock ? ' (mock mode)' : '');
     toast(msg);
-    loadSettings(); // refresh to show synced users
+    loadSettings();
   } else {
     toast('\u2717 ' + r.error);
   }
@@ -246,10 +249,8 @@ async function loadUsers() {
 }
 
 function editUser(id) {
-  // Find the row and replace with inline edit fields
   const row = document.getElementById('user-row-' + id);
   if (!row) return;
-  // Fetch current user data
   api('/api/users').then((list) => {
     const u = list.find((x) => x.id === id);
     if (!u) return;
@@ -311,13 +312,13 @@ async function resetPass(id, name) {
 async function loadCandidates() {
   const q = document.getElementById('cand-q').value;
   const rows = await api('/api/candidates?q=' + encodeURIComponent(q));
-  document.getElementById('cand-rows').innerHTML = rows.map((c) => `
-    <tr><td>${esc(c.first_name)} ${esc(c.last_name)}</td><td>${esc(c.phone_display)}</td>
-    <td>${esc(c.current_category || '\u2014')}</td>
-    <td>${c.last_blast ? new Date(c.last_blast).toLocaleDateString() : '\u2014'}</td>
-    <td>${c.blast_count}</td>
-    <td><button class="btn sm ${c.do_not_contact ? '' : 'ghost'}" onclick="toggleDnc('${c.phone}', ${c.do_not_contact ? 'false' : 'true'})">${c.do_not_contact ? 'DNC \u2713' : 'Mark DNC'}</button></td></tr>`).join('')
-    || '<tr><td colspan="6" class="mut">No candidates yet.</td></tr>';
+  document.getElementById('cand-rows').innerHTML = rows.map(function(c) {
+    return '<tr><td>' + esc(c.first_name) + ' ' + esc(c.last_name) + '</td><td>' + esc(c.phone_display) + '</td>' +
+      '<td>' + esc(c.current_category || '\u2014') + '</td>' +
+      '<td>' + (c.last_blast ? new Date(c.last_blast).toLocaleDateString() : '\u2014') + '</td>' +
+      '<td>' + c.blast_count + '</td>' +
+      '<td><button class="btn sm ' + (c.do_not_contact ? '' : 'ghost') + '" onclick="toggleDnc(\'' + c.phone + '\', ' + (c.do_not_contact ? 'false' : 'true') + ')">' + (c.do_not_contact ? 'DNC \u2713' : 'Mark DNC') + '</button></td></tr>';
+  }).join('') || '<tr><td colspan="6" class="mut">No candidates yet.</td></tr>';
 }
 async function toggleDnc(phone, value) {
   await api('/api/candidates/' + phone + '/dnc', { method: 'POST', body: { value } });
@@ -335,20 +336,27 @@ async function loadFeedback() {
     const list = await api('/api/feedback');
     document.getElementById('fb-list').innerHTML = list.map((f) =>
       '<div style="margin-bottom:8px"><span class="mut">' + esc(f.author || 'anon') + ' \u00b7 ' + new Date(f.created_at).toLocaleDateString() + '</span><div>' + esc(f.body) + '</div></div>').join('');
-  } catch { /* recruiters can post but not read — fine */ }
+  } catch { /* recruiters can post but not read */ }
 }
 
 async function loadChangelog() {
   const list = await api('/api/changelog');
-  document.getElementById('cl-list').innerHTML = list.map((c) =>
-    '<div style="margin-bottom:10px"><strong>v' + esc(c.version) + '</strong> <span class="mut">' + new Date(c.created_at).toLocaleDateString() + '</span><div>' + esc(c.notes) + '</div></div>').join('')
-    || '<div class="mut">No entries yet.</div>';
-  // Changelog post form: admin-only
+  document.getElementById('cl-list').innerHTML = list.map(function(c) {
+    return '<div class="cl-entry">' +
+      '<div class="cl-header">' +
+        '<span class="cl-version-badge">v' + esc(c.version) + '</span>' +
+        '<span class="cl-date">' + new Date(c.created_at).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' }) + '</span>' +
+      '</div>' +
+      '<div class="cl-notes">' + esc(c.notes) + '</div>' +
+    '</div>';
+  }).join('') || '<div class="mut">No updates yet.</div>';
   if (me?.role === 'admin') document.getElementById('cl-form').style.display = 'block';
   else document.getElementById('cl-form').style.display = 'none';
 }
 async function addChangelog() {
   await api('/api/changelog', { method: 'POST', body: { version: document.getElementById('cl-version').value, notes: document.getElementById('cl-notes').value } });
+  document.getElementById('cl-version').value = '';
+  document.getElementById('cl-notes').value = '';
   toast('Posted.'); loadChangelog();
 }
 

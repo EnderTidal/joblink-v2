@@ -51,7 +51,7 @@ async function boot(active) {
   document.body.insertAdjacentHTML('afterbegin', navbar(active));
   try {
     const me = await api('/api/me');
-    document.getElementById('whoami').textContent = me.username + (me.role === 'admin' ? ' (admin)' : '');
+    document.getElementById('whoami').textContent = (me.display_name || me.username) + (me.role === 'admin' ? ' (admin)' : '');
     return me;
   } catch { /* redirected */ }
 }
