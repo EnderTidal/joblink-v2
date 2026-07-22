@@ -20,6 +20,33 @@ const db = openDb(process.env.JOBLINK_DB || path.join(DATA_DIR, 'joblink.db'));
 const app = express();
 app.use(express.json({ limit: '2mb' }));
 
+const startedAt = Date.now();
+
+// Health check — no auth, always accessible
+app.get('/health', (_req, res) => {
+  try {
+    const joCount = db.prepare("SELECT COUNT(*) AS n FROM job_orders").get().n;
+    const candCount = db.prepare("SELECT COUNT(*) AS n FROM candidates").get().n;
+    const lastBlast = db.prepare("SELECT sent_at FROM blasts ORDER BY id DESC LIMIT 1").get();
+    res.json({
+      status: 'ok',
+      uptime: Math.floor((Date.now() - startedAt) / 1000),
+      db: 'ok',
+      jobOrders: joCount,
+      candidates: candCount,
+      lastBlast: lastBlast ? lastBlast.sent_at : null,
+      version: '2.0.0',
+    });
+  } catch (e) {
+    res.status(500).json({
+      status: 'error',
+      db: 'error',
+      error: e.message,
+      version: '2.0.0',
+    });
+  }
+});
+
 const auth = createAuth(db);
 
 // Candidate-facing magic link pages — NO auth (token IS the auth), mounted first

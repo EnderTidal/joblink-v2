@@ -106,7 +106,7 @@
   <div class="card">
     <div class="pipeline-head">
       <h2>Job Orders &mdash; Pipeline</h2>
-      <button class="preview-btn" id="previewBtn" onclick="openPreview()">&#x1F441; Preview as Candidate</button>
+      <div style="display:flex;align-items:center;gap:6px"><select id="previewCategory" style="padding:5px 8px;border:1.5px solid var(--blue);border-radius:8px;font-size:.82rem;background:#fff;color:var(--blue);"><option value="">All</option><option value="Industrial">Industrial</option><option value="Administrative">Administrative</option><option value="Skilled Trade">Skilled Trade</option></select><button class="preview-btn" id="previewBtn" onclick="openPreview()">&#x1F441; Preview as Candidate</button></div>
     </div>
 
     <!-- Filter pills -->
@@ -312,8 +312,8 @@ function sortBy(v) {
   renderTable();
 }
 
-function openPreview() {
-  window.open('/m/preview', '_blank');
+function openPreview() { var cat = document.getElementById("previewCategory").value;
+  var url = '/m/preview'; if (cat) url += '?category=' + encodeURIComponent(cat); window.open(url, '_blank');
 }
 
 function wireFilters(id, setter) {

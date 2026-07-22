@@ -10,7 +10,7 @@ function createPublicRoutes(db) {
   // Preview mode — shows all published JOs as a candidate would see them
   router.get('/m/preview', (req, res) => {
     const { renderPreviewPage } = require('../src/candidate-page');
-    res.send(renderPreviewPage(db));
+    res.send(renderPreviewPage(db, req.query.category));
   });
 
   router.get('/m/:token', (req, res) => {
