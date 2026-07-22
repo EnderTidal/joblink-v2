@@ -52,7 +52,7 @@ document.getElementById('f').addEventListener('submit', async (e) => {
     const r = await api('/api/login', { method: 'POST', body: { email: e.target.querySelector('#e').value, password: p.value } });
     if (r.needsOnboarding) { location.href = '/onboarding.html'; return; }
     if (r.defaultPassword) alert('You are using the default password. Please change it in Admin \u2192 Users.');
-    location.href = '/tom.html';
+    location.href = '/dashboard.html';
   } catch { document.getElementById('err').style.display = 'block'; }
 });
 

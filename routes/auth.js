@@ -254,7 +254,7 @@ function createAuth(db) {
     db.prepare('UPDATE users SET magic_login_token = NULL, magic_login_expires = NULL, email_verified = 1 WHERE id = ?')
       .run(user.id);
     createSession(res, user);
-    res.redirect('/tom.html');
+    res.redirect('/dashboard.html');
   });
 
   return { router, requireAuth, requireAdmin, sessions };
