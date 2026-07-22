@@ -269,6 +269,20 @@ function createAdminRoutes(db, auth) {
     try { res.json(wu ? JSON.parse(wu) : []); } catch { res.json([]); }
   });
 
+  // ---- Remove Whippy User (from cached list) ----
+  router.delete('/api/whippy-users/:id', auth.requireAdmin, (req, res) => {
+    const wu = getSetting(db, 'whippy_users');
+    let users = [];
+    try { users = wu ? JSON.parse(wu) : []; } catch { users = []; }
+    const targetId = req.params.id;
+    const before = users.length;
+    users = users.filter(u => String(u.id) !== String(targetId));
+    if (users.length === before) return res.status(404).json({ error: 'user not found in cached list' });
+    setSetting(db, 'whippy_users', JSON.stringify(users));
+    res.json({ ok: true, remaining: users.length });
+  });
+
+
   // ---- Templates (admin only) ----
   router.get('/api/templates', (_req, res) => {
     res.json(db.prepare('SELECT * FROM templates ORDER BY is_default DESC, id').all());

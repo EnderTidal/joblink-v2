@@ -33,6 +33,7 @@
     <button data-t="candidates">Candidates</button>
     <button data-t="feedback">Feedback</button>
     <button data-t="changelog">Changelog</button>
+    <button data-t="whippy">Whippy</button>
   </div>
 
   <section id="s-settings" class="on"><div class="card half">
@@ -117,6 +118,13 @@
       <label class="f">Notes <textarea id="cl-notes" rows="3"></textarea></label>
       <button class="btn" onclick="addChangelog()">Post</button>
     </div>
+  </div></section>
+
+  <section id="s-whippy"><div class="card half">
+    <h3 style="margin-bottom:12px">Whippy Users</h3>
+    <p class="mut" style="margin-bottom:10px">Manage synced Whippy team members. These are used for blast recruiter assignment.</p>
+    <button class="btn" onclick="syncWhippyUsersTab()" style="margin-bottom:14px">Sync from Whippy</button>
+    <div id="whippy-list"></div>
   </div></section>
 </main>
 <script src="/app.js?v=2"></script>
@@ -343,9 +351,42 @@ async function addChangelog() {
   toast('Posted.'); loadChangelog();
 }
 
+
+async function loadWhippyUsers() {
+  try {
+    var users = await api('/api/whippy-users');
+    if (!users.length) {
+      document.getElementById('whippy-list').innerHTML = '<p class="mut">No Whippy users synced yet. Click "Sync from Whippy" to fetch them.</p>';
+      return;
+    }
+    document.getElementById('whippy-list').innerHTML = users.map(function(u) {
+      return '<div class="edit-row">' +
+        '<span class="user-label">' + esc(u.name) + '</span>' +
+        '<span class="mut" style="font-size:.82rem">' + esc(u.id || '') + '</span>' +
+        '<span class="mut" style="font-size:.82rem">' + esc(u.email || '') + '</span>' +
+        '<button class="btn sm ghost" style="color:#ef4444" onclick="removeWhippyUser('' + esc(u.id) + '')">Remove</button>' +
+      '</div>';
+    }).join('');
+  } catch(e) { document.getElementById('whippy-list').innerHTML = '<p class="mut">Error loading Whippy users.</p>'; }
+}
+async function syncWhippyUsersTab() {
+  try {
+    var r = await api('/api/settings/sync-whippy-users', { method: 'POST' });
+    if (r.ok) { toast('Synced ' + r.count + ' Whippy users'); loadWhippyUsers(); }
+    else { toast('Sync failed: ' + (r.error || 'unknown')); }
+  } catch(e) { toast(e.message); }
+}
+async function removeWhippyUser(id) {
+  try {
+    await api('/api/whippy-users/' + id, { method: 'DELETE' });
+    toast('User removed.');
+    loadWhippyUsers();
+  } catch(e) { toast(e.message); }
+}
+
 boot('admin').then((m) => {
   me = m;
-  loadSettings(); loadTemplates(); loadUsers(); loadCandidates(); loadFeedback(); loadChangelog();
+  loadSettings(); loadTemplates(); loadUsers(); loadCandidates(); loadFeedback(); loadChangelog(); loadWhippyUsers();
 });
 </script>
 </body></html>
