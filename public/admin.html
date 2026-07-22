@@ -28,6 +28,13 @@
   .cl-version-badge { display:inline-block; background:rgba(96,165,250,0.15); color:var(--blue); font-size:.82rem; font-weight:700; padding:3px 10px; border-radius:6px; }
   .cl-date { color:var(--mut); font-size:.82rem; }
   .cl-notes { font-size:.92rem; line-height:1.5; white-space:pre-wrap; }
+
+  /* Fix select contrast in dark mode */
+  select { background:var(--bg) !important; color:var(--ink) !important; }
+  select option { background:var(--card); color:var(--ink); }
+
+  /* Fix sort-select sizing in admin */
+  .sort-select { height:auto !important; min-height:32px; font-size:.85rem !important; width:auto !important; min-width:120px; padding:4px 28px 4px 10px !important; }
 </style></head>
 <body>
 <main class="page">
@@ -124,13 +131,7 @@
   </div></section>
 
   <section id="s-changelog"><div class="card half">
-    <h3 style="margin-bottom:12px">Changelog</h3>
-    <div id="cl-form" style="display:none;margin-bottom:16px">
-      <label class="f">Version <input id="cl-version" placeholder="2.0.1"></label>
-      <label class="f">Notes <textarea id="cl-notes" rows="3" placeholder="What changed?"></textarea></label>
-      <button class="btn" onclick="addChangelog()">Post Update</button>
-      <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
-    </div>
+    <h3 style="margin-bottom:12px">Updates</h3>
     <div id="cl-list"></div>
   </div></section>
 </main>
@@ -345,17 +346,15 @@ async function loadFeedback() {
 
 async function loadChangelog() {
   const list = await api('/api/changelog');
-  document.getElementById('cl-list').innerHTML = list.map(function(c) {
-    return '<div class="cl-entry">' +
-      '<div class="cl-header">' +
-        '<span class="cl-version-badge">v' + esc(c.version) + '</span>' +
-        '<span class="cl-date">' + new Date(c.created_at).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' }) + '</span>' +
+  document.getElementById('cl-list').innerHTML = list.length ? list.map(function(c) {
+    return '<div style="padding:14px 0;border-bottom:1px solid var(--line)">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+        '<span style="background:var(--blue);color:#fff;font-size:.78rem;font-weight:700;padding:2px 10px;border-radius:6px">v' + esc(c.version) + '</span>' +
+        '<span class="mut" style="font-size:.82rem">' + new Date(c.created_at).toLocaleDateString() + '</span>' +
       '</div>' +
-      '<div class="cl-notes">' + esc(c.notes) + '</div>' +
+      '<div style="white-space:pre-wrap;font-size:.9rem;line-height:1.5">' + esc(c.notes) + '</div>' +
     '</div>';
-  }).join('') || '<div class="mut">No updates yet.</div>';
-  if (me?.role === 'admin') document.getElementById('cl-form').style.display = 'block';
-  else document.getElementById('cl-form').style.display = 'none';
+  }).join('') : '<div class="mut">No updates yet.</div>';
 }
 async function addChangelog() {
   await api('/api/changelog', { method: 'POST', body: { version: document.getElementById('cl-version').value, notes: document.getElementById('cl-notes').value } });

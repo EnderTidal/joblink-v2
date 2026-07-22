@@ -60,3 +60,7 @@ html.light-mode .tabs button.on { background:#4b8df8; color:#fff; border-color:#
 .theme-toggle { background:transparent; border:1px solid #ffffff55; color:#fff; border-radius:7px; padding:5px 8px; cursor:pointer; display:flex; align-items:center; }
 .theme-toggle svg { width:18px; height:18px; }
 html.light-mode .theme-toggle { border-color:#cbd5e1; color:#1e293b; }
+
+.sort-select { background:var(--bg); color:var(--ink); border:1px solid var(--line); }
+
+select option { background:var(--card); color:var(--ink); }
