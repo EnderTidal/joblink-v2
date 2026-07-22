@@ -152,6 +152,7 @@
           <th>Interested</th>
           <th>Yes-Listed</th>
           <th>Filled</th>
+          <th>Recruiter</th>
           <th>Status</th>
           <th>Actions</th>
         </tr></thead>
@@ -245,7 +246,7 @@ function renderTable() {
   const completed = jobs.filter(jo => jo.status === 'Complete');
 
   document.getElementById('rows').innerHTML = active.map(renderRow).join('')
-    || '<tr><td colspan="10" class="mut jo-sub">No job orders yet &mdash; create one in AI Assistant.</td></tr>';
+    || '<tr><td colspan="11" class="mut jo-sub">No job orders yet &mdash; create one in AI Assistant.</td></tr>';
 
   // Completed section
   const cSection = document.getElementById('completedSection');
@@ -270,6 +271,7 @@ function renderRow(jo) {
     '<td><span class="interest ' + (ic > 0 ? 'has' : 'none') + '">' + ic + '</span></td>' +
     '<td>' + (jo.yeslisted_count || 0) + '</td>' +
     '<td>' + (jo.filled_count || 0) + '</td>' +
+    '<td class="col-company">' + esc(jo.assigned_recruiter || '—') + '</td>' +
     '<td><span class="pill ' + jo.status + '">' + jo.status + '</span></td>' +
     '<td class="act-group">' +
       (jo.status !== 'Published' ? '<button class="btn sm" onclick="setStatus(' + jo.id + ',\'Published\')">Publish</button>' : '') +
@@ -401,6 +403,7 @@ async function openJoDetail(id) {
     html += '<div class="f"><label>Requirements</label><textarea name="requirements">' + esc(jo.requirements) + '</textarea></div>';
     html += '<div class="f"><label>Description</label><textarea name="description">' + esc(jo.description) + '</textarea></div>';
     html += '<div class="f"><label>Status</label><select name="status">' + statuses.map(function(s){return '<option' + (jo.status===s?' selected':'') + '>' + s + '</option>';}).join('') + '</select></div>';
+    html += '<div class="f"><label>Assigned Recruiter</label><select name="assigned_recruiter" id="jo-recruiter-select"><option value="">(none)</option></select></div>';
     html += '<div class="btn-row">';
     html += '<button type="button" class="btn" onclick="saveJoDetail(' + jo.id + ')">Save</button>';
     if (jo.status !== 'Published') html += '<button type="button" class="btn ghost" onclick="joAction(' + jo.id + ',\x27Published\x27)">Publish</button>';
@@ -424,6 +427,20 @@ async function openJoDetail(id) {
 
     document.getElementById('joModalBody').innerHTML = html;
     document.getElementById('joModal').classList.add('open');
+    // Populate recruiter dropdown
+    try {
+      var users = await api('/api/users');
+      var sel = document.getElementById('jo-recruiter-select');
+      if (sel) {
+        users.forEach(function(u) {
+          var opt = document.createElement('option');
+          opt.value = u.display_name || u.username;
+          opt.textContent = (u.display_name || u.username) + ' (' + u.role + ')';
+          if ((jo.assigned_recruiter || '') === (u.display_name || u.username)) opt.selected = true;
+          sel.appendChild(opt);
+        });
+      }
+    } catch(e) { /* users endpoint may fail for non-admin */ }
   } catch(e) { toast('Error loading job order: ' + e.message); }
 }
 function closeJoModal() { document.getElementById('joModal').classList.remove('open'); currentJoId = null; }

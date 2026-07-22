@@ -39,14 +39,15 @@ function createJobOrder(db, draft) {
   const v = validateJobOrder(draft);
   if (!v.ok) throw new Error('Invalid job order: ' + [...v.missing, ...v.errors].join('; '));
   const r = db.prepare(
-    `INSERT INTO job_orders (title, category, pay, shift_hours, address, city_state, requirements, description, company, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO job_orders (title, category, pay, shift_hours, address, city_state, requirements, description, company, status, assigned_recruiter)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     draft.title.trim(), draft.category, String(draft.pay || '').trim(),
     String(draft.shift_hours || '').trim(), String(draft.address || '').trim(),
     String(draft.city_state || '').trim(),
     String(draft.requirements || '').trim(), String(draft.description || '').trim(),
     String(draft.company || '').trim(), draft.status || 'Unpublished',
+    String(draft.assigned_recruiter || '').trim() || null,
   );
   return Number(r.lastInsertRowid);
 }
@@ -58,10 +59,10 @@ function updateJobOrder(db, id, patch) {
   const v = validateJobOrder(merged);
   if (!v.ok) throw new Error('Invalid job order: ' + [...v.missing, ...v.errors].join('; '));
   db.prepare(
-    `UPDATE job_orders SET title=?, category=?, pay=?, shift_hours=?, address=?, city_state=?, requirements=?, description=?, company=?, status=?,
+    `UPDATE job_orders SET title=?, category=?, pay=?, shift_hours=?, address=?, city_state=?, requirements=?, description=?, company=?, status=?, assigned_recruiter=?,
      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`,
   ).run(merged.title, merged.category, merged.pay, merged.shift_hours, merged.address, merged.city_state,
-        merged.requirements, merged.description, merged.company || '', merged.status, id);
+        merged.requirements, merged.description, merged.company || '', merged.status, merged.assigned_recruiter || null, id);
   return db.prepare('SELECT * FROM job_orders WHERE id = ?').get(id);
 }
 
