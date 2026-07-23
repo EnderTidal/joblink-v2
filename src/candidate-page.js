@@ -53,28 +53,28 @@ function renderCandidatePage(db, candidate) {
 
   return `<!doctype html>
 <html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <title>Jobs for you \u2014 Express Employment</title>
 <style>
-  :root { --blue:#00529b; --gold:#ffb500; }
+  :root { --brand:#3d4ee6; --blue:#2563eb; --green:#10863f; --amber:#b26a06; --surface:#ffffff; --surface-2:#f6f8fc; --border:#e5e9f2; --text:#0f1728; --text-muted:#59617a; --radius:14px; --radius-sm:10px; --shadow-sm:0 1px 2px rgba(16,24,40,.05); }
   * { box-sizing:border-box; margin:0; }
-  body { font-family:-apple-system,'Segoe UI',Roboto,sans-serif; background:#f2f5f9; color:#1a2733; padding-bottom:40px; }
-  header { background:var(--blue); color:#fff; padding:20px 16px; text-align:center; }
+  body { font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif; background:#eef1f8; color:var(--text); padding-bottom:40px; }
+  header { background:var(--brand); color:#fff; padding:20px 16px; text-align:center; }
   header h1 { font-size:1.25rem; }
   header p { opacity:.9; font-size:.9rem; margin-top:4px; }
   main { max-width:560px; margin:0 auto; padding:16px; }
-  .card { background:#fff; border-radius:12px; padding:18px; margin-bottom:14px; box-shadow:0 1px 4px rgba(10,40,80,.08); }
-  .card h2 { font-size:1.1rem; color:var(--blue); margin-bottom:8px; }
+  .card { background:var(--surface); border-radius:var(--radius); padding:18px; margin-bottom:14px; box-shadow:var(--shadow-sm); }
+  .card h2 { font-size:1.1rem; color:var(--brand); margin-bottom:8px; }
   .meta { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
-  .chip { background:#eef3f9; border-radius:999px; padding:4px 10px; font-size:.82rem; }
-  .chip.pay { background:#e7f6e9; font-weight:600; }
+  .chip { background:var(--surface-2); border-radius:99px; padding:4px 10px; font-size:.82rem; }
+  .chip.pay { background:#dcf3e5; font-weight:600; }
   .req { font-size:.9rem; margin-bottom:8px; }
   p { font-size:.92rem; line-height:1.45; }
-  .interest { width:100%; margin-top:12px; padding:13px; border:0; border-radius:9px; background:var(--gold);
-    color:#1a2733; font-size:1rem; font-weight:700; cursor:pointer; }
-  .interest.done { background:#2e8540; color:#fff; }
+  .interest { width:100%; margin-top:12px; padding:13px; border:0; border-radius:var(--radius-sm); background:var(--brand);
+    color:var(--text); font-size:1rem; font-weight:700; cursor:pointer; }
+  .interest.done { background:var(--green); color:#fff; }
   .empty { text-align:center; padding:40px 18px; }
-  .cat { text-align:center; font-size:.85rem; color:#5a6b7c; margin:4px 0 12px; }
+  .cat { text-align:center; font-size:.85rem; color:var(--text-muted); margin:4px 0 12px; }
 </style></head>
 <body>
 <header>
@@ -129,31 +129,31 @@ function renderPreviewPage(db, preSelectedCategory) {
 
   return `<!doctype html>
 <html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <title>Candidate Preview \u2014 JobLink</title>
 <style>
-  :root { --blue:#00529b; --gold:#ffb500; }
+  :root { --brand:#3d4ee6; --blue:#2563eb; --green:#10863f; --amber:#b26a06; --surface:#ffffff; --surface-2:#f6f8fc; --border:#e5e9f2; --text:#0f1728; --text-muted:#59617a; --radius:14px; --radius-sm:10px; --shadow-sm:0 1px 2px rgba(16,24,40,.05); }
   * { box-sizing:border-box; margin:0; }
-  body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:#f2f5f9; color:#1a2733; padding-bottom:40px; }
-  header { background:var(--blue); color:#fff; padding:20px 16px; text-align:center; }
+  body { font-family:"Plus Jakarta Sans",system-ui,-apple-system,sans-serif; background:#eef1f8; color:var(--text); padding-bottom:40px; }
+  header { background:var(--brand); color:#fff; padding:20px 16px; text-align:center; }
   header h1 { font-size:1.25rem; }
   header p { opacity:.9; font-size:.9rem; margin-top:4px; }
-  .preview-bar { background:#ffb500; color:#1a2733; text-align:center; padding:8px; font-weight:700; font-size:.88rem; }
+  .preview-bar { background:#ffb500; color:var(--text); text-align:center; padding:8px; font-weight:700; font-size:.88rem; }
   main { max-width:560px; margin:0 auto; padding:16px; }
-  .filter-bar { background:#fff; border-radius:10px; padding:10px 14px; margin-bottom:14px; box-shadow:0 1px 4px rgba(10,40,80,.08); display:flex; align-items:center; gap:10px; }
-  .filter-bar label { font-size:.85rem; font-weight:600; color:#5a6b7c; white-space:nowrap; }
-  .filter-bar select { flex:1; padding:7px 10px; border:1.5px solid #d0d7de; border-radius:8px; font-size:.9rem; background:#fff; color:#1a2733; }
-  .card { background:#fff; border-radius:12px; padding:18px; margin-bottom:14px; box-shadow:0 1px 4px rgba(10,40,80,.08); }
-  .card h2 { font-size:1.1rem; color:var(--blue); margin-bottom:8px; }
+  .filter-bar { background:var(--surface); border-radius:10px; padding:10px 14px; margin-bottom:14px; box-shadow:var(--shadow-sm); display:flex; align-items:center; gap:10px; }
+  .filter-bar label { font-size:.85rem; font-weight:600; color:var(--text-muted); white-space:nowrap; }
+  .filter-bar select { flex:1; padding:7px 10px; border:1px solid var(--border); border-radius:8px; font-size:.9rem; background:var(--surface); color:var(--text); }
+  .card { background:var(--surface); border-radius:var(--radius); padding:18px; margin-bottom:14px; box-shadow:var(--shadow-sm); }
+  .card h2 { font-size:1.1rem; color:var(--brand); margin-bottom:8px; }
   .meta { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
-  .chip { background:#eef3f9; border-radius:999px; padding:4px 10px; font-size:.82rem; }
-  .chip.pay { background:#e7f6e9; font-weight:600; }
+  .chip { background:var(--surface-2); border-radius:99px; padding:4px 10px; font-size:.82rem; }
+  .chip.pay { background:#dcf3e5; font-weight:600; }
   .req { font-size:.9rem; margin-bottom:8px; }
   p { font-size:.92rem; line-height:1.45; }
-  .interest { width:100%; margin-top:12px; padding:13px; border:0; border-radius:9px; background:#2e8540;
+  .interest { width:100%; margin-top:12px; padding:13px; border:0; border-radius:var(--radius-sm); background:var(--green);
     color:#fff; font-size:1rem; font-weight:700; cursor:default; }
   .empty { text-align:center; padding:40px 18px; }
-  .count-badge { font-size:.82rem; color:#5a6b7c; text-align:center; margin-bottom:10px; }
+  .count-badge { font-size:.82rem; color:var(--text-muted); text-align:center; margin-bottom:10px; }
 </style></head>
 <body>
 <div class="preview-bar">PREVIEW MODE \u2014 This is what candidates see</div>
