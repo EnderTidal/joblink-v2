@@ -67,6 +67,7 @@ function createSignupRoutes(sysDb) {
         success_url: BASE_URL + '/api/signup/success?session_id={CHECKOUT_SESSION_ID}',
         cancel_url: BASE_URL + '/signup.html?cancelled=1',
         automatic_tax: { enabled: true },
+        customer_update: { address: 'auto' },
         allow_promotion_codes: true,
       });
 
