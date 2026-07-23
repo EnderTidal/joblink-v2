@@ -64,3 +64,14 @@ html.light-mode .theme-toggle { border-color:#cbd5e1; color:#1e293b; }
 .sort-select { background:var(--bg); color:var(--ink); border:1px solid var(--line); }
 
 select option { background:var(--card); color:var(--ink); }
+
+/* Extended light mode overrides */
+html.light-mode .filters button { background:#ffffff; }
+html.light-mode .filters button.on { background:var(--blue); color:#fff; border-color:var(--blue); }
+html.light-mode .pill.Published { background:rgba(21,128,61,0.1); color:#15803d; }
+html.light-mode .pill.Unpublished { background:rgba(100,116,139,0.1); color:#475569; }
+html.light-mode button.btn.ghost { background:rgba(30,70,214,0.08); color:#1e46d6; }
+html.light-mode button.btn.gold { color:#fff; }
+html.light-mode input, html.light-mode select, html.light-mode textarea { background:#fff; border-color:#d4dae3; }
+html.light-mode td { border-bottom-color:#f1f4f8; }
+html.light-mode .preview-btn { border-color:#1e46d6 !important; color:#1e46d6 !important; background:#fff !important; }
