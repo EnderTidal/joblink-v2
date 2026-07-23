@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JobLink — Super Admin</title>
+<script>(function(){if(localStorage.getItem("joblink_light_mode")==="true"){document.documentElement.classList.add("light-mode")}})();</script>
+<link rel="stylesheet" href="/app.css?v=4">
+<style>
+  .dev-hero { padding:30px 40px 0; max-width:1400px; margin:0 auto; }
+  .dev-hero h1 { font-size:27px; font-weight:800; letter-spacing:-.02em; margin:0 0 4px; }
+  .dev-hero p { color:var(--text-muted); font-size:14px; margin:0 0 24px; }
+  main.page { padding-top:16px; }
+  .grid.metrics { grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); margin-bottom:24px; }
+  .section-title { font-size:16px; font-weight:800; letter-spacing:-.01em; margin:0 0 14px; display:flex; align-items:center; gap:10px; }
+  .org-table { width:100%; }
+  .org-table td { font-size:13.5px; }
+  .org-table .org-name { font-weight:700; color:var(--brand); cursor:pointer; }
+  .org-table .org-name:hover { color:var(--brand-strong); }
+  .status-pill { display:inline-block; padding:3px 10px; border-radius:99px; font-size:11.5px; font-weight:700; }
+  .status-pill.active { background:var(--green-soft); color:var(--green); }
+  .status-pill.trialing { background:var(--blue-soft); color:var(--blue); }
+  .status-pill.suspended { background:var(--red-soft); color:var(--red); }
+  .status-pill.canceled, .status-pill.past_due { background:var(--amber-soft); color:var(--amber); }
+  .act-btn { padding:5px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; border:1px solid transparent; }
+  .act-btn.suspend { background:var(--red-soft); color:var(--red); }
+  .act-btn.suspend:hover { background:color-mix(in srgb,var(--red) 22%,var(--surface)); }
+  .act-btn.reactivate { background:var(--green-soft); color:var(--green); }
+  .act-btn.reactivate:hover { background:color-mix(in srgb,var(--green) 22%,var(--surface)); }
+  .org-detail { max-width:640px; }
+  .org-detail h2 { margin-bottom:20px; }
+  .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
+  .detail-item label { display:block; font-size:11px; font-weight:700; color:var(--text-subtle); text-transform:uppercase; letter-spacing:.05em; margin-bottom:2px; }
+  .detail-item span { font-size:14px; font-weight:600; }
+  .detail-users { margin-top:14px; }
+  .detail-users h3 { font-size:14px; font-weight:700; margin:0 0 8px; }
+  .recent-blasts { margin-top:14px; }
+  .recent-blasts h3 { font-size:14px; font-weight:700; margin:0 0 8px; }
+  .mini-table { width:100%; font-size:12.5px; }
+  .mini-table td { padding:8px 6px; }
+  .mini-table th { padding:8px 6px; }
+  .signup-list { margin-top:0; }
+  .signup-item { display:flex; align-items:center; gap:14px; padding:10px 0; border-bottom:1px solid var(--border); }
+  .signup-item:last-child { border-bottom:none; }
+  .signup-icon { width:36px; height:36px; border-radius:10px; background:var(--brand-soft); color:var(--brand); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; flex-shrink:0; }
+  .signup-name { font-weight:700; font-size:14px; }
+  .signup-date { font-size:12px; color:var(--text-muted); }
+  .health-link { display:inline-flex; align-items:center; gap:8px; padding:10px 18px; border-radius:var(--radius-sm); background:var(--surface-2); border:1px solid var(--border); font-size:13.5px; font-weight:600; color:var(--text-muted); margin-top:24px; }
+  .health-link:hover { background:var(--surface-3); color:var(--text); }
+  .loading { text-align:center; padding:40px; color:var(--text-muted); }
+</style>
+</head><body>
+
+<nav class="topbar">
+  <div class="brand">JobLink</div>
+  <span class="spacer"></span>
+  <div class="nav-links">
+    <a href="/dashboard.html">Dashboard</a>
+    <a href="/pipeline.html">Pipeline</a>
+    <a href="/admin.html">Admin</a>
+    <a href="/dev-dashboard.html" class="active">Super Admin</a>
+  </div>
+  <span class="spacer"></span>
+  <button class="theme-toggle" onclick="toggleTheme()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+  </button>
+  <span id="whoami"></span>
+  <button onclick="logout()">Log out</button>
+</nav>
+
+<div class="dev-hero">
+  <h1>Super Admin</h1>
+  <p>Platform-level overview across all orgs</p>
+</div>
+
+<main class="page">
+  <!-- Metrics -->
+  <div class="grid metrics" id="metricsGrid">
+    <div class="card stat"><div class="lbl">Monthly Recurring Revenue</div><div class="num" id="mMrr">--</div></div>
+    <div class="card stat"><div class="lbl">Active Orgs</div><div class="num" id="mActive">--</div></div>
+    <div class="card stat"><div class="lbl">Trialing</div><div class="num" id="mTrialing">--</div></div>
+    <div class="card stat"><div class="lbl">Suspended / Churned</div><div class="num" id="mChurned">--</div></div>
+    <div class="card stat"><div class="lbl">Total Candidates</div><div class="num" id="mCandidates">--</div></div>
+    <div class="card stat"><div class="lbl">Total Job Orders</div><div class="num" id="mJOs">--</div></div>
+    <div class="card stat"><div class="lbl">Total Blasts</div><div class="num" id="mBlasts">--</div></div>
+    <div class="card stat"><div class="lbl">Total Orgs</div><div class="num" id="mTotal">--</div></div>
+  </div>
+
+  <!-- Orgs table -->
+  <div class="card">
+    <h2 class="section-title">All Organizations</h2>
+    <table class="org-table" id="orgTable">
+      <thead><tr>
+        <th>Org</th><th>Slug</th><th>Status</th><th>Trial End</th>
+        <th>Users</th><th>Candidates</th><th>JOs</th><th>Blasts</th>
+        <th>Created</th><th>Actions</th>
+      </tr></thead>
+      <tbody id="orgBody"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Recent Signups -->
+  <div class="card">
+    <h2 class="section-title">Recent Signups</h2>
+    <div id="recentSignups" class="signup-list"><div class="loading">Loading...</div></div>
+  </div>
+
+  <!-- System Health -->
+  <a class="health-link" href="/health" target="_blank">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+    System Health Endpoint
+  </a>
+</main>
+
+<!-- Org Detail Modal -->
+<div class="modal-overlay" id="orgModal">
+  <div class="modal org-detail">
+    <button class="close-btn" onclick="closeModal()">&times;</button>
+    <h2 id="modalOrgName">Org Detail</h2>
+    <div class="detail-grid" id="modalDetail"></div>
+    <div class="detail-users" id="modalUsers"></div>
+    <div class="recent-blasts" id="modalBlasts"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/app.js?v=4"></script>
+<script>
+(async function boot() {
+  try {
+    var me = await api('/api/me');
+    document.getElementById('whoami').textContent = me.display_name || me.username;
+  } catch(e) {
+    location.href = '/login.html';
+    return;
+  }
+  loadMetrics();
+  loadOrgs();
+})();
+
+async function loadMetrics() {
+  try {
+    var m = await api('/dev/api/metrics');
+    document.getElementById('mMrr').textContent = m.mrr_display;
+    document.getElementById('mActive').textContent = m.active_orgs;
+    document.getElementById('mTrialing').textContent = m.trialing_orgs;
+    document.getElementById('mChurned').textContent = (m.suspended_orgs + m.churned_orgs);
+    document.getElementById('mCandidates').textContent = m.total_candidates.toLocaleString();
+    document.getElementById('mJOs').textContent = m.total_job_orders;
+    document.getElementById('mBlasts').textContent = m.total_blasts;
+    document.getElementById('mTotal').textContent = m.total_orgs;
+  } catch(e) {
+    console.error('metrics', e);
+  }
+}
+
+var orgsCache = [];
+
+async function loadOrgs() {
+  try {
+    var orgs = await api('/dev/api/orgs');
+    orgsCache = orgs;
+    renderOrgs(orgs);
+    renderRecentSignups(orgs);
+  } catch(e) {
+    document.getElementById('orgBody').innerHTML = '<tr><td colspan="10" style="color:var(--red)">Failed to load: ' + e.message + '</td></tr>';
+  }
+}
+
+function renderOrgs(orgs) {
+  var tbody = document.getElementById('orgBody');
+  if (!orgs.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="empty-msg">No orgs found</td></tr>';
+    return;
+  }
+  tbody.innerHTML = orgs.map(function(o) {
+    return '<tr>' +
+      '<td><span class="org-name" onclick="viewOrg(' + o.id + ')">' + esc(o.name) + '</span></td>' +
+      '<td style="color:var(--text-muted)">' + esc(o.slug) + '</td>' +
+      '<td><span class="status-pill ' + o.subscription_status + '">' + o.subscription_status + '</span></td>' +
+      '<td style="color:var(--text-muted)">' + (o.trial_end ? new Date(o.trial_end).toLocaleDateString() : '--') + '</td>' +
+      '<td>' + o.user_count + '</td>' +
+      '<td>' + o.candidate_count.toLocaleString() + '</td>' +
+      '<td>' + o.job_order_count + '</td>' +
+      '<td>' + o.blast_count + '</td>' +
+      '<td style="color:var(--text-muted)">' + new Date(o.created_at).toLocaleDateString() + '</td>' +
+      '<td>' + orgActions(o) + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function orgActions(o) {
+  if (o.id === 1) return '<span style="color:var(--text-subtle);font-size:12px">Platform</span>';
+  if (o.subscription_status === 'suspended') {
+    return '<button class="act-btn reactivate" onclick="reactivateOrg(' + o.id + ')">Reactivate</button>';
+  }
+  return '<button class="act-btn suspend" onclick="suspendOrg(' + o.id + ')">Suspend</button>';
+}
+
+function renderRecentSignups(orgs) {
+  var sorted = orgs.slice().sort(function(a, b) { return new Date(b.created_at) - new Date(a.created_at); }).slice(0, 10);
+  var el = document.getElementById('recentSignups');
+  if (!sorted.length) { el.innerHTML = '<div class="empty-msg">No signups yet</div>'; return; }
+  el.innerHTML = sorted.map(function(o) {
+    return '<div class="signup-item">' +
+      '<div class="signup-icon">' + esc(o.name.charAt(0).toUpperCase()) + '</div>' +
+      '<div>' +
+        '<div class="signup-name">' + esc(o.name) + '</div>' +
+        '<div class="signup-date">' + esc(o.slug) + ' &middot; ' + new Date(o.created_at).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) + ' &middot; <span class="status-pill ' + o.subscription_status + '">' + o.subscription_status + '</span></div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+async function suspendOrg(id) {
+  if (!confirm('Suspend this org? They will lose access.')) return;
+  try {
+    await api('/dev/api/orgs/' + id + '/suspend', { method: 'POST' });
+    toast('Org suspended');
+    loadOrgs();
+    loadMetrics();
+  } catch(e) { toast('Error: ' + e.message); }
+}
+
+async function reactivateOrg(id) {
+  try {
+    await api('/dev/api/orgs/' + id + '/reactivate', { method: 'POST' });
+    toast('Org reactivated');
+    loadOrgs();
+    loadMetrics();
+  } catch(e) { toast('Error: ' + e.message); }
+}
+
+async function viewOrg(id) {
+  try {
+    var o = await api('/dev/api/orgs/' + id);
+    document.getElementById('modalOrgName').textContent = o.name;
+
+    document.getElementById('modalDetail').innerHTML =
+      '<div class="detail-item"><label>ID</label><span>' + o.id + '</span></div>' +
+      '<div class="detail-item"><label>Slug</label><span>' + esc(o.slug) + '</span></div>' +
+      '<div class="detail-item"><label>Status</label><span class="status-pill ' + o.subscription_status + '">' + o.subscription_status + '</span></div>' +
+      '<div class="detail-item"><label>Plan Price</label><span>$' + (o.plan_price_cents/100).toFixed(2) + '/mo</span></div>' +
+      '<div class="detail-item"><label>Trial End</label><span>' + (o.trial_end ? new Date(o.trial_end).toLocaleDateString() : 'N/A') + '</span></div>' +
+      '<div class="detail-item"><label>Stripe Customer</label><span style="font-size:12px;word-break:break-all">' + (o.stripe_customer_id || 'None') + '</span></div>' +
+      '<div class="detail-item"><label>Candidates</label><span>' + o.candidate_count.toLocaleString() + '</span></div>' +
+      '<div class="detail-item"><label>Job Orders</label><span>' + o.job_order_count + '</span></div>' +
+      '<div class="detail-item"><label>Blasts Sent</label><span>' + o.blast_count + '</span></div>' +
+      '<div class="detail-item"><label>Interests</label><span>' + o.interest_count + '</span></div>' +
+      '<div class="detail-item"><label>Created</label><span>' + new Date(o.created_at).toLocaleString() + '</span></div>' +
+      '<div class="detail-item"><label>Reminder Sent</label><span>' + (o.reminder_sent ? 'Yes' : 'No') + '</span></div>';
+
+    // Users
+    var usersEl = document.getElementById('modalUsers');
+    if (o.users && o.users.length) {
+      usersEl.innerHTML = '<h3>Users (' + o.users.length + ')</h3><table class="mini-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th></tr></thead><tbody>' +
+        o.users.map(function(u) {
+          return '<tr>' +
+            '<td style="font-weight:600">' + esc(u.display_name || u.username) + '</td>' +
+            '<td style="color:var(--text-muted)">' + esc(u.email || '--') + '</td>' +
+            '<td><span class="status-pill ' + (u.role === 'admin' ? 'active' : 'trialing') + '">' + u.role + '</span></td>' +
+            '<td style="color:var(--text-muted)">' + new Date(u.created_at).toLocaleDateString() + '</td>' +
+          '</tr>';
+        }).join('') + '</tbody></table>';
+    } else {
+      usersEl.innerHTML = '<h3>Users</h3><div class="empty-msg">No users</div>';
+    }
+
+    // Recent blasts
+    var blastsEl = document.getElementById('modalBlasts');
+    if (o.recent_blasts && o.recent_blasts.length) {
+      blastsEl.innerHTML = '<h3>Recent Blasts</h3><table class="mini-table"><thead><tr><th>#</th><th>Date</th><th>Category</th><th>Sent</th></tr></thead><tbody>' +
+        o.recent_blasts.map(function(b) {
+          return '<tr>' +
+            '<td style="font-weight:700">' + b.id + '</td>' +
+            '<td style="color:var(--text-muted)">' + new Date(b.sent_at).toLocaleString() + '</td>' +
+            '<td>' + esc(b.category) + '</td>' +
+            '<td>' + b.sent_count + '</td>' +
+          '</tr>';
+        }).join('') + '</tbody></table>';
+    } else {
+      blastsEl.innerHTML = '<h3>Recent Blasts</h3><div class="empty-msg">No blasts yet</div>';
+    }
+
+    document.getElementById('orgModal').classList.add('open');
+  } catch(e) {
+    toast('Error loading org: ' + e.message);
+  }
+}
+
+function closeModal() {
+  document.getElementById('orgModal').classList.remove('open');
+}
+document.getElementById('orgModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+function esc(s) {
+  var d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+function toast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2500);
+}
+
+function toggleTheme() {
+  document.documentElement.classList.toggle('light-mode');
+  localStorage.setItem('joblink_light_mode', document.documentElement.classList.contains('light-mode'));
+}
+
+async function logout() {
+  try { await api('/api/logout', { method: 'POST' }); } catch(e) {}
+  location.href = '/login.html';
+}
+</script>
+</body></html>

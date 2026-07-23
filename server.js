@@ -12,6 +12,8 @@ const { openSystemDb, listOrgs, updateOrgBilling, cleanExpiredSignups } = requir
 const { getTenantDb, tenantMiddleware } = require('./src/tenant');
 const { createAuth, sendEmail } = require('./routes/auth');
 const { createTomRoutes } = require('./routes/tom');
+const { orgRateLimiter, orgBlastLimiter } = require("./middleware/rate-limit");
+const { createDevRoutes } = require("./routes/dev");
 const { createAdminRoutes } = require('./routes/admin');
 const { createPublicRoutes } = require('./routes/public');
 const { createSignupRoutes, createStripeWebhook } = require('./routes/signup');
@@ -82,6 +84,7 @@ app.use('/api', tenantMiddleware);
 // Mount routes (they now use req.db instead of a closure db)
 app.use(createTomRoutes());
 app.use(createAdminRoutes(sysDb, auth));
+app.use(createDevRoutes(sysDb, auth));
 
 // Static UI (login page is public; app pages check session client-side + APIs are guarded)
 app.use(express.static(path.join(__dirname, 'public')));
