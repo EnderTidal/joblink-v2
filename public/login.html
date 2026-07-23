@@ -14,10 +14,14 @@
   .login label.f { font-size:13px; font-weight:600; color:var(--text-muted); margin-bottom:7px; }
   .login label.f input { margin-top:0; margin-bottom:18px; }
   .err { color:var(--red); font-size:13px; margin-bottom:10px; display:none; }
+  .signup-success { background:var(--green-soft); color:var(--green); font-size:13px; font-weight:600; padding:10px 14px; border-radius:var(--radius-sm); margin-bottom:14px; display:none; }
   .alt-actions { display:flex; justify-content:space-between; margin-top:18px; font-size:13px; font-weight:600; }
   .magic-section { display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
   .magic-section.show { display:block; }
   .success-msg { color:var(--green); font-size:13px; margin-top:8px; display:none; }
+  .signup-link { text-align:center; margin-top:18px; padding-top:18px; border-top:1px solid var(--border); font-size:13px; color:var(--text-muted); }
+  .signup-link a { color:var(--brand); font-weight:600; }
+  .signup-link a:hover { color:var(--brand-strong); }
 </style></head>
 <body>
 <form class="card login" id="f">
@@ -28,6 +32,7 @@
     <h1>JobLink</h1>
   </div>
   <p class="sub">Self-selected candidates for your job orders</p>
+  <div class="signup-success" id="signupSuccess">Account created successfully! Log in below.</div>
   <div class="err" id="err">Invalid email or password.</div>
   <label class="f">Email<input id="e" type="email" autocomplete="email" required placeholder="you@agency.com"></label>
   <label class="f">Password<input id="p" type="password" autocomplete="current-password" required placeholder="••••••••"></label>
@@ -48,16 +53,26 @@
     <button type="button" class="btn ghost" style="width:100%" onclick="sendMagic()">Send sign-in link</button>
     <div class="success-msg" id="magicSuccess">Check your email for a sign-in link.</div>
   </div>
+
+  <div class="signup-link">New to JobLink? <a href="/signup.html">Start your free trial</a></div>
 </form>
 <script src="/app.js?v=4"></script>
 <script>
+(function() {
+  var params = new URLSearchParams(location.search);
+  if (params.get('signup') === 'success') {
+    document.getElementById('signupSuccess').style.display = 'block';
+  }
+})();
+
 document.getElementById('f').addEventListener('submit', async (e) => {
   e.preventDefault();
   document.getElementById('err').style.display = 'none';
+  document.getElementById('signupSuccess').style.display = 'none';
   try {
     const r = await api('/api/login', { method: 'POST', body: { email: e.target.querySelector('#e').value, password: p.value } });
     if (r.needsOnboarding) { location.href = '/onboarding.html'; return; }
-    if (r.defaultPassword) alert('You are using the default password. Please change it in Admin \u2192 Users.');
+    if (r.defaultPassword) alert('You are using the default password. Please change it in Admin → Users.');
     location.href = '/dashboard.html';
   } catch { document.getElementById('err').style.display = 'block'; }
 });
