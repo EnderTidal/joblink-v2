@@ -3,153 +3,102 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JobLink &mdash; Dashboard</title>
 <script>(function(){if(localStorage.getItem("joblink_light_mode")==="true"){document.documentElement.classList.add("light-mode")}})();</script>
-<link rel="stylesheet" href="/app.css?v=3">
+<link rel="stylesheet" href="/app.css?v=4">
 <style>
-  /* Pill nowrap fix */
-  .pill { white-space:nowrap; }
-
-  /* Pipeline table enhancements */
-  .pipeline-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
-  .pipeline-head h2 { font-size:1.1rem; margin:0; }
-  .preview-btn { font-size:.82rem; font-weight:600; color:var(--blue); text-decoration:none; border:1.5px solid var(--blue); padding:5px 14px; border-radius:8px; white-space:nowrap; cursor:pointer; background:transparent; }
-  .preview-btn:hover { background:rgba(96,165,250,0.1); }
-
-  /* Pipeline search */
-  .pipeline-search { position:relative; width:220px; max-width:100%; }
-  .pipeline-search svg { position:absolute; left:11px; top:50%; transform:translateY(-50%); }
-  .pipeline-search input { width:100%; height:36px; padding:0 12px 0 34px; border:1px solid var(--line); border-radius:10px; background:var(--bg); font-family:inherit; font-size:.88rem; color:var(--ink); outline:none; }
-  .pipeline-search input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(96,165,250,0.14); }
-
-  /* Pipeline controls row */
-  .pipeline-controls { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; align-items:center; }
-
-  /* Sort select */
-  .sort-select { height:36px; min-height:36px; width:auto; padding:0 30px 0 12px; font-size:.82rem; font-weight:600; border-radius:10px; color:var(--ink); background:var(--bg); border:1px solid var(--line); font-family:inherit; cursor:pointer; }
-
-  /* Pipeline table columns */
-  .col-company { font-size:.82rem; color:var(--mut); }
-  .col-pay { font-size:.85rem; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
-
-  /* Interest pill */
-  .interest { display:inline-flex; align-items:center; justify-content:center; gap:5px; min-width:46px; height:26px; padding:0 9px; border-radius:8px; font-size:.82rem; font-weight:700; font-variant-numeric:tabular-nums; }
-  .interest.has { background:rgba(96,165,250,0.15); color:var(--blue); }
-  .interest.none { background:rgba(148,163,184,0.1); color:var(--mut); }
-
-  /* Completed section */
-  .completed-toggle { display:flex; align-items:center; gap:10px; padding:14px 18px; cursor:pointer; user-select:none; border-top:1px solid var(--line); }
-  .completed-toggle h3 { font-size:.92rem; font-weight:700; color:var(--ink); margin:0; }
-  .completed-count { background:rgba(34,197,94,0.15); color:#22c55e; font-size:.78rem; font-weight:700; padding:2px 9px; border-radius:6px; }
-  .completed-body { display:none; }
-  .completed-body.open { display:block; }
-
-  /* Action buttons in pipeline */
-  .act-group { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
-
-  /* JO Detail Modal */
-  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; justify-content:center; align-items:flex-start; padding:40px 20px; overflow-y:auto; }
-  .modal-overlay.open { display:flex; }
-  .modal { background:var(--card); border:1px solid var(--line); border-radius:12px; width:100%; max-width:700px; padding:24px; position:relative; }
-  .modal h2 { margin:0 0 16px; font-size:1.1rem; }
-  .modal .close-btn { position:absolute; top:12px; right:16px; background:none; border:none; color:var(--mut); font-size:1.4rem; cursor:pointer; }
-  .modal .f { display:block; margin-bottom:10px; }
-  .modal .f label { display:block; font-size:.82rem; font-weight:600; color:var(--mut); margin-bottom:3px; }
-  .modal .f input, .modal .f select, .modal .f textarea { width:100%; padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); font-family:inherit; font-size:.88rem; }
-  .modal .f textarea { min-height:60px; resize:vertical; }
-  .modal .btn-row { display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; }
-
-  /* Pipeline sections in modal */
-  .pipeline-section { margin-top:16px; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
-  .pipeline-section-header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; cursor:pointer; user-select:none; }
-  .pipeline-section-header:hover { background:rgba(96,165,250,0.05); }
-  .pipeline-section-header h3 { font-size:.92rem; margin:0; display:flex; align-items:center; gap:8px; }
-  .pipeline-section-body { display:none; padding:0 14px 14px; }
-  .pipeline-section-body.open { display:block; }
-  .pipeline-badge { font-size:.78rem; font-weight:700; padding:2px 9px; border-radius:6px; }
-  .badge-interested { background:rgba(96,165,250,0.15); color:var(--blue); }
-  .badge-yeslisted { background:rgba(217,119,6,0.15); color:#d97706; }
-  .badge-confirmed { background:rgba(34,197,94,0.15); color:#22c55e; }
-  .badge-filled { background:rgba(139,92,246,0.15); color:#8b5cf6; }
-  .badge-ruledout { background:rgba(148,163,184,0.15); color:#94a3b8; }
-
-  /* Row action buttons in modal */
-  .row-btn { display:inline-flex; align-items:center; justify-content:center; height:28px; padding:0 10px; border:1px solid transparent; border-radius:6px; font-family:inherit; font-size:.78rem; font-weight:700; cursor:pointer; white-space:nowrap; transition:all .12s; }
-  .row-btn:disabled { opacity:.4; cursor:not-allowed; }
-  .btn-yeslist { background:rgba(217,119,6,0.12); color:#d97706; }
-  .btn-yeslist:hover { background:rgba(217,119,6,0.22); }
-  .btn-confirm { background:rgba(34,197,94,0.12); color:#22c55e; }
-  .btn-confirm:hover { background:rgba(34,197,94,0.22); }
-  .btn-fill { background:rgba(139,92,246,0.12); color:#8b5cf6; }
-  .btn-fill:hover { background:rgba(139,92,246,0.22); }
-  .btn-ruleout { background:rgba(239,68,68,0.08); color:#ef4444; }
-  .btn-ruleout:hover { background:rgba(239,68,68,0.18); }
-  .btn-restore { background:rgba(148,163,184,0.1); color:#64748b; }
-  .btn-restore:hover { background:rgba(148,163,184,0.2); }
-
-  .blast-card { border:1px solid var(--line); border-radius:10px; margin-bottom:8px; overflow:hidden; }
-  .blast-header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; cursor:pointer; gap:10px; flex-wrap:wrap; }
-  .blast-header:hover { background:rgba(96,165,250,0.05); }
-  .blast-detail { display:none; padding:0 14px 14px; }
-  .blast-detail.open { display:block; }
-
-  .jo-sub { font-size:.82rem; color:#94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; }
-
-  /* Compact table fixes */
-  .act-group button { font-size:.75rem !important; padding:4px 8px !important; }
-  .pill { white-space:nowrap; font-size:.78rem; }
-  table th, table td { padding:8px 6px; font-size:.85rem; }
-  .col-company select { min-width:70px !important; max-width:100px; }
-
-  /* Align status pill + action buttons */
-  .pill { display:inline-flex; align-items:center; justify-content:center; height:30px; padding:0 12px; font-size:.78rem; font-weight:700; border-radius:8px; white-space:nowrap; vertical-align:middle; }
-  .act-group { display:inline-flex; align-items:center; gap:4px; vertical-align:middle; }
-  .act-group button, .act-group .btn { height:30px !important; display:inline-flex; align-items:center; padding:0 10px !important; font-size:.78rem !important; vertical-align:middle; }
-  td { vertical-align:middle !important; }
-
-  /* Match recruiter dropdown and status pill heights */
-  .col-company select.sort-select { height:30px !important; vertical-align:middle; }
-  .pill { height:30px; line-height:30px; padding:0 12px; display:inline-block; vertical-align:middle; }
+  /* Dashboard-specific overrides */
+  .pipeline-panel { overflow:hidden; }
+  .pipeline-panel > .panel-header { padding:20px 22px 16px; border-bottom:1px solid var(--border); }
+  .pipeline-panel > .panel-header h2 { margin:0 0 14px; font-size:16px; font-weight:800; letter-spacing:-.01em; }
+  .pipeline-panel > .panel-filters { padding:14px 22px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; border-bottom:1px solid var(--border); }
+  .pipeline-panel > .panel-thead { display:grid; grid-template-columns:2.2fr 0.85fr 1.1fr 0.8fr 1.9fr 1fr 0.95fr; gap:12px; padding:12px 22px; font-size:11px; font-weight:700; letter-spacing:.06em; color:var(--text-subtle); border-bottom:1px solid var(--border); text-transform:uppercase; }
+  .pipeline-row { display:grid; grid-template-columns:2.2fr 0.85fr 1.1fr 0.8fr 1.9fr 1fr 0.95fr; gap:12px; padding:16px 22px; align-items:center; border-bottom:1px solid var(--border); cursor:pointer; transition:background .12s; }
+  .pipeline-row:hover { background:var(--surface-2); }
+  .pipe-boxes { display:flex; gap:6px; }
+  .pipe-box { min-width:52px; padding:6px 8px; border-radius:9px; text-align:center; background:var(--surface-2); border:1px solid var(--border); }
+  .pipe-box.hot { background:var(--amber-soft); }
+  .pipe-box .pipe-num { font-size:15px; font-weight:800; font-variant-numeric:tabular-nums; color:var(--text); }
+  .pipe-box.hot .pipe-num { color:var(--amber); }
+  .pipe-box .pipe-label { font-size:9.5px; font-weight:700; letter-spacing:.03em; color:var(--text-subtle); text-transform:uppercase; }
+  /* Category chips in table */
+  .cat-chip { display:inline-flex; align-items:center; padding:4px 11px; border-radius:99px; font-size:12px; font-weight:700; }
+  .cat-chip.Industrial { color:var(--blue); background:var(--blue-soft); }
+  .cat-chip.Administrative { color:var(--violet); background:var(--violet-soft); }
+  .cat-chip.Skilled { color:var(--amber); background:var(--amber-soft); }
 </style>
 </head>
 <body>
 <main class="page">
-  <h1 class="pagetitle">Dashboard</h1>
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:24px">
+    <div>
+      <h1 class="pagetitle">Dashboard</h1>
+      <p class="mut" style="margin-top:4px">Live pipeline across all job orders</p>
+    </div>
+    <button class="preview-btn" id="previewBtn" onclick="openPreview()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+      Preview as Candidate
+    </button>
+  </div>
 
   <!-- Stats cards row -->
   <div class="grid stats" id="stats">
-    <div class="card stat"><div class="num" id="sPublished">--</div><div class="lbl">Published JOs</div></div>
-    <div class="card stat"><div class="num" id="sClicks">--</div><div class="lbl">Clicks Today</div></div>
-    <div class="card stat"><div class="num" style="color:#ffb500" id="sInterested">--</div><div class="lbl">Interested</div></div>
-    <div class="card stat"><div class="num" style="color:#22c55e" id="sFilled">--</div><div class="lbl">Filled</div></div>
+    <div class="card stat">
+      <div class="lbl">Published JOs</div>
+      <div class="icon-badge blue"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+      <div class="num" id="sPublished">--</div>
+    </div>
+    <div class="card stat">
+      <div class="lbl">Clicks Today</div>
+      <div class="icon-badge violet"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+      <div class="num" id="sClicks">--</div>
+    </div>
+    <div class="card stat">
+      <div class="lbl">Interested</div>
+      <div class="icon-badge amber"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+      <div class="num" style="color:var(--amber)" id="sInterested">--</div>
+    </div>
+    <div class="card stat">
+      <div class="lbl">Filled</div>
+      <div class="icon-badge green"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+      <div class="num" id="sFilled">--</div>
+    </div>
   </div>
 
   <!-- Pipeline card -->
-  <div class="card">
-    <div class="pipeline-head">
+  <div class="card pipeline-panel">
+    <div class="panel-header">
       <h2>Job Orders &mdash; Pipeline</h2>
-      <div style="display:flex;align-items:center;gap:6px"><button class="preview-btn" id="previewBtn" onclick="openPreview()">&#x1F441; Preview as Candidate</button></div>
+      <!-- Filter pills -->
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
+        <div class="filters" id="statusFilters" style="margin-bottom:0">
+          <button data-v="" class="on">All</button>
+          <button data-v="Published">Published</button>
+          <button data-v="Unpublished">Unpublished</button>
+          <button data-v="Complete">Completed</button>
+        </div>
+        <div class="cat-filters" id="catFilters">
+          <button data-v="" class="on">All categories</button>
+          <button data-v="Industrial">Industrial</button>
+          <button data-v="Administrative">Administrative</button>
+          <button data-v="Skilled Trade">Skilled Trades</button>
+        </div>
+      </div>
     </div>
 
-    <!-- Filter pills -->
-    <div class="pipeline-controls">
-      <div class="filters" id="statusFilters" style="margin-bottom:0">
-        <button data-v="" class="on">All</button>
-        <button data-v="Published">Published</button>
-        <button data-v="Unpublished">Unpublished</button>
-        <button data-v="Complete">Completed</button>
+    <!-- Search + sort + recruiter row -->
+    <div class="panel-filters">
+      <div class="pipeline-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="pipelineSearch" placeholder="Search title or company..." oninput="onSearch(this.value)">
       </div>
-      <span style="width:1px;height:24px;background:var(--line);margin:0 2px"></span>
-      <div class="filters" id="catFilters" style="margin-bottom:0">
-        <button data-v="" class="on">All categories</button>
-        <button data-v="Industrial">Industrial</button>
-        <button data-v="Administrative">Administrative</button>
-        <button data-v="Skilled Trade">Skilled Trades</button>
-      </div>
-    </div>
-      <span style="width:1px;height:24px;background:var(--line);margin:0 2px"></span>
       <select id="recruiterFilter" onchange="recruiterFilter=this.value; loadRows()" class="sort-select" style="min-width:140px">
         <option value="">All recruiters</option>
       </select>
-      <span style="width:1px;height:24px;background:var(--line);margin:0 2px"></span>
+      <select onchange="sortBy(this.value)" class="sort-select">
+        <option value="interested">Sort: Most Interested</option>
+        <option value="alpha">Sort: A-Z</option>
+        <option value="category">Sort: Category</option>
+        <option value="pay">Sort: Pay Rate</option>
+      </select>
       <select id="pipelineFilter" onchange="pipelineFilter=this.value; renderTable()" class="sort-select" style="min-width:150px">
         <option value="">Pipeline: All</option>
         <option value="has_interested">Has Interested</option>
@@ -158,37 +107,13 @@
       </select>
     </div>
 
-    <!-- Search + sort row -->
-    <div class="pipeline-controls">
-      <div class="pipeline-search">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#94a3b8" stroke-width="2"></circle><path d="M21 21l-4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"></path></svg>
-        <input id="pipelineSearch" placeholder="Search title or company..." oninput="onSearch(this.value)">
-      </div>
-      <select onchange="sortBy(this.value)" class="sort-select">
-        <option value="interested">Sort: Most Interested</option>
-        <option value="alpha">Sort: A-Z</option>
-        <option value="category">Sort: Category</option>
-        <option value="pay">Sort: Pay Rate</option>
-      </select>
+    <!-- Table head (CSS grid) -->
+    <div class="panel-thead">
+      <span>JOB ORDER</span><span>COMPANY</span><span>CATEGORY</span><span>PAY</span><span>PIPELINE</span><span>RECRUITER</span><span style="text-align:right">STATUS</span>
     </div>
 
-    <!-- Pipeline table -->
-    <div style="overflow-x:auto">
-      <table>
-        <thead><tr>
-          <th>Job Order</th>
-          <th>Company</th>
-          <th>Category</th>
-          <th>Pay</th>
-          <th>Sent</th>
-          <th>Interested</th>
-          <th>Yes-Listed</th>
-          <th>Filled</th>
-          <th>Recruiter / Status</th>
-        </tr></thead>
-        <tbody id="rows"></tbody>
-      </table>
-    </div>
+    <!-- Pipeline rows -->
+    <div id="rows"></div>
   </div>
 
   <!-- Completed section -->
@@ -222,12 +147,14 @@
       <div id="joModalBody"></div>
     </div>
   </div>
-  <div class="card" id="blastsSection">
-    <h2 style="margin-bottom:14px">Recent Blasts</h2>
-    <div id="blastsList"></div>
+
+  <!-- Recent Blasts -->
+  <div style="margin-top:26px">
+    <h2 style="margin:0 0 14px;font-size:16px;font-weight:800;letter-spacing:-.01em">Recent Blasts</h2>
+    <div id="blastsList" style="display:flex;flex-direction:column;gap:10px"></div>
   </div>
 </main>
-<script src="/app.js?v=3"></script>
+<script src="/app.js?v=4"></script>
 <script>
 let statusFilter = '', categoryFilter = '', recruiterFilter = '', pipelineFilter = '', searchQuery = '', currentSort = 'interested';
 let allJobs = [];
@@ -282,7 +209,7 @@ function renderTable() {
   const completed = jobs.filter(jo => jo.status === 'Complete');
 
   document.getElementById('rows').innerHTML = active.map(renderRow).join('')
-    || '<tr><td colspan="11" class="mut jo-sub">No job orders yet &mdash; create one in AI Assistant.</td></tr>';
+    || '<div style="padding:56px 20px;text-align:center;color:var(--text-subtle)"><div style="font-size:15px;font-weight:700;color:var(--text-muted)">No job orders match these filters</div><div style="font-size:13px;margin-top:4px">Try clearing a filter or changing the category.</div></div>';
 
   // Completed section
   const cSection = document.getElementById('completedSection');
@@ -295,29 +222,50 @@ function renderTable() {
   }
 }
 
+function catChipClass(cat) {
+  if (cat === 'Industrial') return 'Industrial';
+  if (cat === 'Administrative') return 'Administrative';
+  if (cat === 'Skilled Trade') return 'Skilled';
+  return '';
+}
+
 function renderRow(jo) {
-  const ic = jo.interested_count || 0;
-  return '<tr>' +
-    '<td><strong><a href="/jo-detail.html?id=' + jo.id + '" style="color:var(--blue);text-decoration:none">' + esc(jo.title) + '</a></strong>' +
-      '<div class="mut jo-sub">' + esc(jo.city_state || '') + (jo.shift_hours ? ' &middot; ' + esc(jo.shift_hours) : '') + '</div></td>' +
-    '<td class="col-company">' + esc(jo.company || '\u2014') + '</td>' +
-    '<td>' + esc(jo.category || '\u2014') + '</td>' +
-    '<td class="col-pay">' + esc(jo.pay || '\u2014') + '</td>' +
-    '<td>' + (jo.sent_count || 0) + '</td>' +
-    '<td><span class="interest ' + (ic > 0 ? 'has' : 'none') + '">' + ic + '</span></td>' +
-    '<td>' + (jo.yeslisted_count || 0) + '</td>' +
-    '<td>' + (jo.filled_count || 0) + '</td>' +
-    '<td class="col-company"><select class="sort-select" style="height:28px;font-size:.78rem;width:auto;min-width:90px;padding:2px 6px" onchange="changeRecruiter(' + jo.id + ', this.value)">' + '<option value=""' + (!jo.assigned_recruiter ? ' selected' : '') + '>Unassigned</option>' + _recruiters.map(function(r) { return '<option value="' + esc(r) + '"' + (jo.assigned_recruiter === r ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select> ' +
-    (jo.status === 'Published' ? '<span class="pill Published" style="cursor:pointer" onclick="setStatus(' + jo.id + ',' + "'" + 'Unpublished' + "'" + ')">Published</span>' : '') +
-    (jo.status === 'Unpublished' ? '<span class="pill Unpublished" style="cursor:pointer" onclick="setStatus(' + jo.id + ',' + "'" + 'Published' + "'" + ')">Unpublished</span>' : '') +
-    (jo.status === 'Complete' ? '<span class="pill Complete">Complete</span>' : '') +
-    (jo.status !== 'Complete' ? ' <button class="btn sm ghost" onclick="setStatus(' + jo.id + ',' + "'" + 'Complete' + "'" + ')">Complete</button>' : '') +
-    '</td></tr>';
+  var ic = jo.interested_count || 0;
+  var yc = jo.yeslisted_count || 0;
+  var fc = jo.filled_count || 0;
+  var sc = jo.sent_count || 0;
+  return '<div class="pipeline-row" onclick="window.location=\'/jo-detail.html?id=' + jo.id + '\'">' +
+    '<div style="min-width:0">' +
+      '<div style="font-size:14.5px;font-weight:700;color:var(--brand);letter-spacing:-.01em;line-height:1.25">' + esc(jo.title) + '</div>' +
+      '<div class="jo-sub">' + esc(jo.city_state || '') + (jo.shift_hours ? ' &middot; ' + esc(jo.shift_hours) : '') + '</div>' +
+    '</div>' +
+    '<div class="col-company">' + esc(jo.company || '\u2014') + '</div>' +
+    '<div><span class="cat-chip ' + catChipClass(jo.category) + '">' + esc(jo.category || '\u2014') + '</span></div>' +
+    '<div class="col-pay">' + esc(jo.pay || '\u2014') + '</div>' +
+    '<div class="pipe-boxes">' +
+      '<div class="pipe-box"><div class="pipe-num">' + sc + '</div><div class="pipe-label">Sent</div></div>' +
+      '<div class="pipe-box' + (ic > 0 ? ' hot' : '') + '"><div class="pipe-num">' + ic + '</div><div class="pipe-label">Int</div></div>' +
+      '<div class="pipe-box"><div class="pipe-num">' + yc + '</div><div class="pipe-label">Yes</div></div>' +
+      '<div class="pipe-box"><div class="pipe-num">' + fc + '</div><div class="pipe-label">Fill</div></div>' +
+    '</div>' +
+    '<div onclick="event.stopPropagation()">' +
+      '<select class="sort-select" style="height:30px;font-size:12px;width:auto;min-width:90px;padding:2px 8px" onchange="changeRecruiter(' + jo.id + ', this.value)">' +
+      '<option value=""' + (!jo.assigned_recruiter ? ' selected' : '') + '>Unassigned</option>' +
+      _recruiters.map(function(r) { return '<option value="' + esc(r) + '"' + (jo.assigned_recruiter === r ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') +
+      '</select>' +
+    '</div>' +
+    '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px" onclick="event.stopPropagation()">' +
+      (jo.status === 'Published' ? '<span class="pill Published" style="cursor:pointer" onclick="setStatus(' + jo.id + ',\'Unpublished\')">Published</span>' : '') +
+      (jo.status === 'Unpublished' ? '<span class="pill Unpublished" style="cursor:pointer" onclick="setStatus(' + jo.id + ',\'Published\')">Unpublished</span>' : '') +
+      (jo.status === 'Complete' ? '<span class="pill Complete">Complete</span>' : '') +
+      (jo.status !== 'Complete' ? '<button class="btn sm ghost" style="font-size:12px;padding:3px 9px" onclick="setStatus(' + jo.id + ',\'Complete\')">Complete</button>' : '') +
+    '</div>' +
+  '</div>';
 }
 
 function renderCompletedRow(jo) {
   return '<tr>' +
-    '<td><strong><a href="/jo-detail.html?id=' + jo.id + '" style="color:var(--blue);text-decoration:none">' + esc(jo.title) + '</a></strong></td>' +
+    '<td><strong><a href="/jo-detail.html?id=' + jo.id + '">' + esc(jo.title) + '</a></strong></td>' +
     '<td class="col-company">' + esc(jo.company || '\u2014') + '</td>' +
     '<td>' + esc(jo.category || '\u2014') + '</td>' +
     '<td class="col-pay">' + esc(jo.pay || '\u2014') + '</td>' +
@@ -394,7 +342,7 @@ function renderPipelineSection(title, badgeClass, candidates) {
   var html = '<div class="pipeline-section">';
   html += '<div class="pipeline-section-header" onclick="this.nextElementSibling.classList.toggle(\'open\')">';
   html += '<h3>' + title + ' <span class="pipeline-badge ' + badgeClass + '">' + candidates.length + '</span></h3>';
-  html += '<span style="color:var(--mut);font-size:.82rem">\u25BC</span></div>';
+  html += '<span style="color:var(--text-muted);font-size:.82rem">\u25BC</span></div>';
   html += '<div class="pipeline-section-body open">';
   html += '<table><thead><tr><th>Name</th><th>Phone</th><th>Category</th><th>Date</th><th>Actions</th></tr></thead><tbody>';
   candidates.forEach(function(c) {
@@ -433,8 +381,8 @@ async function openJoDetail(id) {
     html += '<div class="f"><label>Category</label><select name="category">' + cats.map(function(ct){return '<option' + (jo.category===ct?' selected':'') + '>' + ct + '</option>';}).join('') + '</select></div>';
     html += '<div class="f"><label>Pay</label><input name="pay" value="' + esc(jo.pay) + '"></div>';
     html += '<div class="f"><label>Shift / Hours</label><input name="shift_hours" value="' + esc(jo.shift_hours) + '"></div>';
-    html += '<div class="f"><label>Address <em style="font-weight:400;color:#94a3b8">(hidden from candidates)</em></label><input name="address" value="' + esc(jo.address || '') + '"></div>';
-    html += '<div class="f"><label>City / State <em style="font-weight:400;color:#94a3b8">(visible to candidates)</em></label><input name="city_state" value="' + esc(jo.city_state || '') + '"></div>';
+    html += '<div class="f"><label>Address <em style="font-weight:400;color:var(--text-subtle)">(hidden from candidates)</em></label><input name="address" value="' + esc(jo.address || '') + '"></div>';
+    html += '<div class="f"><label>City / State <em style="font-weight:400;color:var(--text-subtle)">(visible to candidates)</em></label><input name="city_state" value="' + esc(jo.city_state || '') + '"></div>';
     html += '<div class="f"><label>Requirements</label><textarea name="requirements">' + esc(jo.requirements) + '</textarea></div>';
     html += '<div class="f"><label>Description</label><textarea name="description">' + esc(jo.description) + '</textarea></div>';
     html += '<div class="f"><label>Status</label><select name="status">' + statuses.map(function(s){return '<option' + (jo.status===s?' selected':'') + '>' + s + '</option>';}).join('') + '</select></div>';
@@ -503,11 +451,16 @@ async function loadBlasts() {
       if (b.skipped_cooldown_count) bits.push(b.skipped_cooldown_count + ' skipped (cooldown)');
       if (b.skipped_dnc_count) bits.push(b.skipped_dnc_count + ' skipped (DNC)');
       if (b.failed_count) bits.push(b.failed_count + ' failed');
-      return '<div class="blast-card"><div class="blast-header" onclick="toggleBlast(' + b.id + ')">' +
-        '<span><strong>#' + b.id + '</strong> \u00b7 ' + esc(b.category) + ' \u00b7 ' + d +
-        (b.sent_by ? ' \u00b7 by ' + esc(b.sent_by) : '') + '</span>' +
-        '<span class="mut jo-sub">' + bits.join(', ') + '</span></div>' +
-        '<div class="blast-detail" id="blast-' + b.id + '"><div class="mut jo-sub">Loading...</div></div></div>';
+      var statusOk = !b.failed_count || b.failed_count === 0;
+      return '<div class="blast-card" style="display:flex;align-items:center;gap:14px;padding:14px 18px;cursor:pointer" onclick="toggleBlast(' + b.id + ')">' +
+        '<div class="blast-num">#' + b.id + '</div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:14px;font-weight:700">' + esc(b.category) + '</div>' +
+          '<div style="font-size:12.5px;color:var(--text-subtle);margin-top:1px">' + d + (b.sent_by ? ' \u00b7 by ' + esc(b.sent_by) : '') + '</div>' +
+        '</div>' +
+        '<span class="pill ' + (statusOk ? 'Published' : 'Unpublished') + '">' + bits.join(', ') + '</span>' +
+      '</div>' +
+      '<div class="blast-detail" id="blast-' + b.id + '" style="padding:0 18px 14px"><div class="mut jo-sub">Loading...</div></div>';
     }).join('');
   } catch(e) { /* blasts endpoint may not exist */ }
 }
@@ -517,7 +470,7 @@ async function toggleBlast(id) {
   el.classList.add('open');
   try {
     var data = await api('/api/blasts/' + id + '/recipients');
-    var html = '<div style="margin-bottom:8px"><a href="/api/blasts/' + id + '/recipients/csv" class="preview-btn" style="font-size:.78rem;padding:4px 10px">Download CSV</a></div>';
+    var html = '<div style="margin-bottom:8px"><a href="/api/blasts/' + id + '/recipients/csv" class="preview-btn" style="font-size:12px;padding:4px 10px">Download CSV</a></div>';
     if (data.recipients.length === 0) {
       html += '<p class="mut jo-sub">No recipient data recorded for this blast.</p>';
     } else {
