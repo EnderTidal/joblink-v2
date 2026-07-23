@@ -3,29 +3,34 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JobLink — Log in</title>
 <script>(function(){if(localStorage.getItem("joblink_light_mode")==="true"){document.documentElement.classList.add("light-mode")}})();</script>
-<link rel="stylesheet" href="/app.css?v=3">
+<link rel="stylesheet" href="/app.css?v=4">
 <style>
-  body { display:flex; align-items:center; justify-content:center; min-height:100vh; }
-  .login { width:340px; }
-  .login h1 { color:var(--blue); text-align:center; margin-bottom:6px; }
-  .login p.sub { text-align:center; color:var(--mut); font-size:.88rem; margin-bottom:18px; }
-  .err { color:#b3261e; font-size:.86rem; margin-bottom:10px; display:none; }
-  .divider { display:flex; align-items:center; margin:16px 0; gap:10px; }
-  .divider span { color:var(--mut); font-size:.82rem; }
-  .divider hr { flex:1; border:0; border-top:1px solid var(--line); }
-  .link-btn { background:none; border:none; color:var(--blue); font-size:.85rem; cursor:pointer; padding:0; text-decoration:underline; }
-  .alt-actions { display:flex; justify-content:space-between; margin-top:12px; flex-wrap:wrap; gap:8px; }
-  .magic-section { display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--line); }
+  body { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:24px; background:radial-gradient(120% 100% at 50% -20%, color-mix(in srgb, var(--brand) 10%, var(--bg)), var(--bg)); }
+  .login { width:100%; max-width:404px; padding:40px 36px 30px; animation:fadeUp .4s ease; }
+  .login-brand { display:flex; align-items:center; justify-content:center; gap:9px; margin-bottom:6px; }
+  .login-brand-icon { width:34px; height:34px; border-radius:10px; background:var(--brand); display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow-sm); }
+  .login-brand h1 { font-size:27px; font-weight:800; letter-spacing:-.03em; color:var(--text); margin:0; }
+  .login p.sub { text-align:center; color:var(--text-muted); font-size:14px; margin:0 0 28px; }
+  .login label.f { font-size:13px; font-weight:600; color:var(--text-muted); margin-bottom:7px; }
+  .login label.f input { margin-top:0; margin-bottom:18px; }
+  .err { color:var(--red); font-size:13px; margin-bottom:10px; display:none; }
+  .alt-actions { display:flex; justify-content:space-between; margin-top:18px; font-size:13px; font-weight:600; }
+  .magic-section { display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
   .magic-section.show { display:block; }
-  .success-msg { color:#22c55e; font-size:.86rem; margin-top:8px; display:none; }
+  .success-msg { color:var(--green); font-size:13px; margin-top:8px; display:none; }
 </style></head>
 <body>
 <form class="card login" id="f">
-  <h1>JobLink</h1>
+  <div class="login-brand">
+    <div class="login-brand-icon">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    </div>
+    <h1>JobLink</h1>
+  </div>
   <p class="sub">Self-selected candidates for your job orders</p>
   <div class="err" id="err">Invalid email or password.</div>
-  <label class="f">Email<input id="e" type="email" autocomplete="email" required></label>
-  <label class="f">Password<input id="p" type="password" autocomplete="current-password" required></label>
+  <label class="f">Email<input id="e" type="email" autocomplete="email" required placeholder="you@agency.com"></label>
+  <label class="f">Password<input id="p" type="password" autocomplete="current-password" required placeholder="••••••••"></label>
   <button class="btn" style="width:100%" type="submit">Log in</button>
   <div class="alt-actions">
     <button type="button" class="link-btn" onclick="showForgot()">Forgot password?</button>
@@ -44,7 +49,7 @@
     <div class="success-msg" id="magicSuccess">Check your email for a sign-in link.</div>
   </div>
 </form>
-<script src="/app.js?v=3"></script>
+<script src="/app.js?v=4"></script>
 <script>
 document.getElementById('f').addEventListener('submit', async (e) => {
   e.preventDefault();
