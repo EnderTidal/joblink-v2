@@ -1,15 +1,20 @@
 // Onboarding: fresh installs need it, completing it flips the flag, the
 // wizard's password change requires the current password, and only admins
 // can complete/reset it. Runs over real HTTP against the real app.
+// Multi-tenant: system DB + tenant DB are both temp files.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const path = require('node:path');
 const os = require('node:os');
 const fs = require('node:fs');
 
-process.env.JOBLINK_DB = path.join(os.tmpdir(), `joblink-onboarding-test-${process.pid}.db`);
+const testId = `joblink-onboarding-test-${process.pid}`;
+const testDir = path.join(os.tmpdir(), testId);
+fs.mkdirSync(testDir, { recursive: true });
+process.env.SYSTEM_DB = path.join(testDir, 'system.db');
+process.env.DATA_DIR = testDir;
 delete process.env.ANTHROPIC_API_KEY;
-const { app, db } = require('../../server');
+const { app, sysDb } = require('../../server');
 
 let server, base, cookie = '';
 const http = async (method, url, body, useCookie = cookie) => {
@@ -30,7 +35,8 @@ before(async () => {
 
 after(() => {
   server.close();
-  for (const ext of ['', '-wal', '-shm']) fs.rmSync(process.env.JOBLINK_DB + ext, { force: true });
+  // Clean up temp directory
+  fs.rmSync(testDir, { recursive: true, force: true });
 });
 
 test('fresh install: login reports needsOnboarding for the admin', async () => {
@@ -66,7 +72,7 @@ test('completing onboarding flips the flag; login stops redirecting', async () =
   assert.strictEqual(me.data.onboarded, true);
 });
 
-test('reset lets the wizard run again (Admin → Re-run setup)', async () => {
+test('reset lets the wizard run again (Admin -> Re-run setup)', async () => {
   await http('POST', '/api/onboarding/reset');
   const me = await http('GET', '/api/me');
   assert.strictEqual(me.data.onboarded, false);
