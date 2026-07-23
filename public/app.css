@@ -43,7 +43,7 @@ label.f input, label.f select, label.f textarea { margin-top:4px; }
 .toast.show { opacity:1; }
 
 /* Light mode overrides — dark is default */
-html.light-mode { --blue:#3b82f6; --blue-d:#2563eb; --gold:#d97706; --bg:#f8fafc; --ink:#1e293b; --mut:#64748b; --line:#e2e8f0; --card:#ffffff; }
+html.light-mode { --blue:#1e46d6; --blue-d:#1e3ab8; --gold:#b45309; --bg:#f5f7fa; --ink:#0f172a; --mut:#64748b; --line:#ebeff4; --card:#ffffff; --card-shadow:0 1px 2px rgba(16,24,40,0.04); }
 html.light-mode nav.topbar { background:#ffffff; color:#1e293b; border-bottom:1px solid #e2e8f0; }
 html.light-mode nav.topbar .brand { color:#1e293b; }
 html.light-mode nav.topbar a { color:#64748b; }
@@ -51,12 +51,12 @@ html.light-mode nav.topbar a.active, html.light-mode nav.topbar a:hover { color:
 html.light-mode nav.topbar button { border-color:#cbd5e1; color:#1e293b; }
 html.light-mode .stat .lbl { color:#64748b; }
 html.light-mode th { color:#64748b; }
-html.light-mode .filters button { color:#475569; }
+html.light-mode .filters button { color:#0f172a; border-color:#cbd5e1; }
 html.light-mode .toast { background:#1e293b; color:#f1f5f9; }
 html.light-mode #whoami { color:#475569 !important; }
-html.light-mode .card { box-shadow:0 1px 6px rgba(0,0,0,.06); }
-html.light-mode .tabs button { background:#e2e8f0; color:#1e293b; border-color:#cbd5e1; }
-html.light-mode .tabs button.on { background:#4b8df8; color:#fff; border-color:#4b8df8; }
+html.light-mode .card { box-shadow:0 1px 3px rgba(16,24,40,0.05), 0 12px 32px -20px rgba(16,24,40,0.18); }
+html.light-mode .tabs button { background:#eef2ff; color:#0f172a; border-color:#d4dae3; }
+html.light-mode .tabs button.on { background:#1e46d6; color:#fff; border-color:#1e46d6; }
 .theme-toggle { background:transparent; border:1px solid #ffffff55; color:#fff; border-radius:7px; padding:5px 8px; cursor:pointer; display:flex; align-items:center; }
 .theme-toggle svg { width:18px; height:18px; }
 html.light-mode .theme-toggle { border-color:#cbd5e1; color:#1e293b; }
