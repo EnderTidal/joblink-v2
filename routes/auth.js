@@ -1,17 +1,22 @@
 // Auth — email-based login with invitations, magic links, and password reset.
-// Backwards-compatible: existing username/password login still works, but the
-// primary identifier is now email. First boot seeds admin with joshuafriends@gmail.com.
+// Multi-tenant: users live in the SYSTEM DB (with org_id). Login looks up the
+// system DB, session carries org_id so tenant middleware can attach req.db.
 
 const express = require('express');
 const crypto = require('node:crypto');
 const https = require('node:https');
 const bcrypt = require('bcryptjs');
+const { getTenantDb, createTenantDb } = require('../src/tenant');
 const { getSetting } = require('../src/db');
+const {
+  findUser, findUserByEmail, findUserByInviteToken, findUserByMagicToken,
+  updateUser,
+} = require('../src/system-db');
 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
-const INVITE_TTL_MS = 72 * 60 * 60 * 1000; // 72 hours
-const MAGIC_TTL_MS = 15 * 60 * 1000; // 15 minutes
-const RESET_TTL_MS = 60 * 60 * 1000; // 1 hour
+const INVITE_TTL_MS = 72 * 60 * 60 * 1000;
+const MAGIC_TTL_MS = 15 * 60 * 1000;
+const RESET_TTL_MS = 60 * 60 * 1000;
 
 const RESEND_KEY = process.env.RESEND_KEY || '';
 const FROM_EMAIL = 'JobLink <resume@thetelosway.com>';
@@ -38,15 +43,19 @@ function sendEmail(to, subject, html) {
   });
 }
 
-function createAuth(db) {
-  const sessions = new Map(); // token -> { username, role, email, expires }
+function createAuth(sysDb) {
+  const sessions = new Map();
 
-  // Seed a first admin if the users table is empty
-  const count = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
+  // Seed a first org + admin if the users table is empty
+  const count = sysDb.prepare('SELECT COUNT(*) AS n FROM users').get().n;
   if (count === 0) {
-    db.prepare('INSERT INTO users (username, password_hash, role, email, email_verified) VALUES (?, ?, ?, ?, ?)')
-      .run('admin', bcrypt.hashSync('joblink2026', 10), 'admin', 'joshuafriends@gmail.com', 1);
-    console.log('[auth] Seeded default admin — email: joshuafriends@gmail.com, password: joblink2026 (CHANGE THIS)');
+    const orgResult = sysDb.prepare("INSERT INTO orgs (name, slug) VALUES ('Default', 'default')").run();
+    const orgId = Number(orgResult.lastInsertRowid);
+    sysDb.prepare(
+      'INSERT INTO users (org_id, username, password_hash, role, email, email_verified) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(orgId, 'admin', bcrypt.hashSync('joblink2026', 10), 'admin', 'joshuafriends@gmail.com', 1);
+    createTenantDb(orgId);
+    console.log('[auth] Seeded default org + admin — email: joshuafriends@gmail.com, password: joblink2026 (CHANGE THIS)');
   }
 
   function getSession(req) {
@@ -72,13 +81,26 @@ function createAuth(db) {
 
   function createSession(res, user) {
     const token = crypto.randomBytes(24).toString('base64url');
-    sessions.set(token, { username: user.username, role: user.role, email: user.email || '', display_name: user.display_name || '', expires: Date.now() + SESSION_TTL_MS });
+    sessions.set(token, {
+      username: user.username,
+      role: user.role,
+      email: user.email || '',
+      display_name: user.display_name || '',
+      org_id: user.org_id,
+      user_id: user.id,
+      expires: Date.now() + SESSION_TTL_MS,
+    });
     res.setHeader('Set-Cookie', `jl_session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${SESSION_TTL_MS / 1000}`);
     return token;
   }
 
-  function getBaseUrl() {
-    return getSetting(db, 'base_url') || 'https://v2.joblinkplatform.com';
+  function getBaseUrl(orgId) {
+    try {
+      const db = getTenantDb(orgId);
+      return getSetting(db, 'base_url') || 'https://v2.joblinkplatform.com';
+    } catch {
+      return 'https://v2.joblinkplatform.com';
+    }
   }
 
   const router = express.Router();
@@ -88,18 +110,18 @@ function createAuth(db) {
     const { username, email, password } = req.body || {};
     const identifier = email || username;
     if (!identifier || !password) return res.status(400).json({ error: 'email/username and password required' });
-    // Try email first, then username
-    let user = db.prepare('SELECT * FROM users WHERE email = ?').get(String(identifier));
-    if (!user) user = db.prepare('SELECT * FROM users WHERE username = ?').get(String(identifier));
-    if (!user || !bcrypt.compareSync(String(password), user.password_hash)) {
+    const user = findUser(sysDb, identifier);
+    if (!user || !user.password_hash || !bcrypt.compareSync(String(password), user.password_hash)) {
       return res.status(401).json({ error: 'bad_credentials' });
     }
     createSession(res, user);
     const isDefault = (user.username === 'admin' && bcrypt.compareSync('joblink2026', user.password_hash));
+    const tenantDb = getTenantDb(user.org_id);
     res.json({
       ok: true, username: user.username, role: user.role, email: user.email || '',
+      org_id: user.org_id,
       defaultPassword: isDefault,
-      needsOnboarding: user.role === 'admin' && getSetting(db, 'onboarded') !== '1',
+      needsOnboarding: user.role === 'admin' && getSetting(tenantDb, 'onboarded') !== '1',
     });
   });
 
@@ -113,7 +135,12 @@ function createAuth(db) {
   router.get('/api/me', (req, res) => {
     const s = getSession(req);
     if (!s) return res.status(401).json({ error: 'not_logged_in' });
-    res.json({ username: s.username, role: s.role, email: s.email, display_name: s.display_name || '', onboarded: getSetting(db, 'onboarded') === '1' });
+    const tenantDb = getTenantDb(s.org_id);
+    res.json({
+      username: s.username, role: s.role, email: s.email,
+      display_name: s.display_name || '', org_id: s.org_id,
+      onboarded: getSetting(tenantDb, 'onboarded') === '1',
+    });
   });
 
   // ---- Invite User (admin sends invitation email) ----
@@ -122,19 +149,17 @@ function createAuth(db) {
     const { email, role } = req.body || {};
     if (!email || !String(email).includes('@')) return res.status(400).json({ error: 'valid email required' });
     const validRole = role === 'admin' ? 'admin' : 'recruiter';
-    // Check if email already exists
-    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(String(email));
+    const existing = findUserByEmail(sysDb, email);
     if (existing) return res.status(400).json({ error: 'email already registered' });
     const inviteToken = crypto.randomBytes(32).toString('base64url');
     const expires = new Date(Date.now() + INVITE_TTL_MS).toISOString();
-    // Create a placeholder user with no password (they set it on invite accept)
     const username = String(email).split('@')[0] + '_' + crypto.randomBytes(3).toString('hex');
-    db.prepare(
-      'INSERT INTO users (username, password_hash, role, email, email_verified, invite_token, invite_expires) VALUES (?, ?, ?, ?, 0, ?, ?)'
-    ).run(username, '', validRole, String(email), inviteToken, expires);
-    const baseUrl = getBaseUrl();
+    sysDb.prepare(
+      'INSERT INTO users (org_id, username, password_hash, role, email, email_verified, invite_token, invite_expires) VALUES (?, ?, ?, ?, ?, 0, ?, ?)'
+    ).run(req.user.org_id, username, '', validRole, String(email), inviteToken, expires);
+    const baseUrl = getBaseUrl(req.user.org_id);
     const link = `${baseUrl}/invite.html?token=${inviteToken}`;
-    sendEmail(String(email), 'You\'re invited to JobLink', `
+    sendEmail(String(email), "You're invited to JobLink", `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
         <h2 style="color:#3b82f6">You're invited to JobLink</h2>
         <p>You've been invited to join JobLink as a <strong>${validRole}</strong>.</p>
@@ -145,7 +170,6 @@ function createAuth(db) {
       res.json({ ok: true, message: 'Invitation sent' });
     }).catch((err) => {
       console.error('[invite-email]', err.message);
-      // Still return success — the user was created, they just didn't get the email
       res.json({ ok: true, message: 'User created but email failed to send', invite_link: link });
     });
   });
@@ -155,45 +179,43 @@ function createAuth(db) {
     const { token, password, display_name } = req.body || {};
     if (!token) return res.status(400).json({ error: 'token required' });
     if (!password || String(password).length < 8) return res.status(400).json({ error: 'password must be at least 8 characters' });
-    const user = db.prepare('SELECT * FROM users WHERE invite_token = ?').get(String(token));
+    const user = findUserByInviteToken(sysDb, token);
     if (!user) return res.status(404).json({ error: 'invalid or expired invitation' });
     if (new Date(user.invite_expires) < new Date()) return res.status(400).json({ error: 'invitation expired' });
-    // Set password, clear invite token, mark verified
     const username = display_name ? String(display_name).toLowerCase().replace(/[^a-z0-9]/g, '') : user.username;
-    db.prepare(
-      'UPDATE users SET password_hash = ?, email_verified = 1, invite_token = NULL, invite_expires = NULL, display_name = ? WHERE id = ?'
-    ).run(bcrypt.hashSync(String(password), 10), display_name || '', user.id);
-    // Try to update username if display_name given (ignore conflict)
-    if (display_name) {
-      try { db.prepare('UPDATE users SET username = ? WHERE id = ?').run(username, user.id); } catch { /* username taken */ }
-    }
-    const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+    updateUser(sysDb, user.id, {
+      password_hash: bcrypt.hashSync(String(password), 10),
+      email_verified: 1,
+      invite_token: null,
+      invite_expires: null,
+      display_name: display_name || '',
+    });
+    try { updateUser(sysDb, user.id, { username }); } catch { /* username taken */ }
+    const updated = sysDb.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
     createSession(res, updated);
     res.json({ ok: true, username: updated.username, role: updated.role });
   });
 
-  // ---- Validate invite token (check if valid before showing form) ----
+  // ---- Validate invite token ----
   router.get('/api/invite/validate', (req, res) => {
     const { token } = req.query;
     if (!token) return res.status(400).json({ error: 'token required' });
-    const user = db.prepare('SELECT email, role, invite_expires FROM users WHERE invite_token = ?').get(String(token));
+    const user = findUserByInviteToken(sysDb, token);
     if (!user) return res.status(404).json({ error: 'invalid invitation' });
     if (new Date(user.invite_expires) < new Date()) return res.status(400).json({ error: 'invitation expired' });
     res.json({ ok: true, email: user.email, role: user.role });
   });
 
-  // ---- Forgot Password (send reset link) ----
+  // ---- Forgot Password ----
   router.post('/api/forgot-password', (req, res) => {
     const { email } = req.body || {};
     if (!email) return res.status(400).json({ error: 'email required' });
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(String(email));
-    // Always return success (don't leak whether email exists)
+    const user = findUserByEmail(sysDb, email);
     if (!user) return res.json({ ok: true });
     const resetToken = crypto.randomBytes(32).toString('base64url');
     const expires = new Date(Date.now() + RESET_TTL_MS).toISOString();
-    db.prepare('UPDATE users SET magic_login_token = ?, magic_login_expires = ? WHERE id = ?')
-      .run(resetToken, expires, user.id);
-    const baseUrl = getBaseUrl();
+    updateUser(sysDb, user.id, { magic_login_token: resetToken, magic_login_expires: expires });
+    const baseUrl = getBaseUrl(user.org_id);
     const link = `${baseUrl}/reset-password.html?token=${resetToken}`;
     sendEmail(String(email), 'Reset your JobLink password', `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
@@ -206,30 +228,28 @@ function createAuth(db) {
     res.json({ ok: true });
   });
 
-  // ---- Reset Password (with token) ----
+  // ---- Reset Password ----
   router.post('/api/reset-password', (req, res) => {
     const { token, password } = req.body || {};
     if (!token) return res.status(400).json({ error: 'token required' });
     if (!password || String(password).length < 8) return res.status(400).json({ error: 'password must be at least 8 characters' });
-    const user = db.prepare('SELECT * FROM users WHERE magic_login_token = ?').get(String(token));
+    const user = findUserByMagicToken(sysDb, token);
     if (!user) return res.status(404).json({ error: 'invalid or expired reset link' });
     if (new Date(user.magic_login_expires) < new Date()) return res.status(400).json({ error: 'reset link expired' });
-    db.prepare('UPDATE users SET password_hash = ?, magic_login_token = NULL, magic_login_expires = NULL WHERE id = ?')
-      .run(bcrypt.hashSync(String(password), 10), user.id);
+    updateUser(sysDb, user.id, { password_hash: bcrypt.hashSync(String(password), 10), magic_login_token: null, magic_login_expires: null });
     res.json({ ok: true });
   });
 
-  // ---- Magic Link Login (send one-time login link) ----
+  // ---- Magic Link Login ----
   router.post('/api/magic-login', (req, res) => {
     const { email } = req.body || {};
     if (!email) return res.status(400).json({ error: 'email required' });
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(String(email));
-    if (!user) return res.json({ ok: true }); // don't leak
+    const user = findUserByEmail(sysDb, email);
+    if (!user) return res.json({ ok: true });
     const magicToken = crypto.randomBytes(32).toString('base64url');
     const expires = new Date(Date.now() + MAGIC_TTL_MS).toISOString();
-    db.prepare('UPDATE users SET magic_login_token = ?, magic_login_expires = ? WHERE id = ?')
-      .run(magicToken, expires, user.id);
-    const baseUrl = getBaseUrl();
+    updateUser(sysDb, user.id, { magic_login_token: magicToken, magic_login_expires: expires });
+    const baseUrl = getBaseUrl(user.org_id);
     const link = `${baseUrl}/api/magic-login/verify?token=${magicToken}`;
     sendEmail(String(email), 'Sign in to JobLink', `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
@@ -242,22 +262,20 @@ function createAuth(db) {
     res.json({ ok: true });
   });
 
-  // ---- Magic Link Verify (GET — clicked from email) ----
+  // ---- Magic Link Verify ----
   router.get('/api/magic-login/verify', (req, res) => {
     const { token } = req.query;
     if (!token) return res.status(400).send('Invalid link');
-    const user = db.prepare('SELECT * FROM users WHERE magic_login_token = ?').get(String(token));
+    const user = findUserByMagicToken(sysDb, token);
     if (!user || new Date(user.magic_login_expires) < new Date()) {
       return res.status(400).send('<html><body style="font-family:sans-serif;text-align:center;padding:60px"><h2>Link expired or invalid</h2><p><a href="/login.html">Go to login</a></p></body></html>');
     }
-    // Clear token, create session, redirect
-    db.prepare('UPDATE users SET magic_login_token = NULL, magic_login_expires = NULL, email_verified = 1 WHERE id = ?')
-      .run(user.id);
+    updateUser(sysDb, user.id, { magic_login_token: null, magic_login_expires: null, email_verified: 1 });
     createSession(res, user);
     res.redirect('/dashboard.html');
   });
 
-  return { router, requireAuth, requireAdmin, sessions };
+  return { router, requireAuth, requireAdmin, sessions, sysDb };
 }
 
 module.exports = { createAuth, sendEmail };
