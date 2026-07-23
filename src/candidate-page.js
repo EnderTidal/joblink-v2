@@ -119,7 +119,7 @@ function renderPreviewPage(db, preSelectedCategory) {
       </div>
       ${jo.description ? '<p class="req"><strong>Description:</strong> ' + esc(jo.description) + '</p>' : ''}
       ${jo.requirements ? '<p class="req"><strong>Requirements:</strong> ' + esc(jo.requirements) + '</p>' : ''}
-      <button class="interest done" disabled>Preview only</button>
+      <button class="interest" disabled>I'm Interested ✋</button>
     </div>`).join('\n');
 
   const empty = '<div class="card empty" id="emptyMsg"><h2>No published positions right now</h2>' +

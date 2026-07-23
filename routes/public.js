@@ -26,6 +26,15 @@ function createPublicRoutes(db) {
     res.status(result.ok ? 200 : 400).json(result);
   });
 
+  // Remove interest (toggle off)
+  router.delete('/m/:token/interest', express.json(), (req, res) => {
+    const candidate = db.prepare('SELECT * FROM candidates WHERE magic_token = ?').get(req.params.token);
+    if (!candidate) return res.status(404).json({ ok: false, error: 'not_found' });
+    const joId = Number(req.body?.job_order_id);
+    db.prepare('DELETE FROM interests WHERE phone = ? AND job_order_id = ?').run(candidate.phone, joId);
+    res.json({ ok: true });
+  });
+
   return router;
 }
 
