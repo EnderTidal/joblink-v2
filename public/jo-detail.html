@@ -3,65 +3,21 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JobLink &mdash; Job Order Detail</title>
 <script>(function(){if(localStorage.getItem("joblink_light_mode")==="true"){document.documentElement.classList.add("light-mode")}})();</script>
-<link rel="stylesheet" href="/app.css?v=3">
+<link rel="stylesheet" href="/app.css?v=4">
 <style>
-  .back-link { display:inline-flex; align-items:center; gap:6px; color:var(--blue); text-decoration:none; font-size:.9rem; margin-bottom:16px; }
-  .back-link:hover { text-decoration:underline; }
-
-  /* JO Header Card */
-  .jo-header { position:relative; }
-  .jo-header h1 { font-size:1.3rem; margin:0 0 4px; }
-  .jo-meta { display:flex; flex-wrap:wrap; gap:14px; margin-top:8px; font-size:.88rem; color:var(--mut); }
-  .jo-meta span { display:inline-flex; align-items:center; gap:4px; }
-  .jo-meta strong { color:var(--ink); font-weight:600; }
-  .edit-toggle { position:absolute; top:18px; right:18px; }
-
-  /* Edit form inside header */
-  .jo-edit-form { display:none; margin-top:14px; }
-  .jo-edit-form.open { display:block; }
-  .jo-edit-form .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .jo-edit-form .btn-row { display:flex; gap:8px; margin-top:12px; }
-
-  /* Pipeline sections */
-  .pipeline-section { border-radius:10px; padding:0; margin-bottom:14px; background:var(--card); overflow:hidden; }
-  .pipeline-section-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; cursor:pointer; user-select:none; }
-  .pipeline-section-header:hover { background:rgba(96,165,250,0.04); }
-  .pipeline-section-header h2 { font-size:1rem; margin:0; display:flex; align-items:center; gap:8px; }
-  .pipeline-section-body { padding:0 16px 14px; }
-  .pipeline-badge { font-size:.78rem; font-weight:700; padding:2px 10px; border-radius:6px; }
-  .badge-interested { background:rgba(96,165,250,0.15); color:var(--blue); }
-  .badge-yeslisted { background:rgba(217,119,6,0.15); color:#d97706; }
-  .badge-confirmed { background:rgba(34,197,94,0.15); color:#22c55e; }
-  .badge-filled { background:rgba(139,92,246,0.15); color:#8b5cf6; }
-  .badge-ruledout { background:rgba(148,163,184,0.15); color:#94a3b8; }
-  .section-interested { border-left:4px solid var(--blue); }
-  .section-yeslisted { border-left:4px solid #d97706; }
-  .section-confirmed { border-left:4px solid #16a34a; }
-  .section-filled { border-left:4px solid #8b5cf6; }
-  .section-ruledout { border-left:4px solid #94a3b8; }
-
-  /* Row action buttons */
-  .row-btn { display:inline-flex; align-items:center; justify-content:center; height:28px; padding:0 10px; border:1px solid transparent; border-radius:6px; font-family:inherit; font-size:.78rem; font-weight:700; cursor:pointer; white-space:nowrap; transition:all .12s; }
-  .row-btn:disabled { opacity:.4; cursor:not-allowed; }
-  .btn-yeslist { background:rgba(217,119,6,0.12); color:#d97706; }
-  .btn-yeslist:hover { background:rgba(217,119,6,0.22); }
-  .btn-confirm { background:rgba(34,197,94,0.12); color:#22c55e; }
-  .btn-confirm:hover { background:rgba(34,197,94,0.22); }
-  .btn-fill { background:rgba(139,92,246,0.12); color:#8b5cf6; }
-  .btn-fill:hover { background:rgba(139,92,246,0.22); }
-  .btn-ruleout { background:rgba(239,68,68,0.08); color:#ef4444; }
-  .btn-ruleout:hover { background:rgba(239,68,68,0.18); }
-  .btn-restore { background:rgba(148,163,184,0.1); color:#64748b; }
-  .btn-restore:hover { background:rgba(148,163,184,0.2); }
-  .act-group { display:inline-flex; gap:4px; flex-wrap:wrap; }
-
-  .empty-msg { padding:12px 0; color:var(--mut); font-size:.86rem; }
-  .pill { white-space:nowrap; }
+  /* Funnel strip */
+  .funnel-strip { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:24px; }
+  .funnel-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px 16px; box-shadow:var(--shadow-sm); }
+  .funnel-card .funnel-num { font-size:26px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.1; }
+  .funnel-card .funnel-label { font-size:12px; font-weight:700; color:var(--text-muted); }
 </style>
 </head>
 <body>
 <main class="page">
-  <a href="/dashboard.html" class="back-link">&larr; Back to Dashboard</a>
+  <a href="/dashboard.html" class="back-link">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    Back to Dashboard
+  </a>
 
   <!-- JO Header -->
   <div class="card jo-header" id="joHeader">
@@ -78,7 +34,7 @@
       </div>
       <div class="row2">
         <label class="f">City / State<input name="city_state" id="fCityState"></label>
-        <label class="f">Address <em style="font-weight:400;color:#94a3b8">(hidden)</em><input name="address" id="fAddress"></label>
+        <label class="f">Address <em style="font-weight:400;color:var(--text-subtle)">(hidden)</em><input name="address" id="fAddress"></label>
       </div>
       <label class="f">Requirements<textarea name="requirements" id="fRequirements" rows="3"></textarea></label>
       <label class="f">Description<textarea name="description" id="fDescription" rows="3"></textarea></label>
@@ -93,10 +49,13 @@
     </div>
   </div>
 
+  <!-- Funnel strip -->
+  <div class="funnel-strip" id="funnelStrip"></div>
+
   <!-- Pipeline sections -->
   <div id="pipeline"></div>
 </main>
-<script src="/app.js?v=3"></script>
+<script src="/app.js?v=4"></script>
 <script>
 var joId = Number(new URLSearchParams(location.search).get('id'));
 var joData = null;
@@ -106,14 +65,35 @@ if (!joId) { location.href = '/dashboard.html'; }
 function renderHeader(jo) {
   document.title = 'JobLink \u2014 ' + jo.title;
   document.getElementById('joHeaderView').innerHTML =
-    '<h1>' + esc(jo.title) + ' <span class="pill ' + jo.status + '" style="font-size:.78rem;vertical-align:middle">' + jo.status + '</span></h1>' +
+    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+      '<h1>' + esc(jo.title) + '</h1>' +
+      '<span class="pill ' + jo.status + '">' + jo.status + '</span>' +
+    '</div>' +
     '<div class="jo-meta">' +
-      '<span><strong>Category:</strong> ' + esc(jo.category || '\u2014') + '</span>' +
-      '<span><strong>Pay:</strong> ' + esc(jo.pay || '\u2014') + '</span>' +
-      '<span><strong>Shift:</strong> ' + esc(jo.shift_hours || '\u2014') + '</span>' +
-      '<span><strong>Location:</strong> ' + esc(jo.city_state || '\u2014') + '</span>' +
-      '<span><strong>Recruiter:</strong> ' + esc(jo.assigned_recruiter || '\u2014') + '</span>' +
+      '<span><span class="meta-label">Category</span><span class="meta-value">' + esc(jo.category || '\u2014') + '</span></span>' +
+      '<span><span class="meta-label">Pay</span><span class="meta-value">' + esc(jo.pay || '\u2014') + '</span></span>' +
+      '<span><span class="meta-label">Shift</span><span class="meta-value">' + esc(jo.shift_hours || '\u2014') + '</span></span>' +
+      '<span><span class="meta-label">Location</span><span class="meta-value">' + esc(jo.city_state || '\u2014') + '</span></span>' +
+      '<span><span class="meta-label">Recruiter</span><span class="meta-value">' + esc(jo.assigned_recruiter || '\u2014') + '</span></span>' +
     '</div>';
+}
+
+function renderFunnel(jo) {
+  var p = jo.pipeline || {};
+  var stages = [
+    { key:'interested', label:'Interested', accent:'var(--blue)' },
+    { key:'yes_listed', label:'Yes-Listed', accent:'var(--amber)' },
+    { key:'confirmed', label:'Confirmed', accent:'var(--green)' },
+    { key:'filled', label:'Filled', accent:'var(--violet)' },
+    { key:'ruled_out', label:'Ruled Out', accent:'var(--red)' },
+  ];
+  document.getElementById('funnelStrip').innerHTML = stages.map(function(s) {
+    var count = (p[s.key] || []).length;
+    return '<div class="funnel-card" style="border-top:3px solid ' + s.accent + '">' +
+      '<div class="funnel-num" style="color:' + (count > 0 ? s.accent : 'var(--text)') + '">' + count + '</div>' +
+      '<div class="funnel-label">' + s.label + '</div>' +
+    '</div>';
+  }).join('');
 }
 
 function populateEditForm(jo) {
@@ -126,7 +106,6 @@ function populateEditForm(jo) {
   document.getElementById('fRequirements').value = jo.requirements || '';
   document.getElementById('fDescription').value = jo.description || '';
   document.getElementById('fStatus').value = jo.status || 'Unpublished';
-  // Set recruiter after options are loaded
   var rSel = document.getElementById('fRecruiter');
   for (var i = 0; i < rSel.options.length; i++) {
     if (rSel.options[i].value === (jo.assigned_recruiter || '')) { rSel.selectedIndex = i; break; }
@@ -197,8 +176,8 @@ function renderSection(key, title, badgeCls, sectionCls, candidates) {
   var count = candidates ? candidates.length : 0;
   var html = '<div class="pipeline-section ' + sectionCls + '">';
   html += '<div class="pipeline-section-header" onclick="this.nextElementSibling.classList.toggle(\'open\')">';
-  html += '<h2>' + title + ' <span class="pipeline-badge ' + badgeCls + '">' + count + '</span></h2>';
-  html += '<span style="color:var(--mut);font-size:.82rem">\u25BC</span></div>';
+  html += '<h2><span class="stage-dot ' + key.replace('_','') + '"></span>' + title + ' <span class="pipeline-badge ' + badgeCls + '">' + count + '</span></h2>';
+  html += '<span style="color:var(--text-muted);font-size:.82rem">\u25BC</span></div>';
   html += '<div class="pipeline-section-body' + (count > 0 ? ' open' : '') + '">';
   if (count === 0) {
     html += '<p class="empty-msg">No candidates in this stage.</p>';
@@ -256,6 +235,7 @@ async function loadDetail() {
   try {
     joData = await api('/api/job-orders/' + joId);
     renderHeader(joData);
+    renderFunnel(joData);
     renderPipeline(joData);
   } catch(e) {
     document.getElementById('joHeaderView').innerHTML = '<h1>Job Order Not Found</h1><p class="mut">This job order may have been deleted.</p>';
