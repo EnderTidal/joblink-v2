@@ -42,8 +42,8 @@ function renderCandidatePage(db, candidate) {
       </div>
       ${jo.description ? `<p class="req"><strong>Description:</strong> ${esc(jo.description)}</p>` : ''}
       ${jo.requirements ? `<p class="req"><strong>Requirements:</strong> ${esc(jo.requirements)}</p>` : ''}
-      <button class="interest ${done ? 'done' : ''}" data-id="${jo.id}" ${done ? 'disabled' : ''}>
-        ${done ? "\u2713 You're on the list!" : "I'm Interested"}
+      <button class="interest ${done ? 'done' : ''}" data-id="${jo.id}" >
+        ${done ? "\u2713 Interest Submitted" : "I'm Interested ✋"}
       </button>
     </div>`;
   }).join('\n');
@@ -86,17 +86,19 @@ function renderCandidatePage(db, candidate) {
   ${jobs.length ? jobCards : empty}
 </main>
 <script>
-document.querySelectorAll('.interest:not(.done)').forEach(function (btn) {
+document.querySelectorAll('.interest').forEach(function (btn) {
   btn.addEventListener('click', function () {
-    btn.disabled = true;
+    var isDone = btn.classList.contains('done');
     fetch(location.pathname + '/interest', {
-      method: 'POST',
+      method: isDone ? 'DELETE' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ job_order_id: Number(btn.dataset.id) })
     }).then(function (r) { return r.json(); }).then(function (res) {
-      if (res.ok) { btn.textContent = "\\u2713 You're on the list!"; btn.classList.add('done'); }
-      else { btn.disabled = false; alert('Something went wrong \\u2014 try again?'); }
-    }).catch(function () { btn.disabled = false; });
+      if (res.ok) {
+        if (isDone) { btn.textContent = "I'm Interested ✋"; btn.classList.remove('done'); }
+        else { btn.textContent = "✓ Interest Submitted"; btn.classList.add('done'); }
+      } else { alert('Something went wrong — try again?'); }
+    }).catch(function () { alert('Something went wrong — try again?'); });
   });
 });
 </script>
