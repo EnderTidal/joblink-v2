@@ -349,7 +349,7 @@ function sortBy(v) {
   renderTable();
 }
 
-function openPreview() { var cat = document.getElementById("previewCategory").value;
+function openPreview() { var cat = "";
   var url = '/m/preview'; if (cat) url += '?category=' + encodeURIComponent(cat); window.open(url, '_blank');
 }
 
