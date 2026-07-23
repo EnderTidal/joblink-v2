@@ -84,7 +84,7 @@ app.use('/api', tenantMiddleware);
 // Mount routes (they now use req.db instead of a closure db)
 app.use(createTomRoutes());
 app.use(createAdminRoutes(sysDb, auth));
-app.use(createDevRoutes(sysDb, auth));
+app.use("/dev", createDevRoutes(sysDb, auth));
 
 // Static UI (login page is public; app pages check session client-side + APIs are guarded)
 app.use(express.static(path.join(__dirname, 'public')));
