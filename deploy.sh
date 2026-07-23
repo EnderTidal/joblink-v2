@@ -26,15 +26,24 @@ pm2 restart joblink-v2
 echo "Waiting 3 seconds for startup..."
 sleep 3
 
-# Step 4: Run smoke test
+# Step 4: Run original smoke test
 echo ""
-echo "--- Running post-deploy smoke test ---"
+echo "--- Running post-deploy smoke test (legacy) ---"
 if ! $NODE scripts/smoke.js; then
   echo ""
-  echo "WARNING: Smoke test FAILED after deploy!"
+  echo "WARNING: Legacy smoke test FAILED after deploy!"
   echo "Server is running but may have issues."
-  # Send alert email via Resend
-  $NODE scripts/send-alert.js "SMOKE TEST FAILED after deploy" "Smoke test failed after pm2 restart. Server is running but may have issues. Check logs: pm2 logs joblink-v2" 2>/dev/null || true
+  $NODE scripts/send-alert.js "SMOKE TEST FAILED after deploy" "Legacy smoke test failed after pm2 restart. Server is running but may have issues. Check logs: pm2 logs joblink-v2" 2>/dev/null || true
+  exit 1
+fi
+
+# Step 5: Run E2E HTTP smoke test
+echo ""
+echo "--- Running E2E HTTP smoke test ---"
+if ! $NODE scripts/e2e-smoke.js; then
+  echo ""
+  echo "WARNING: E2E smoke test FAILED after deploy!"
+  $NODE scripts/send-alert.js "E2E SMOKE FAILED after deploy" "E2E HTTP smoke test failed after pm2 restart. Check routes. Logs: pm2 logs joblink-v2" 2>/dev/null || true
   exit 1
 fi
 
