@@ -298,7 +298,11 @@ function sortBy(v) {
 }
 
 function openPreview() { var cat = "";
-  var url = '/m/preview'; if (cat) url += '?category=' + encodeURIComponent(cat); window.open(url, '_blank');
+  api('/api/me').then(function(me) {
+    var url = '/m/preview?org=' + me.org_id;
+    if (cat) url += '&category=' + encodeURIComponent(cat);
+    window.open(url, '_blank');
+  });
 }
 
 function wireFilters(id, setter) {

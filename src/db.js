@@ -125,7 +125,7 @@ const DEFAULT_SETTINGS = {
 };
 
 const DEFAULT_TEMPLATE_BODY =
-  'Hi {first_name}! Express Employment has new job openings matching your skills. ' +
+  'Hi {first_name}! We have new job openings matching your skills. ' +
   'View and apply here: {link} — Reply STOP to opt out';
 
 function openDb(filePath) {

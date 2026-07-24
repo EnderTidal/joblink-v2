@@ -25,7 +25,8 @@ function createPublicRoutes(sysDb) {
   // Preview mode — shows all published JOs as a candidate would see them
   // For preview, use org-1 by default (or accept an org query param)
   router.get('/m/preview', (req, res) => {
-    const orgId = Number(req.query.org) || 1;
+    if (!req.query.org) return res.status(400).send('<h1>Missing organization</h1><p>Preview requires an <code>?org=</code> parameter.</p>');
+    const orgId = Number(req.query.org);
     try {
       const db = getTenantDb(orgId);
       const { renderPreviewPage } = require('../src/candidate-page');

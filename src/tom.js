@@ -42,8 +42,8 @@ const BLAST_CONFIRM_REJECTION =
 const JOB_ORDER_EXAMPLE =
   'Type the details like this, or upload a .docx/.txt file:\n\n' +
   'Title: Forklift Operator\nCategory: Industrial\nPay: $18/hr\n' +
-  'Shift: 1st shift, 6am-2:30pm\nAddress: 123 Warehouse Dr, Waxahachie, TX 75165\n' +
-  'City/State: Waxahachie, TX\n' +
+  'Shift: 1st shift, 6am-2:30pm\nAddress: 123 Main St, Your City, ST 00000\n' +
+  'City/State: Your City, ST\n' +
   'Requirements: 6+ months forklift experience\nDescription: Move palletized goods in a climate-controlled warehouse.';
 
 const SORT_OPTIONS = [

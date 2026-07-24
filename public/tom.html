@@ -187,7 +187,6 @@ var FIELD_VISIBILITY = {
   description: '(visible)',
   company: '(HIDDEN from candidates)',
   address: '(HIDDEN from candidates)',
-  status: '(internal)',
 };
 
 var JO_FIELDS = [
@@ -200,7 +199,6 @@ var JO_FIELDS = [
   { key: 'city_state', label: 'City / State', required: false },
   { key: 'requirements', label: 'Requirements', required: false },
   { key: 'description', label: 'Description', required: false },
-  { key: 'status', label: 'Status', required: true },
 ];
 
 function showLoading() {
@@ -274,14 +272,6 @@ function showJOForm(draft, warnings) {
         var opt = document.createElement('option');
         opt.value = c; opt.textContent = c;
         if (draft[f.key] === c) opt.selected = true;
-        input.appendChild(opt);
-      });
-    } else if (f.key === 'status') {
-      input = document.createElement('select');
-      STATUSES.forEach(function(s) {
-        var opt = document.createElement('option');
-        opt.value = s; opt.textContent = s;
-        if (draft[f.key] === s) opt.selected = true;
         input.appendChild(opt);
       });
     } else if (f.key === 'description' || f.key === 'requirements') {
