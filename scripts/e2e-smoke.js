@@ -70,7 +70,7 @@ const tests = [
   {
     name: 'GET /m/preview?org=1 → 200, contains "Preview"',
     run: async () => {
-      const res = await request('GET', '/m/preview');
+      const res = await request('GET', '/m/preview?org=1');
       if (res.status !== 200) return `Expected 200, got ${res.status}`;
       if (!res.body.toLowerCase().includes('preview')) return 'Response does not contain "Preview"';
       return null;
