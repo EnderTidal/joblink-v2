@@ -68,7 +68,7 @@ const tests = [
     },
   },
   {
-    name: 'GET /m/preview → 200, contains "Preview"',
+    name: 'GET /m/preview?org=1 → 200, contains "Preview"',
     run: async () => {
       const res = await request('GET', '/m/preview');
       if (res.status !== 200) return `Expected 200, got ${res.status}`;
