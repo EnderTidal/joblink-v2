@@ -33,7 +33,7 @@ function navbar(active) {
     <span class="spacer"></span>
     <div class="nav-links">
       <a href="/dashboard.html" class="${active === 'dash' ? 'active' : ''}">Dashboard</a>
-      <a href="/tom.html" class="${active === 'tom' ? 'active' : ''}">AI Assistant</a>
+      <a href="/tom.html" class="${active === 'tom' ? 'active' : ''}">The Wizard</a>
       <a href="/admin.html" class="${active === 'admin' ? 'active' : ''}">Admin</a>
     </div>
     <span class="spacer"></span>

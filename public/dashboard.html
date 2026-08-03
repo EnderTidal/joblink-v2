@@ -2,7 +2,7 @@
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JobLink &mdash; Dashboard</title>
-<script>(function(){if(localStorage.getItem("joblink_light_mode")==="true"){document.documentElement.classList.add("light-mode")}})();</script>
+<script>(function(){if(localStorage.getItem("joblink_light_mode")!=="false"){document.documentElement.classList.add("light-mode")}})();</script>
 <link rel="stylesheet" href="/app.css?v=4">
 <style>
   /* Dashboard-specific overrides */
@@ -73,7 +73,7 @@
           <button data-v="" class="on">All</button>
           <button data-v="Published">Published</button>
           <button data-v="Unpublished">Unpublished</button>
-          <button data-v="Complete">Completed</button>
+          <button data-v="Complete">Archived</button>
         </div>
         <div class="cat-filters" id="catFilters">
           <button data-v="" class="on">All categories</button>
@@ -119,7 +119,7 @@
   <!-- Completed section -->
   <div class="card" id="completedSection" style="display:none">
     <div class="completed-toggle" onclick="toggleCompleted()">
-      <h3>Completed Job Orders</h3>
+      <h3>Archived Job Orders</h3>
       <span class="completed-count" id="completedCount">0</span>
     </div>
     <div class="completed-body" id="completedBody">
@@ -257,8 +257,8 @@ function renderRow(jo) {
     '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px" onclick="event.stopPropagation()">' +
       (jo.status === 'Published' ? '<span class="pill Published" style="cursor:pointer" onclick="setStatus(' + jo.id + ',\'Unpublished\')">Published</span>' : '') +
       (jo.status === 'Unpublished' ? '<span class="pill Unpublished" style="cursor:pointer" onclick="setStatus(' + jo.id + ',\'Published\')">Unpublished</span>' : '') +
-      (jo.status === 'Complete' ? '<span class="pill Complete">Complete</span>' : '') +
-      (jo.status !== 'Complete' ? '<button class="btn sm ghost" style="font-size:12px;padding:3px 9px" onclick="setStatus(' + jo.id + ',\'Complete\')">Complete</button>' : '') +
+      (jo.status === 'Complete' ? '<span class="pill Complete">Archived</span>' : '') +
+      (jo.status !== 'Complete' ? '<button class="btn sm ghost" style="font-size:12px;padding:3px 9px" onclick="archiveJob(' + jo.id + ')">Archive</button>' : '') +
     '</div>' +
   '</div>';
 }
@@ -279,7 +279,7 @@ function renderCompletedRow(jo) {
 
 async function setStatus(id, s) {
   await api('/api/job-orders/' + id + '/status', { method: 'POST', body: { status: s } });
-  toast('Job order ' + s.toLowerCase() + '.');
+  toast('Job order ' + (s === 'Complete' ? 'archived' : s.toLowerCase()) + '.');
   loadRows(); loadStats();
 }
 
@@ -294,6 +294,7 @@ function onSearch(v) {
 
 function sortBy(v) {
   currentSort = v;
+  localStorage.setItem('jl_filter_sort', v);
   renderTable();
 }
 
@@ -305,18 +306,19 @@ function openPreview() { var cat = "";
   });
 }
 
-function wireFilters(id, setter) {
+function wireFilters(id, setter, storageKey) {
   document.querySelectorAll('#' + id + ' button').forEach(function(b) {
     b.addEventListener('click', function() {
       document.querySelectorAll('#' + id + ' button').forEach(function(x) { x.classList.remove('on'); });
       b.classList.add('on');
       setter(b.dataset.v);
+      if (storageKey) localStorage.setItem(storageKey, b.dataset.v);
       loadRows();
     });
   });
 }
-wireFilters('statusFilters', function(v) { statusFilter = v; });
-wireFilters('catFilters', function(v) { categoryFilter = v; });
+wireFilters('statusFilters', function(v) { statusFilter = v; }, 'jl_filter_status');
+wireFilters('catFilters', function(v) { categoryFilter = v; }, 'jl_filter_category');
 
 // ---- Pipeline action buttons for each status ----
 function pipelineButtons(c) {
@@ -395,7 +397,7 @@ async function openJoDetail(id) {
     html += '<button type="button" class="btn" onclick="saveJoDetail(' + jo.id + ')">Save</button>';
     if (jo.status !== 'Published') html += '<button type="button" class="btn ghost" onclick="joAction(' + jo.id + ',\x27Published\x27)">Publish</button>';
     if (jo.status === 'Published') html += '<button type="button" class="btn ghost" onclick="joAction(' + jo.id + ',\x27Unpublished\x27)">Unpublish</button>';
-    if (jo.status !== 'Complete') html += '<button type="button" class="btn ghost" onclick="joAction(' + jo.id + ',\x27Complete\x27)">Complete</button>';
+    if (jo.status !== 'Complete') html += '<button type="button" class="btn ghost" onclick="if(confirm('This will remove all interested/yeslisted/removed candidates from this job post and unpublish it. Continue?'))joAction(' + jo.id + ',\x27Complete\x27)">Archive</button>';
     html += '</div></form>';
 
     // Pipeline sections grouped by status
@@ -515,6 +517,63 @@ async function loadRecruiterFilter() {
   } catch(e) { /* non-admin may not have access */ }
 }
 
-boot('dash').then(async function() { loadStats(); await loadRecruiterFilter(); loadRows(); loadBlasts(); });
+
+function archiveJob(id) {
+  if (!confirm('This will remove all interested/yeslisted/removed candidates from this job post and unpublish it. Continue?')) return;
+  setStatus(id, 'Complete');
+}
+
+
+// Restore persisted filters
+function restoreFilters() {
+  var savedStatus = localStorage.getItem('jl_filter_status');
+  var savedCat = localStorage.getItem('jl_filter_category');
+  var savedRecruiter = localStorage.getItem('jl_filter_recruiter');
+  var savedPipeline = localStorage.getItem('jl_filter_pipeline');
+  var savedSort = localStorage.getItem('jl_filter_sort');
+  var savedSearch = localStorage.getItem('jl_filter_search');
+
+  if (savedStatus) {
+    statusFilter = savedStatus;
+    document.querySelectorAll('#statusFilters button').forEach(function(b) {
+      b.classList.toggle('on', b.dataset.v === savedStatus);
+    });
+  }
+  if (savedCat) {
+    categoryFilter = savedCat;
+    document.querySelectorAll('#catFilters button').forEach(function(b) {
+      b.classList.toggle('on', b.dataset.v === savedCat);
+    });
+  }
+  if (savedRecruiter) {
+    recruiterFilter = savedRecruiter;
+    var rSel = document.getElementById('recruiterFilter');
+    if (rSel) rSel.value = savedRecruiter;
+  }
+  if (savedPipeline) {
+    pipelineFilter = savedPipeline;
+    var pSel = document.getElementById('pipelineFilter');
+    if (pSel) pSel.value = savedPipeline;
+  }
+  if (savedSort) {
+    currentSort = savedSort;
+    var sortSel = document.querySelector('select[onchange="sortBy(this.value)"]');
+    if (sortSel) sortSel.value = savedSort;
+  }
+  if (savedSearch) {
+    searchQuery = savedSearch;
+    var searchInput = document.getElementById('pipelineSearch');
+    if (searchInput) searchInput.value = savedSearch;
+  }
+}
+
+// Persist select-based filters
+var _recruiterSel = document.getElementById('recruiterFilter');
+if (_recruiterSel) _recruiterSel.addEventListener('change', function() { localStorage.setItem('jl_filter_recruiter', this.value); });
+var _pipelineSel = document.getElementById('pipelineFilter');
+if (_pipelineSel) _pipelineSel.addEventListener('change', function() { localStorage.setItem('jl_filter_pipeline', this.value); });
+document.getElementById('pipelineSearch').addEventListener('input', function() { localStorage.setItem('jl_filter_search', this.value); });
+
+boot('dash').then(async function() { loadStats(); await loadRecruiterFilter(); restoreFilters(); loadRows(); loadBlasts(); });
 </script>
 </body></html>

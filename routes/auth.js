@@ -94,12 +94,17 @@ function createAuth(sysDb) {
     return token;
   }
 
-  function getBaseUrl(orgId) {
+  function getBaseUrl(orgId, req) {
+    // Use request host when available (auto-detects staging vs prod)
+    if (req) {
+      const proto = req.protocol === 'http' && req.get('host')?.includes('localhost') ? 'http' : 'https';
+      return proto + '://' + req.get('host');
+    }
     try {
       const db = getTenantDb(orgId);
-      return getSetting(db, 'base_url') || 'https://v2.joblinkplatform.com';
+      return getSetting(db, 'base_url') || process.env.BASE_URL || 'https://v2.joblinkplatform.com';
     } catch {
-      return 'https://v2.joblinkplatform.com';
+      return process.env.BASE_URL || 'https://v2.joblinkplatform.com';
     }
   }
 
@@ -157,7 +162,7 @@ function createAuth(sysDb) {
     sysDb.prepare(
       'INSERT INTO users (org_id, username, password_hash, role, email, email_verified, invite_token, invite_expires) VALUES (?, ?, ?, ?, ?, 0, ?, ?)'
     ).run(req.user.org_id, username, '', validRole, String(email), inviteToken, expires);
-    const baseUrl = getBaseUrl(req.user.org_id);
+    const baseUrl = getBaseUrl(req.user.org_id, req);
     const link = `${baseUrl}/invite.html?token=${inviteToken}`;
     sendEmail(String(email), "You're invited to JobLink", `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
@@ -215,7 +220,7 @@ function createAuth(sysDb) {
     const resetToken = crypto.randomBytes(32).toString('base64url');
     const expires = new Date(Date.now() + RESET_TTL_MS).toISOString();
     updateUser(sysDb, user.id, { magic_login_token: resetToken, magic_login_expires: expires });
-    const baseUrl = getBaseUrl(user.org_id);
+    const baseUrl = getBaseUrl(user.org_id, req);
     const link = `${baseUrl}/reset-password.html?token=${resetToken}`;
     sendEmail(String(email), 'Reset your JobLink password', `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
@@ -249,7 +254,7 @@ function createAuth(sysDb) {
     const magicToken = crypto.randomBytes(32).toString('base64url');
     const expires = new Date(Date.now() + MAGIC_TTL_MS).toISOString();
     updateUser(sysDb, user.id, { magic_login_token: magicToken, magic_login_expires: expires });
-    const baseUrl = getBaseUrl(user.org_id);
+    const baseUrl = getBaseUrl(user.org_id, req);
     const link = `${baseUrl}/api/magic-login/verify?token=${magicToken}`;
     sendEmail(String(email), 'Sign in to JobLink', `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">

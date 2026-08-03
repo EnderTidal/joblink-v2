@@ -377,7 +377,7 @@ td a { color:var(--brand); font-weight:700; letter-spacing:-.01em; }
 /* === MISC HELPERS === */
 .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
 .mut { color:var(--text-muted); font-size:13px; }
-.half { max-width:520px; }
+.half { max-width:520px; overflow-wrap:break-word; word-wrap:break-word; }
 .edit-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px; padding:10px 0; border-bottom:1px solid var(--border); }
 .edit-row input, .edit-row select { height:32px; padding:0 8px; width:auto; font-size:13px; }
 .edit-row .user-label { font-weight:600; min-width:80px; }

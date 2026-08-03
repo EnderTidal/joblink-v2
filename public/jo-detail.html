@@ -2,7 +2,7 @@
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JobLink &mdash; Job Order Detail</title>
-<script>(function(){if(localStorage.getItem("joblink_light_mode")==="true"){document.documentElement.classList.add("light-mode")}})();</script>
+<script>(function(){if(localStorage.getItem("joblink_light_mode")!=="false"){document.documentElement.classList.add("light-mode")}})();</script>
 <link rel="stylesheet" href="/app.css?v=4">
 <style>
   /* Funnel strip */
@@ -39,7 +39,7 @@
       <label class="f">Requirements<textarea name="requirements" id="fRequirements" rows="3"></textarea></label>
       <label class="f">Description<textarea name="description" id="fDescription" rows="3"></textarea></label>
       <div class="row2">
-        <label class="f">Status<select name="status" id="fStatus"><option>Unpublished</option><option>Published</option><option>Complete</option></select></label>
+        <label class="f">Status<select name="status" id="fStatus"><option>Unpublished</option><option>Published</option><option value="Complete">Archive</option></select></label>
         <label class="f">Assigned Recruiter<select name="assigned_recruiter" id="fRecruiter"></select></label>
       </div>
       <div class="btn-row">
