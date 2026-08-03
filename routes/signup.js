@@ -16,7 +16,15 @@ function createSignupRoutes(sysDb) {
   const stripe = new Stripe(process.env.STRIPE_SK);
 
   const PRICE_ID = process.env.STRIPE_PRICE_ID;
-  const BASE_URL = process.env.BASE_URL || 'https://v2.joblinkplatform.com';
+
+  /** Derive base URL from request Host header so custom domains work. */
+  function getBaseUrl(req) {
+    if (req) {
+      const proto = req.protocol === 'http' && req.get('host')?.includes('localhost') ? 'http' : 'https';
+      return proto + '://' + req.get('host');
+    }
+    return process.env.BASE_URL || 'https://v2.joblinkplatform.com';
+  }
 
   const router = express.Router();
 
@@ -64,8 +72,8 @@ function createSignupRoutes(sysDb) {
         subscription_data: {
           trial_period_days: 7,
         },
-        success_url: BASE_URL + '/api/signup/success?session_id={CHECKOUT_SESSION_ID}',
-        cancel_url: BASE_URL + '/signup.html?cancelled=1',
+        success_url: getBaseUrl(req) + '/api/signup/success?session_id={CHECKOUT_SESSION_ID}',
+        cancel_url: getBaseUrl(req) + '/signup.html?cancelled=1',
         automatic_tax: { enabled: !process.env.STRIPE_SK.includes("_test_") },
         customer_update: { address: 'auto' },
         allow_promotion_codes: true,
@@ -154,7 +162,7 @@ function createSignupRoutes(sysDb) {
           '<h2 style="color:#6172f7">Welcome to JobLink!</h2>' +
           '<p>Your organization <strong>' + pending.org_name + '</strong> is ready to go.</p>' +
           '<p>Your 7-day free trial has started. You will be charged $399/mo after the trial ends.</p>' +
-          '<p><a href="' + BASE_URL + '/login.html" style="display:inline-block;background:#6172f7;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Log In</a></p>' +
+          '<p><a href="' + getBaseUrl(req) + '/login.html" style="display:inline-block;background:#6172f7;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Log In</a></p>' +
           '<p style="color:#94a3b8;font-size:14px">Questions? Reply to this email or reach out anytime.</p>' +
           '</div>'
         );
