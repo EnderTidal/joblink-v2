@@ -23,7 +23,7 @@ function markInterest(db, candidate, jobOrderId) {
   return { ok: true };
 }
 
-function renderCandidatePage(db, candidate) {
+function renderCandidatePage(db, candidate, orgName) {
   const category = candidate.current_category;
   const jobs = category ? publishedInCategory(db, category) : [];
   const interested = new Set(
@@ -54,7 +54,7 @@ function renderCandidatePage(db, candidate) {
   return `<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<title>Jobs for you \u2014 Express Employment</title>
+<title>Jobs for you \u2014 ${esc(orgName || "JobLink")}</title>
 <style>
   :root { --brand:#3d4ee6; --blue:#2563eb; --green:#10863f; --amber:#b26a06; --surface:#ffffff; --surface-2:#f6f8fc; --border:#e5e9f2; --text:#0f1728; --text-muted:#59617a; --radius:14px; --radius-sm:10px; --shadow-sm:0 1px 2px rgba(16,24,40,.05); }
   * { box-sizing:border-box; margin:0; }

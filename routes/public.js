@@ -13,7 +13,7 @@ function findCandidateByToken(sysDb, token) {
     try {
       const db = getTenantDb(org.id);
       const candidate = db.prepare('SELECT * FROM candidates WHERE magic_token = ?').get(token);
-      if (candidate) return { candidate, db };
+      if (candidate) return { candidate, db, org };
     } catch { /* tenant DB might not exist yet */ }
   }
   return { candidate: null, db: null };
@@ -37,9 +37,9 @@ function createPublicRoutes(sysDb) {
   });
 
   router.get('/m/:token', (req, res) => {
-    const { candidate, db } = findCandidateByToken(sysDb, req.params.token);
+    const { candidate, db, org } = findCandidateByToken(sysDb, req.params.token);
     if (!candidate || !db) return res.status(404).send('<h1>Link not found</h1><p>This link may have expired. Reply to our text and we\'ll send a fresh one.</p>');
-    res.send(renderCandidatePage(db, candidate));
+    res.send(renderCandidatePage(db, candidate, org.name));
   });
 
   router.post('/m/:token/interest', express.json(), (req, res) => {
