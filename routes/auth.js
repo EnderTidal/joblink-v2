@@ -19,12 +19,12 @@ const MAGIC_TTL_MS = 15 * 60 * 1000;
 const RESET_TTL_MS = 60 * 60 * 1000;
 
 const RESEND_KEY = process.env.RESEND_KEY || '';
-const DEFAULT_FROM = 'JobLink <notifications@joblinkplatform.com>';
+const DEFAULT_FROM = 'JobLink <admin@joblinkplatform.com>';
 
 function orgFrom(sysDb, orgId) {
   try {
     const org = getOrg(sysDb, orgId);
-    if (org && org.name) return org.name + ' via JobLink <notifications@joblinkplatform.com>';
+    if (org && org.name) return org.name + ' via JobLink <admin@joblinkplatform.com>';
   } catch { /* fall through */ }
   return DEFAULT_FROM;
 }
