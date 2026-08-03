@@ -35,26 +35,23 @@ app.use(express.json({ limit: '2mb' }));
 
 const startedAt = Date.now();
 
-// Health check — no auth, always accessible. Uses org-1 tenant DB if it exists.
+// Health check — no auth, always accessible. Reports system-wide stats.
 app.get('/health', (_req, res) => {
   try {
-    const db = getTenantDb(1);
-    const joCount = db.prepare("SELECT COUNT(*) AS n FROM job_orders").get().n;
-    const candCount = db.prepare("SELECT COUNT(*) AS n FROM candidates").get().n;
-    const lastBlast = db.prepare("SELECT sent_at FROM blasts ORDER BY id DESC LIMIT 1").get();
+    const orgs = listOrgs(sysDb);
+    const activeOrgs = orgs.filter(o => !['canceled', 'suspended'].includes(o.subscription_status));
     res.json({
       status: 'ok',
       uptime: Math.floor((Date.now() - startedAt) / 1000),
-      db: 'ok',
-      jobOrders: joCount,
-      candidates: candCount,
-      lastBlast: lastBlast ? lastBlast.sent_at : null,
+      systemDb: 'ok',
+      totalOrgs: orgs.length,
+      activeOrgs: activeOrgs.length,
       version: '2.0.0-mt',
     });
   } catch (e) {
     res.status(500).json({
       status: 'error',
-      db: 'error',
+      systemDb: 'error',
       error: e.message,
       version: '2.0.0-mt',
     });
