@@ -4,6 +4,7 @@
 const express = require('express');
 const multer = require('multer');
 const { createTom } = require('../src/tom');
+const { getOrg } = require('../src/system-db');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -17,7 +18,7 @@ function getTom(db, orgId) {
   return tom;
 }
 
-function createTomRoutes() {
+function createTomRoutes(sysDb) {
   const router = express.Router();
 
   router.post('/api/tom/start', async (req, res, next) => {
@@ -32,7 +33,8 @@ function createTomRoutes() {
     try {
       const tom = getTom(req.db, req.user.org_id);
       const { sessionId, text, action, payload } = req.body || {};
-      res.json(await tom.message(sessionId, { text, action, payload, user: req.user?.username, reqHost: req.get('host'), reqProto: req.protocol }));
+      const org = getOrg(sysDb, req.user.org_id);
+      res.json(await tom.message(sessionId, { text, action, payload, user: req.user?.username, reqHost: req.get('host'), reqProto: req.protocol, orgSlug: org?.slug }));
     } catch (err) { next(err); }
   });
 

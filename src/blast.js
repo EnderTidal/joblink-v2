@@ -20,8 +20,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const CATEGORIES = ['Industrial', 'Administrative', 'Skilled Trade'];
 
 /** Render a template for one candidate. Placeholders: {first_name}, {link}. */
-function renderMessage(templateBody, candidate, baseUrl) {
-  const link = `${baseUrl}/m/${candidate.magic_token}`;
+function renderMessage(templateBody, candidate, baseUrl, orgSlug) {
+  const link = orgSlug
+    ? `${baseUrl}/m/${orgSlug}/${candidate.magic_token}`
+    : `${baseUrl}/m/${candidate.magic_token}`;
   return String(templateBody)
     .replace(/\{first_name\}/g, candidate.first_name || 'there')
     .replace(/\{link\}/g, link);
@@ -52,7 +54,7 @@ function planBlast(db, { phones, category, now = new Date() }) {
  *
  * V2.1: accepts recruiterId and recruiterUsername for Whippy conversation assignment.
  */
-async function executeBlast(db, plan, { templateId, templateBody, provider, sentBy = null, now = new Date(), pacingMs = SMS_RATE_LIMIT_MS, baseUrl: baseUrlOverride, recruiterId = null, recruiterUsername = null }) {
+async function executeBlast(db, plan, { templateId, templateBody, provider, sentBy = null, now = new Date(), pacingMs = SMS_RATE_LIMIT_MS, baseUrl: baseUrlOverride, orgSlug = null, recruiterId = null, recruiterUsername = null }) {
   if (!templateBody.includes('{link}')) throw new Error('Template must include {link}'); // V1 rule
   const baseUrl = baseUrlOverride || getSetting(db, 'base_url') || 'http://localhost:3000';
 
@@ -83,7 +85,7 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
 
   let sent = 0, failed = 0;
   for (const c of plan.sendable) {
-    const body = renderMessage(templateBody, c, baseUrl);
+    const body = renderMessage(templateBody, c, baseUrl, orgSlug);
     const result = await provider.sendSms({ to: c.phone, body });
     if (result.ok) {
       // Partial-send rule: only an ACCEPTED send burns the cooldown

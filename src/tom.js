@@ -275,7 +275,7 @@ function createTom(db) {
     return { templates, defaultTemplate, whippyUsers, localUsers };
   }
 
-  async function handleBlast(s, { text, action, payload, file, user, reqHost, reqProto }) {
+  async function handleBlast(s, { text, action, payload, file, user, reqHost, reqProto, orgSlug }) {
     if (s.state === 'await_contacts') {
       let parsed;
       if (file) parsed = parseContactFile(file.buffer, file.originalname);
@@ -437,6 +437,7 @@ function createTom(db) {
           provider,
           sentBy: user || s.user || null,
           baseUrl: autoBaseUrl,
+          orgSlug,
           recruiterId,
           recruiterUsername,
         });

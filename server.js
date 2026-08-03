@@ -79,7 +79,7 @@ app.use('/api', billingMiddleware(sysDb));
 app.use('/api', tenantMiddleware);
 
 // Mount routes (they now use req.db instead of a closure db)
-app.use(createTomRoutes());
+app.use(createTomRoutes(sysDb));
 app.use(createAdminRoutes(sysDb, auth));
 app.use("/dev", createDevRoutes(sysDb, auth));
 

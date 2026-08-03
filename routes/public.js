@@ -3,7 +3,7 @@
 
 const express = require('express');
 const { renderCandidatePage, markInterest } = require('../src/candidate-page');
-const { listOrgs } = require('../src/system-db');
+const { listOrgs, findOrgBySlug } = require('../src/system-db');
 const { getTenantDb } = require('../src/tenant');
 
 /** Find the candidate and their tenant DB by magic token. */
@@ -36,6 +36,50 @@ function createPublicRoutes(sysDb) {
     }
   });
 
+
+  // Fast O(1) lookup: new magic links include the org slug
+  router.get('/m/:slug/:token', (req, res) => {
+    const org = findOrgBySlug(sysDb, req.params.slug);
+    if (!org) return res.status(404).send('<h1>Link not found</h1><p>This link may have expired. Reply to our text and we will send a fresh one.</p>');
+    try {
+      const db = getTenantDb(org.id);
+      const candidate = db.prepare('SELECT * FROM candidates WHERE magic_token = ?').get(req.params.token);
+      if (!candidate) return res.status(404).send('<h1>Link not found</h1><p>This link may have expired. Reply to our text and we will send a fresh one.</p>');
+      res.send(renderCandidatePage(db, candidate, org.name));
+    } catch {
+      return res.status(404).send('<h1>Link not found</h1>');
+    }
+  });
+
+  router.post('/m/:slug/:token/interest', express.json(), (req, res) => {
+    const org = findOrgBySlug(sysDb, req.params.slug);
+    if (!org) return res.status(404).json({ ok: false, error: 'not_found' });
+    try {
+      const db = getTenantDb(org.id);
+      const candidate = db.prepare('SELECT * FROM candidates WHERE magic_token = ?').get(req.params.token);
+      if (!candidate) return res.status(404).json({ ok: false, error: 'not_found' });
+      const result = markInterest(db, candidate, Number(req.body?.job_order_id));
+      res.status(result.ok ? 200 : 400).json(result);
+    } catch {
+      res.status(404).json({ ok: false, error: 'not_found' });
+    }
+  });
+
+  router.delete('/m/:slug/:token/interest', express.json(), (req, res) => {
+    const org = findOrgBySlug(sysDb, req.params.slug);
+    if (!org) return res.status(404).json({ ok: false, error: 'not_found' });
+    try {
+      const db = getTenantDb(org.id);
+      const candidate = db.prepare('SELECT * FROM candidates WHERE magic_token = ?').get(req.params.token);
+      if (!candidate) return res.status(404).json({ ok: false, error: 'not_found' });
+      db.prepare('DELETE FROM interests WHERE phone = ? AND job_order_id = ?').run(candidate.phone, Number(req.body?.job_order_id));
+      res.json({ ok: true });
+    } catch {
+      res.status(404).json({ ok: false, error: 'not_found' });
+    }
+  });
+
+  // Backward compat: old links without slug scan all orgs
   router.get('/m/:token', (req, res) => {
     const { candidate, db, org } = findCandidateByToken(sysDb, req.params.token);
     if (!candidate || !db) return res.status(404).send('<h1>Link not found</h1><p>This link may have expired. Reply to our text and we\'ll send a fresh one.</p>');

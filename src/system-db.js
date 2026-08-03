@@ -103,6 +103,11 @@ function getOrg(sysDb, id) {
   return sysDb.prepare('SELECT * FROM orgs WHERE id = ?').get(Number(id)) || null;
 }
 
+/** Find org by slug. */
+function findOrgBySlug(sysDb, slug) {
+  return sysDb.prepare('SELECT * FROM orgs WHERE slug = ?').get(String(slug).toLowerCase()) || null;
+}
+
 /** List all orgs. */
 function listOrgs(sysDb) {
   return sysDb.prepare('SELECT * FROM orgs ORDER BY id').all();
@@ -176,5 +181,5 @@ module.exports = {
   openSystemDb, createOrg, findUser, findUserByEmail,
   findUserByInviteToken, findUserByMagicToken, getOrg, listOrgs, listOrgUsers, updateUser,
   createPendingSignup, findPendingBySession, findPendingByEmail, deletePendingSignup,
-  cleanExpiredSignups, updateOrgBilling, findOrgByStripeCustomer,
+  cleanExpiredSignups, updateOrgBilling, findOrgByStripeCustomer, findOrgBySlug,
 };
