@@ -10,7 +10,7 @@ const { getTenantDb, createTenantDb } = require('../src/tenant');
 const { getSetting } = require('../src/db');
 const {
   findUser, findUserByEmail, findUserByInviteToken, findUserByMagicToken,
-  updateUser,
+  updateUser, getOrg,
 } = require('../src/system-db');
 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
@@ -19,12 +19,20 @@ const MAGIC_TTL_MS = 15 * 60 * 1000;
 const RESET_TTL_MS = 60 * 60 * 1000;
 
 const RESEND_KEY = process.env.RESEND_KEY || '';
-const FROM_EMAIL = 'JobLink <resume@thetelosway.com>';
+const DEFAULT_FROM = 'JobLink <notifications@joblinkplatform.com>';
+
+function orgFrom(sysDb, orgId) {
+  try {
+    const org = getOrg(sysDb, orgId);
+    if (org && org.name) return org.name + ' via JobLink <notifications@joblinkplatform.com>';
+  } catch { /* fall through */ }
+  return DEFAULT_FROM;
+}
 
 /** Send email via Resend API */
-function sendEmail(to, subject, html) {
+function sendEmail(to, subject, html, from) {
   return new Promise((resolve, reject) => {
-    const data = JSON.stringify({ from: FROM_EMAIL, to: [to], subject, html });
+    const data = JSON.stringify({ from: from || DEFAULT_FROM, to: [to], subject, html });
     const opts = {
       hostname: 'api.resend.com', port: 443, path: '/emails', method: 'POST',
       headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
@@ -171,7 +179,7 @@ function createAuth(sysDb) {
         <p><a href="${link}" style="display:inline-block;background:#3b82f6;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Accept Invitation</a></p>
         <p style="color:#94a3b8;font-size:14px">This link expires in 72 hours.</p>
       </div>
-    `).then(() => {
+    `, orgFrom(sysDb, req.user.org_id)).then(() => {
       res.json({ ok: true, message: 'Invitation sent' });
     }).catch((err) => {
       console.error('[invite-email]', err.message);
@@ -229,7 +237,7 @@ function createAuth(sysDb) {
         <p><a href="${link}" style="display:inline-block;background:#3b82f6;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Reset Password</a></p>
         <p style="color:#94a3b8;font-size:14px">This link expires in 1 hour. If you didn't request this, ignore this email.</p>
       </div>
-    `).catch((err) => console.error('[reset-email]', err.message));
+    `, orgFrom(sysDb, user.org_id)).catch((err) => console.error('[reset-email]', err.message));
     res.json({ ok: true });
   });
 
@@ -263,7 +271,7 @@ function createAuth(sysDb) {
         <p><a href="${link}" style="display:inline-block;background:#3b82f6;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Sign In</a></p>
         <p style="color:#94a3b8;font-size:14px">This link expires in 15 minutes.</p>
       </div>
-    `).catch((err) => console.error('[magic-login-email]', err.message));
+    `, orgFrom(sysDb, user.org_id)).catch((err) => console.error('[magic-login-email]', err.message));
     res.json({ ok: true });
   });
 

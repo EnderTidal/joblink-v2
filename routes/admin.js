@@ -60,7 +60,7 @@ async function syncWhippyUsers(db) {
 function sendFeedbackEmail(username, feedbackBody) {
   const now = new Date().toISOString();
   const data = JSON.stringify({
-    from: 'JobLink <resume@thetelosway.com>',
+    from: 'JobLink <notifications@joblinkplatform.com>',
     to: [FEEDBACK_EMAIL],
     subject: `JobLink Feedback from ${username || 'anonymous'}`,
     html: `<p><strong>From:</strong> ${username || 'anonymous'}</p><p><strong>Time:</strong> ${now}</p><hr><p>${String(feedbackBody).replace(/\n/g, '<br>')}</p>`,
