@@ -15,7 +15,7 @@ const { listOrgUsers, updateUser } = require('../src/system-db');
 const SETTING_KEYS = ['cooldown_hours', 'sms_provider', 'whippy_api_key', 'whippy_channel_id', 'whippy_from_number'];
 
 const RESEND_KEY = process.env.RESEND_KEY || '';
-const FEEDBACK_EMAIL = 'joshuafriends@gmail.com';
+const FEEDBACK_EMAIL = 'support@joblinkplatform.com';
 
 /** Fetch Whippy team members and cache in settings */
 async function syncWhippyUsers(db) {
