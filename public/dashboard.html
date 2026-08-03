@@ -397,7 +397,7 @@ async function openJoDetail(id) {
     html += '<button type="button" class="btn" onclick="saveJoDetail(' + jo.id + ')">Save</button>';
     if (jo.status !== 'Published') html += '<button type="button" class="btn ghost" onclick="joAction(' + jo.id + ',\x27Published\x27)">Publish</button>';
     if (jo.status === 'Published') html += '<button type="button" class="btn ghost" onclick="joAction(' + jo.id + ',\x27Unpublished\x27)">Unpublish</button>';
-    if (jo.status !== 'Complete') html += '<button type="button" class="btn ghost" onclick="if(confirm('This will remove all interested/yeslisted/removed candidates from this job post and unpublish it. Continue?'))joAction(' + jo.id + ',\x27Complete\x27)">Archive</button>';
+    if (jo.status !== 'Complete') html += '<button type="button" class="btn ghost" onclick="archiveJob(' + jo.id + ')">Archive</button>';
     html += '</div></form>';
 
     // Pipeline sections grouped by status
