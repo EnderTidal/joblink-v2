@@ -27,8 +27,10 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 const sysDb = openSystemDb(process.env.SYSTEM_DB || path.join(DATA_DIR, 'system.db'));
 
 const app = express();
+const helmet = require("helmet");
 app.set("trust proxy", 1);  // Behind Cloudflare + Traefik
 
+app.use(helmet());
 // Stripe webhook needs raw body — mount BEFORE json parser
 app.use(createStripeWebhook(sysDb));
 
