@@ -11,6 +11,18 @@ const HEALTH_URL = `http://127.0.0.1:${PORT}/health`;
 const STATE_FILE = path.join(__dirname, '..', 'data', 'health-check-state.json');
 const COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
 
+
+const https = require("https");
+function sendTelegramAlert(text) {
+  const token = process.env.TELEGRAM_BOT_TOKEN || "8091869821:AAGy9wbk6PU32ZhTtXQsL6r0GCWp_F_onS0";
+  const chatId = "7889271703";
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  const body = JSON.stringify({ chat_id: chatId, text });
+  const req = https.request(url, { method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) } });
+  req.on("error", () => {});
+  req.end(body);
+}
+
 function loadState() {
   try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); }
   catch { return { lastAlertAt: 0 }; }

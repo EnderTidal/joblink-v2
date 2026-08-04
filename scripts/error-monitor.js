@@ -10,6 +10,18 @@ const STATE_FILE = path.join(__dirname, '..', 'data', 'error-monitor-state.json'
 const ERROR_THRESHOLD = 5;
 const COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
 
+
+const https = require("https");
+function sendTelegramAlert(text) {
+  const token = process.env.TELEGRAM_BOT_TOKEN || "8091869821:AAGy9wbk6PU32ZhTtXQsL6r0GCWp_F_onS0";
+  const chatId = "7889271703";
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  const body = JSON.stringify({ chat_id: chatId, text });
+  const req = https.request(url, { method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) } });
+  req.on("error", () => {});
+  req.end(body);
+}
+
 function loadState() {
   try {
     return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
@@ -72,6 +84,11 @@ async function main() {
     const body = `${newLines.length} new error lines found in PM2 error log.\n\nLast ${Math.min(20, newLines.length)} lines:\n\n${errorSample}`;
     
     try {
+      sendTelegramAlert(`🚨 [JobLink] ${subject}
+
+${body.slice(0, 800)}
+
+Timestamp: ${new Date().toISOString()}`);
       await sendAlert(subject, body);
       state.lastAlertAt = now;
       console.log(`${new Date().toISOString()} — Alert sent: ${newLines.length} errors`);

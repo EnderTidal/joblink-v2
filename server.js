@@ -28,6 +28,7 @@ const sysDb = openSystemDb(process.env.SYSTEM_DB || path.join(DATA_DIR, 'system.
 
 const app = express();
 const helmet = require("helmet");
+const morgan = require("morgan");
 app.set("trust proxy", 1);  // Behind Cloudflare + Traefik
 
 app.use(helmet({
@@ -43,6 +44,8 @@ app.use(helmet({
     }
   }
 }));
+app.use(morgan("combined"));
+
 // Stripe webhook needs raw body — mount BEFORE json parser
 app.use(createStripeWebhook(sysDb));
 
@@ -103,7 +106,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (_req, res) => res.redirect('/tom.html'));
 
 app.use((err, _req, res, _next) => {
-  console.error('[joblink]', err.message);
+  console.error('[joblink]', err.stack || err.message);
   res.status(500).json({ error: err.message });
 });
 
