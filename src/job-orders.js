@@ -69,6 +69,14 @@ function updateJobOrder(db, id, patch) {
 /** Dashboard-row actions (docs/DECISIONS.md — publishing later happens here). */
 function setStatus(db, id, status) {
   if (!STATUSES.includes(status)) throw new Error('Bad status');
+  if (status === 'Complete') {
+    // Archive: delete all interest records and set status in a transaction
+    const archiveTx = db.transaction(() => {
+      db.prepare('DELETE FROM interests WHERE job_order_id = ?').run(id);
+      return updateJobOrder(db, id, { status: 'Complete' });
+    });
+    return archiveTx();
+  }
   return updateJobOrder(db, id, { status });
 }
 
