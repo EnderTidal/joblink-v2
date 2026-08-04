@@ -71,11 +71,16 @@ function setStatus(db, id, status) {
   if (!STATUSES.includes(status)) throw new Error('Bad status');
   if (status === 'Complete') {
     // Archive: delete all interest records and set status in a transaction
-    const archiveTx = db.transaction(() => {
+    db.exec('BEGIN');
+    try {
       db.prepare('DELETE FROM interests WHERE job_order_id = ?').run(id);
-      return updateJobOrder(db, id, { status: 'Complete' });
-    });
-    return archiveTx();
+      const result = updateJobOrder(db, id, { status: 'Complete' });
+      db.exec('COMMIT');
+      return result;
+    } catch (e) {
+      db.exec('ROLLBACK');
+      throw e;
+    }
   }
   return updateJobOrder(db, id, { status });
 }
