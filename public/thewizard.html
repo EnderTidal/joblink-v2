@@ -114,6 +114,10 @@
   .modal-box .bf-field { margin-bottom:10px; }
   .modal-box .bf-actions { margin-top:14px; }
 
+  
+  .silly-phrase { font-style:italic; color:var(--text-muted); font-size:.82rem; margin-top:4px; opacity:0; transition:opacity .3s; }
+  .silly-phrase.visible { opacity:1; }
+
   /* Tom light mode */
 
 </style></head>
@@ -220,6 +224,50 @@ var BLAST_PROGRESS_MESSAGES = [
 var blastProgressInterval = null;
 var blastProgressMode = false;
 
+var sillyPhraseTimeout = null;
+var sillyPhraseInterval = null;
+var SILLY_PHRASES = [
+  'Predigestating...',
+  'Recalibrating flux capacitors...',
+  'Defragmenting the candidate matrix...',
+  'Synergizing the pipelines...',
+  'Reticulating splines...',
+  'Compiling job vibes...',
+  'Untangling the spaghetti code...',
+  'Consulting the oracle...',
+  'Herding digital cats...',
+  'Percussively maintaining servers...',
+  'Reverse-engineering gravity...',
+  'Calibrating the snark detector...',
+  'Negotiating with the cloud...',
+  'Alphabetizing the chaos...',
+  'Warming up the hamster wheels...',
+  'Transcombobulating data packets...',
+  'Polishing the algorithms...',
+  'Summoning the placement gods...',
+  'Overthinking everything...',
+  'Quantum entangling resumes...',
+  'Brewing computational coffee...',
+  'Bifurcating the talent pool...',
+  'Massaging the databases...',
+  'Engaging turbo mode...',
+  'Asking nicely...',
+  'Consulting the magic 8-ball...',
+  'Crunching imaginary numbers...',
+  'Performing digital alchemy...',
+  'Wrangling rogue semicolons...',
+  'Pretending to look busy...',
+];
+function shuffleArray(arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
+
 function showLoading() {
   var chat = document.getElementById('chat');
   var el = document.createElement('div');
@@ -235,7 +283,22 @@ function showLoading() {
       msgEl.innerHTML = '<span class="dots"><span></span><span></span><span></span></span> ' + BLAST_PROGRESS_MESSAGES[idx];
     }, 3000);
   } else {
-    el.innerHTML = '<span class="dots"><span></span><span></span><span></span></span> Working...';
+    el.innerHTML = '<span class="dots"><span></span><span></span><span></span></span> Working...<div class="silly-phrase" id="silly-phrase"></div>';
+    sillyPhraseTimeout = setTimeout(function() {
+      var shuffled = shuffleArray(SILLY_PHRASES);
+      var idx = 0;
+      var sp = document.getElementById('silly-phrase');
+      if (sp) { sp.textContent = shuffled[idx]; sp.classList.add('visible'); }
+      sillyPhraseInterval = setInterval(function() {
+        idx = (idx + 1) % shuffled.length;
+        var sp2 = document.getElementById('silly-phrase');
+        if (!sp2) { clearInterval(sillyPhraseInterval); sillyPhraseInterval = null; return; }
+        sp2.style.opacity = '0';
+        setTimeout(function() {
+          if (sp2) { sp2.textContent = shuffled[idx]; sp2.style.opacity = '1'; }
+        }, 200);
+      }, 2500);
+    }, 5000);
   }
   chat.appendChild(el);
   chat.scrollTop = chat.scrollHeight;
@@ -245,6 +308,8 @@ function hideLoading() {
   if (el) el.remove();
   if (blastProgressInterval) { clearInterval(blastProgressInterval); blastProgressInterval = null; }
   blastProgressMode = false;
+  if (sillyPhraseTimeout) { clearTimeout(sillyPhraseTimeout); sillyPhraseTimeout = null; }
+  if (sillyPhraseInterval) { clearInterval(sillyPhraseInterval); sillyPhraseInterval = null; }
 }
 
 function md(s) {
