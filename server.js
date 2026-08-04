@@ -171,3 +171,13 @@ if (require.main === module) {
 }
 
 module.exports = { app, sysDb };
+
+// Crash safety — log and let PM2 restart gracefully
+process.on("uncaughtException", (err) => {
+  console.error("[FATAL] Uncaught exception:", err.stack || err.message);
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[FATAL] Unhandled rejection:", reason instanceof Error ? reason.stack : reason);
+  process.exit(1);
+});
