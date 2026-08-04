@@ -30,7 +30,19 @@ const app = express();
 const helmet = require("helmet");
 app.set("trust proxy", 1);  // Behind Cloudflare + Traefik
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://static.cloudflareinsights.com", "https://js.stripe.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      frameSrc: ["'self'", "https://js.stripe.com", "https://www.loom.com"],
+      connectSrc: ["'self'", "https://api.stripe.com"]
+    }
+  }
+}));
 // Stripe webhook needs raw body — mount BEFORE json parser
 app.use(createStripeWebhook(sysDb));
 
