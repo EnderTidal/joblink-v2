@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test \"tests/deterministic/*.test.js\"",
+    "test": "node --experimental-sqlite --test \"tests/deterministic/*.test.js\"",
     "test:ai": "node --test \"tests/ai-assisted/*.test.js\"",
     "test:all": "node --test \"tests/deterministic/*.test.js\" \"tests/ai-assisted/*.test.js\"",
     "smoke": "node scripts/smoke.js"
