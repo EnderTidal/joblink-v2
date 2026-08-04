@@ -1,6 +1,7 @@
 // Auth — email-based login with invitations, magic links, and password reset.
 // Multi-tenant: users live in the SYSTEM DB (with org_id). Login looks up the
 // system DB, session carries org_id so tenant middleware can attach req.db.
+// Sessions use signed JWT cookies (HMAC-SHA256) — no server-side state.
 
 const express = require('express');
 const crypto = require('node:crypto');
@@ -13,13 +14,48 @@ const {
   updateUser, getOrg,
 } = require('../src/system-db');
 
-const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const INVITE_TTL_MS = 72 * 60 * 60 * 1000;
 const MAGIC_TTL_MS = 15 * 60 * 1000;
 const RESET_TTL_MS = 60 * 60 * 1000;
 
 const RESEND_KEY = process.env.RESEND_KEY || '';
+const JWT_SECRET = process.env.SESSION_SECRET || process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 const DEFAULT_FROM = 'JobLink <admin@joblinkplatform.com>';
+
+// ---- Minimal JWT (HMAC-SHA256, zero deps) ----
+
+function base64url(buf) {
+  return (Buffer.isBuffer(buf) ? buf : Buffer.from(buf))
+    .toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+function base64urlDecode(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4) str += '=';
+  return Buffer.from(str, 'base64');
+}
+
+function jwtSign(payload) {
+  const header = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const body = base64url(JSON.stringify(payload));
+  const sig = base64url(crypto.createHmac('sha256', JWT_SECRET).update(header + '.' + body).digest());
+  return header + '.' + body + '.' + sig;
+}
+
+function jwtVerify(token) {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [header, body, sig] = parts;
+  const expected = base64url(crypto.createHmac('sha256', JWT_SECRET).update(header + '.' + body).digest());
+  if (sig.length !== expected.length) return null;
+  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  try {
+    const payload = JSON.parse(base64urlDecode(body).toString());
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch { return null; }
+}
 
 function orgFrom(sysDb, orgId) {
   try {
@@ -35,14 +71,14 @@ function sendEmail(to, subject, html, from) {
     const data = JSON.stringify({ from: from || DEFAULT_FROM, to: [to], subject, html });
     const opts = {
       hostname: 'api.resend.com', port: 443, path: '/emails', method: 'POST',
-      headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
+      headers: { Authorization: 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
     };
     const req = https.request(opts, (res) => {
       let out = '';
       res.on('data', (c) => (out += c));
       res.on('end', () => {
         if (res.statusCode >= 200 && res.statusCode < 300) resolve(JSON.parse(out));
-        else reject(new Error(`Resend ${res.statusCode}: ${out}`));
+        else reject(new Error('Resend ' + res.statusCode + ': ' + out));
       });
     });
     req.on('error', reject);
@@ -52,8 +88,6 @@ function sendEmail(to, subject, html, from) {
 }
 
 function createAuth(sysDb) {
-  const sessions = new Map();
-
   // Seed a first org + admin if the users table is empty
   const count = sysDb.prepare('SELECT COUNT(*) AS n FROM users').get().n;
   if (count === 0) {
@@ -70,9 +104,16 @@ function createAuth(sysDb) {
     const token = (req.headers.cookie || '').split(';').map((s) => s.trim())
       .find((s) => s.startsWith('jl_session='))?.slice('jl_session='.length);
     if (!token) return null;
-    const s = sessions.get(token);
-    if (!s || s.expires < Date.now()) { sessions.delete(token); return null; }
-    return { ...s, token };
+    const payload = jwtVerify(token);
+    if (!payload) return null;
+    return {
+      username: payload.sub,
+      role: payload.role,
+      email: payload.email || '',
+      display_name: payload.display_name || '',
+      org_id: payload.org_id,
+      user_id: payload.user_id,
+    };
   }
 
   function requireAuth(req, res, next) {
@@ -88,17 +129,18 @@ function createAuth(sysDb) {
   }
 
   function createSession(res, user) {
-    const token = crypto.randomBytes(24).toString('base64url');
-    sessions.set(token, {
-      username: user.username,
+    const now = Math.floor(Date.now() / 1000);
+    const token = jwtSign({
+      sub: user.username,
       role: user.role,
       email: user.email || '',
       display_name: user.display_name || '',
       org_id: user.org_id,
       user_id: user.id,
-      expires: Date.now() + SESSION_TTL_MS,
+      iat: now,
+      exp: now + Math.floor(SESSION_TTL_MS / 1000),
     });
-    res.setHeader('Set-Cookie', `jl_session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${SESSION_TTL_MS / 1000}`);
+    res.setHeader('Set-Cookie', 'jl_session=' + token + '; HttpOnly; Path=/; SameSite=Lax; Max-Age=' + (SESSION_TTL_MS / 1000));
     return token;
   }
 
@@ -139,8 +181,7 @@ function createAuth(sysDb) {
   });
 
   router.post('/api/logout', (req, res) => {
-    const s = getSession(req);
-    if (s) sessions.delete(s.token);
+    // Stateless JWT — just clear the cookie
     res.setHeader('Set-Cookie', 'jl_session=; HttpOnly; Path=/; Max-Age=0');
     res.json({ ok: true });
   });
@@ -171,15 +212,15 @@ function createAuth(sysDb) {
       'INSERT INTO users (org_id, username, password_hash, role, email, email_verified, invite_token, invite_expires) VALUES (?, ?, ?, ?, ?, 0, ?, ?)'
     ).run(req.user.org_id, username, '', validRole, String(email), inviteToken, expires);
     const baseUrl = getBaseUrl(req.user.org_id, req);
-    const link = `${baseUrl}/invite.html?token=${inviteToken}`;
-    sendEmail(String(email), "You're invited to JobLink", `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
-        <h2 style="color:#3b82f6">You're invited to JobLink</h2>
-        <p>You've been invited to join JobLink as a <strong>${validRole}</strong>.</p>
-        <p><a href="${link}" style="display:inline-block;background:#3b82f6;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Accept Invitation</a></p>
-        <p style="color:#94a3b8;font-size:14px">This link expires in 72 hours.</p>
-      </div>
-    `, orgFrom(sysDb, req.user.org_id)).then(() => {
+    const link = baseUrl + '/invite.html?token=' + inviteToken;
+    sendEmail(String(email), "You're invited to JobLink",
+      '<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">' +
+        '<h2 style="color:#3b82f6">You\'re invited to JobLink</h2>' +
+        '<p>You\'ve been invited to join JobLink as a <strong>' + validRole + '</strong>.</p>' +
+        '<p><a href="' + link + '" style="display:inline-block;background:#3b82f6;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Accept Invitation</a></p>' +
+        '<p style="color:#94a3b8;font-size:14px">This link expires in 72 hours.</p>' +
+      '</div>',
+    orgFrom(sysDb, req.user.org_id)).then(() => {
       res.json({ ok: true, message: 'Invitation sent' });
     }).catch((err) => {
       console.error('[invite-email]', err.message);
@@ -229,15 +270,15 @@ function createAuth(sysDb) {
     const expires = new Date(Date.now() + RESET_TTL_MS).toISOString();
     updateUser(sysDb, user.id, { magic_login_token: resetToken, magic_login_expires: expires });
     const baseUrl = getBaseUrl(user.org_id, req);
-    const link = `${baseUrl}/reset-password.html?token=${resetToken}`;
-    sendEmail(String(email), 'Reset your JobLink password', `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
-        <h2 style="color:#3b82f6">Reset Your Password</h2>
-        <p>Click below to reset your JobLink password.</p>
-        <p><a href="${link}" style="display:inline-block;background:#3b82f6;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Reset Password</a></p>
-        <p style="color:#94a3b8;font-size:14px">This link expires in 1 hour. If you didn't request this, ignore this email.</p>
-      </div>
-    `, orgFrom(sysDb, user.org_id)).catch((err) => console.error('[reset-email]', err.message));
+    const link = baseUrl + '/reset-password.html?token=' + resetToken;
+    sendEmail(String(email), 'Reset your JobLink password',
+      '<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">' +
+        '<h2 style="color:#3b82f6">Reset Your Password</h2>' +
+        '<p>Click below to reset your JobLink password.</p>' +
+        '<p><a href="' + link + '" style="display:inline-block;background:#3b82f6;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Reset Password</a></p>' +
+        '<p style="color:#94a3b8;font-size:14px">This link expires in 1 hour. If you didn\'t request this, ignore this email.</p>' +
+      '</div>',
+    orgFrom(sysDb, user.org_id)).catch((err) => console.error('[reset-email]', err.message));
     res.json({ ok: true });
   });
 
@@ -263,15 +304,15 @@ function createAuth(sysDb) {
     const expires = new Date(Date.now() + MAGIC_TTL_MS).toISOString();
     updateUser(sysDb, user.id, { magic_login_token: magicToken, magic_login_expires: expires });
     const baseUrl = getBaseUrl(user.org_id, req);
-    const link = `${baseUrl}/api/magic-login/verify?token=${magicToken}`;
-    sendEmail(String(email), 'Sign in to JobLink', `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
-        <h2 style="color:#3b82f6">Sign In to JobLink</h2>
-        <p>Click below to sign in. No password needed.</p>
-        <p><a href="${link}" style="display:inline-block;background:#3b82f6;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Sign In</a></p>
-        <p style="color:#94a3b8;font-size:14px">This link expires in 15 minutes.</p>
-      </div>
-    `, orgFrom(sysDb, user.org_id)).catch((err) => console.error('[magic-login-email]', err.message));
+    const link = baseUrl + '/api/magic-login/verify?token=' + magicToken;
+    sendEmail(String(email), 'Sign in to JobLink',
+      '<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">' +
+        '<h2 style="color:#3b82f6">Sign In to JobLink</h2>' +
+        '<p>Click below to sign in. No password needed.</p>' +
+        '<p><a href="' + link + '" style="display:inline-block;background:#3b82f6;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Sign In</a></p>' +
+        '<p style="color:#94a3b8;font-size:14px">This link expires in 15 minutes.</p>' +
+      '</div>',
+    orgFrom(sysDb, user.org_id)).catch((err) => console.error('[magic-login-email]', err.message));
     res.json({ ok: true });
   });
 
@@ -288,7 +329,7 @@ function createAuth(sysDb) {
     res.redirect('/dashboard.html');
   });
 
-  return { router, requireAuth, requireAdmin, sessions, sysDb };
+  return { router, requireAuth, requireAdmin, sysDb };
 }
 
 module.exports = { createAuth, sendEmail };
