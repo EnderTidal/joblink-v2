@@ -17,6 +17,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+        env:
+          STRIPE_SK: sk_test_dummy_for_ci
+          SESSION_SECRET: ci-test-secret
 
   deploy:
     needs: test
