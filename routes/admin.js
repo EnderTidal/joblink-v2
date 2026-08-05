@@ -100,6 +100,7 @@ function createAdminRoutes(sysDb, auth) {
     catch (err) { next(err); }
   });
 
+router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {    try {      const id = Number(req.params.id);      req.db.prepare("DELETE FROM interests WHERE job_order_id = ?").run(id);      req.db.prepare("DELETE FROM job_orders WHERE id = ?").run(id);      res.json({ ok: true });    } catch (err) { next(err); }  });
   // ---- Single Job Order detail with interested candidates grouped by status ----
   router.get('/api/job-orders/:id', (req, res) => {
     const id = Number(req.params.id);

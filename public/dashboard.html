@@ -285,7 +285,7 @@ function renderCompletedRow(jo) {
     '<td>' + (jo.interested_count || 0) + '</td>' +
     '<td>' + (jo.yeslisted_count || 0) + '</td>' +
     '<td>' + (jo.filled_count || 0) + '</td>' +
-    '<td><button class="btn sm ghost" onclick="setStatus(' + jo.id + ',\'Unpublished\')">Reopen</button></td>' +
+    '<td><button class="btn sm ghost" onclick="setStatus(' + jo.id + ',\'Unpublished\')">Reopen</button> <button class="btn sm danger" style="background:#dc2626;color:#fff;border:none;" onclick="deleteJO(' + jo.id + ')">Delete</button></td>' +
   '</tr>';
 }
 
@@ -561,6 +561,7 @@ function archiveJob(id) {
   if (!confirm('This will remove all interested/yeslisted/removed candidates from this job post and unpublish it. Continue?')) return;
   setStatus(id, 'Complete');
 }
+async function deleteJO(id) {  if (!confirm("Permanently delete this job order? This cannot be undone.")) return;  try {    await api("/api/job-orders/" + id, { method: "DELETE" });    toast("Job order deleted.");    loadRows(); loadStats();  } catch(e) { toast("Error: " + e.message); }}
 
 
 // Restore persisted filters

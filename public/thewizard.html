@@ -386,6 +386,46 @@ function showJOForm(draft, warnings) {
 
   panel.appendChild(form);
 
+  // Fix 4: Long description warning
+  (function() {
+    var descTA = form.querySelector('textarea[data-field="description"]');
+    if (!descTA) return;
+    var warnEl = document.createElement('div');
+    warnEl.style.cssText = 'background:#FFF3CD;color:#856404;padding:8px 12px;border-radius:6px;font-size:13px;margin-top:6px;display:none;';
+    warnEl.textContent = '⚠️ Shorter descriptions tend to get higher engagement. Consider trimming to the essentials.';
+    descTA.parentNode.appendChild(warnEl);
+    function checkLen() { warnEl.style.display = descTA.value.length > 500 ? 'block' : 'none'; }
+    descTA.addEventListener('input', checkLen);
+    checkLen();
+
+    // Fix 5: Format dropdown
+    var formatSel = document.createElement('select');
+    formatSel.id = 'descFormat';
+    formatSel.style.cssText = 'font-size:.82rem;padding:4px 8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:6px;margin-bottom:4px;';
+    formatSel.innerHTML = '<option value="freetext">Free text</option><option value="bullets">Bullet points</option>';
+    var savedFmt = localStorage.getItem('jl_desc_format');
+    if (savedFmt === 'bullets') formatSel.value = 'bullets';
+    descTA.parentNode.insertBefore(formatSel, descTA);
+    var setDefaultLink = document.createElement('a');
+    setDefaultLink.style.cssText = 'font-size:.78rem;color:var(--brand);cursor:pointer;text-decoration:underline;margin-left:8px;';
+    setDefaultLink.textContent = 'Set as default';
+    setDefaultLink.addEventListener('click', function() { localStorage.setItem('jl_desc_format', formatSel.value); toast('Default format saved.'); });
+    formatSel.parentNode.insertBefore(setDefaultLink, formatSel.nextSibling);
+    formatSel.addEventListener('change', function() {
+      var val = descTA.value;
+      if (formatSel.value === 'bullets') {
+        descTA.value = val.split("\n").filter(function(l){return l.trim();}).map(function(l){return l.replace(/^[•\-\*]\s*/, '• ');}).join("\n");
+      } else {
+        descTA.value = val.split("\n").map(function(l){return l.replace(/^•\s*/, '');}).join("\n");
+      }
+      checkLen();
+    });
+    // Auto-apply saved format to initial value
+    if (savedFmt === 'bullets' && descTA.value) {
+      descTA.value = descTA.value.split("\n").filter(function(l){return l.trim();}).map(function(l){return l.replace(/^[•\-\*]\s*/, '• ');}).join("\n");
+    }
+  })();
+
   var actions = document.createElement('div');
   actions.className = 'form-actions';
 
@@ -895,6 +935,16 @@ function addMsg(who, text, extra) {
         safeNote.style.cssText = 'font-size:12px;color:var(--mut);margin:8px 0 0;';
         safeNote.textContent = 'You can safely close this tab after clicking Send — your blast will continue sending in the background.';
         choices.appendChild(safeNote);
+        // Edit button - returns to blast settings form
+        var editBtn = document.createElement("button");
+        editBtn.className = "btn ghost";
+        editBtn.textContent = "✏️ Edit";
+        editBtn.addEventListener("click", function() {
+          if (blastFormData) showBlastForm(blastFormData);
+        });
+        choices.appendChild(editBtn);
+        // Hide composer during blast preview
+        document.getElementById("composer").style.display = "none";
       }
     }
     if (choices.children.length) div.appendChild(choices);
@@ -999,8 +1049,6 @@ async function sendText() {
     return;
   }
 
-  var goldBtn = document.querySelector('.choices .btn.gold:not([disabled])');
-  if (goldBtn) { inputEl.value = ''; goldBtn.click(); return; }
   if (!text) return;
   inputEl.value = '';
   addMsg('me', text);
