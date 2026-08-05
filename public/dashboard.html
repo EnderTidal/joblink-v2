@@ -116,7 +116,7 @@
       <span onclick="headerSort('category')" style="cursor:pointer" data-col="category">CATEGORY <span class="sort-arrow"></span></span>
       <span onclick="headerSort('pay')" style="cursor:pointer" data-col="pay">PAY <span class="sort-arrow"></span></span>
       <span onclick="headerSort('pipeline')" style="cursor:pointer" data-col="pipeline">PIPELINE <span class="sort-arrow"></span></span>
-      <span>RECRUITER</span>
+      <span onclick="headerSort('recruiter')" style="cursor:pointer" data-col="recruiter">RECRUITER <span class="sort-arrow"></span></span>
       <span style="text-align:right">STATUS</span>
     </div>
 
@@ -213,6 +213,7 @@ function renderTable() {
   else if (currentSort === 'category') jobs.sort((a, b) => dir * (a.category || '').localeCompare(b.category || ''));
   else if (currentSort === 'pay') jobs.sort((a, b) => dir * (parseFloat(b.pay || 0) - parseFloat(a.pay || 0)));
   else if (currentSort === 'pipeline') jobs.sort((a, b) => dir * ((b.interested_count || 0) - (a.interested_count || 0)));
+  else if (currentSort === 'recruiter') jobs.sort((a, b) => dir * (a.assigned_recruiter || '').localeCompare(b.assigned_recruiter || ''));
   else jobs.sort((a, b) => (b.interested_count || 0) - (a.interested_count || 0));
 
   // Split active vs completed
