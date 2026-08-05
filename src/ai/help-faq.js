@@ -13,22 +13,22 @@ const FAQ = [
   {
     match: ['wrong file', 'file type', 'upload fail', 'bad file', 'unsupported'],
     answer:
-      'Job Orders accept .docx and .txt (legacy .doc is best-effort — re-save as .docx if it fails). ' +
-      'Contact lists accept .csv and Excel (.xlsx/.xls). If you upload something else, nothing is saved — ' +
+      'Job Orders accept .docx and .txt (legacy .doc is best-effort \u2014 re-save as .docx if it fails). ' +
+      'Contact lists accept .csv and Excel (.xlsx/.xls). If you upload something else, nothing is saved \u2014 ' +
       "you'll just be asked to try a different file. Nothing gets imported until you confirm.",
   },
   {
     match: ['cooldown', 'blast guard', 'skip', '3 day', '72'],
     answer:
       'Blast Guard stops anyone from getting a new magic link within the cooldown window (default 72 hours), ' +
-      'no matter which category the blast is for. Skipped people are shown in your preview BEFORE you send — ' +
-      'e.g. "287 will send, 13 skipped (cooldown)". The window is adjustable in Admin → Settings.',
+      'no matter which category the blast is for. Skipped people are shown in your preview BEFORE you send \u2014 ' +
+      'e.g. "287 will send, 13 skipped (cooldown)". The window is adjustable in Admin \u2192 Settings.',
   },
   {
     match: ['magic link', 'link show', 'category', 'what do candidates see'],
     answer:
       'Each candidate has ONE permanent magic link. It shows every PUBLISHED job order in the category of ' +
-      'their most recent blast. They tap "I\'m Interested" on any job right on that page — no texting back needed.',
+      "their most recent blast. They tap \"I'm Interested\" on any job right on that page \u2014 no texting back needed.",
   },
   {
     match: ['interested', 'interest', 'review', 'report', 'replies'],
@@ -40,38 +40,93 @@ const FAQ = [
     match: ['stop', 'opt out', 'do not contact', 'dnc', 'unsubscribe'],
     answer:
       'When someone replies STOP (or you mark them Do Not Contact on their record), JobLink treats them as ' +
-      'permanently in cooldown — they are always skipped from every blast, in every category.',
+      'permanently in cooldown \u2014 they are always skipped from every blast, in every category.',
   },
   {
     match: ['overwrite', 'duplicate', 'same number', 'different name', 'import'],
     answer:
-      'On import, a phone number we already have with a different name gets its NAME updated — nothing else. ' +
+      'On import, a phone number we already have with a different name gets its NAME updated \u2014 nothing else. ' +
       'Last Blast, blast count, and their magic link never change on import. Phone number is the anchor.',
   },
   {
     match: ['last contacted'],
     answer:
-      'Last Contacted is never stored. If your upload includes it, it\'s used once — to pick a subset like ' +
-      '"the 300 most recent" — and then thrown away. Only Last Blast (when WE last texted them) is kept.',
+      "Last Contacted is never stored. If your upload includes it, it's used once \u2014 to pick a subset like " +
+      '"the 300 most recent" \u2014 and then thrown away. Only Last Blast (when WE last texted them) is kept.',
   },
   {
     match: ['template', 'message', 'placeholder'],
     answer:
-      'Blast messages come from templates (Admin → Templates) using {first_name} and {link} placeholders. ' +
-      'A template without {link} is rejected — a magic blast without the magic link is just a text.',
+      'Blast messages come from templates (Admin \u2192 Templates) using {first_name} and {link} placeholders. ' +
+      'A template without {link} is rejected \u2014 a magic blast without the magic link is just a text.',
+  },
+  {
+    match: ['whippy', 'connect', 'sms setup', 'api key'],
+    answer:
+      'To connect Whippy: go to Admin \u2192 Settings, enter your Whippy API Key, SMS From Number, and Channel ID. ' +
+      'You can find these in Whippy under Settings \u2192 Developers. Once connected, blasts will send real texts.',
+  },
+  {
+    match: ['change cooldown', 'blast guard settings', 'adjust', 'cooldown hours'],
+    answer:
+      'Go to Admin \u2192 Settings \u2192 Blast Guard section. The default cooldown is 72 hours. Set any number of hours \u2014 ' +
+      'a candidate who was blasted within that window gets skipped automatically.',
+  },
+  {
+    match: ['csv format', 'columns', 'import format', 'what columns', 'spreadsheet'],
+    answer:
+      'CSV or XLSX with columns: first_name, last_name, phone (required). Optional: last_contacted ' +
+      '(used for filtering only, not stored). Phone numbers are normalized automatically.',
+  },
+  {
+    match: ['add user', 'invite', 'team', 'recruiter', 'roles'],
+    answer:
+      'Admin \u2192 Users to invite recruiters. Roles: admin (full access) or recruiter (limited). ' +
+      'Each user gets their own login.',
+  },
+  {
+    match: ['create template', 'edit template', 'message template', 'customize'],
+    answer:
+      "Manage blast message templates in Admin \u2192 Settings. Use {first_name} for the candidate's name and " +
+      "{link} for their magic link. Templates must include {link} or they'll be rejected.",
+  },
+  {
+    match: ['practice', 'demo mode', 'sandbox', 'test mode', 'live mode'],
+    answer:
+      "Without Whippy connected, you're in practice mode \u2014 everything works except texts don't actually send. " +
+      'Connect Whippy in Admin \u2192 Settings to go live.',
+  },
+  {
+    match: ['edit job order', 'unpublish', 'archive', 'update job'],
+    answer:
+      'Click any job order on the Dashboard to view details. Click Edit to change fields. ' +
+      'Unpublish to hide from candidates. Archive to remove from active view.',
+  },
+  {
+    match: ['error', 'failed', 'not working', 'blast failed', 'sms not sending', 'troubleshoot'],
+    answer:
+      '"Blast failed" usually means Whippy is not connected or your API key expired \u2014 check Admin \u2192 Settings. ' +
+      '"No candidates matched" means the wrong category was selected or all candidates are in cooldown.',
+  },
+  {
+    match: ['industrial', 'administrative', 'skilled trade', 'classification'],
+    answer:
+      'Three fixed categories: Industrial, Administrative, Skilled Trade. Set on job orders and candidates. ' +
+      "Blasts send to candidates matching the JO's category. Candidates see only JOs matching their " +
+      'category on their magic link page.',
   },
 ];
 
-const DEMO_BANNER = '🧪 DEMO — simulated walkthrough. Nothing here is saved, sent, or published.';
+const DEMO_BANNER = '\ud83e\uddea DEMO \u2014 simulated walkthrough. Nothing here is saved, sent, or published.';
 
 function demoWalkthrough(topic) {
   const walkthroughs = {
     'job order': [
       DEMO_BANNER,
       '1. You pick **New Job Order** and upload "forklift_operator.docx".',
-      '2. AI Assistant parses it: Title: Forklift Operator · Category: Industrial · Pay: $18/hr · Shift: 1st (6am–2:30pm) · Location: Waxahachie, TX.',
-      '3. You type "pay should be $18.50" — AI Assistant updates the Pay field.',
-      '4. You say "publish" — in real life it would go live on the job board. (Demo: nothing was saved.)',
+      '2. AI Assistant parses it: Title: Forklift Operator \u00b7 Category: Industrial \u00b7 Pay: $18/hr \u00b7 Shift: 1st (6am\u20132:30pm) \u00b7 Location: Waxahachie, TX.',
+      '3. You type "pay should be $18.50" \u2014 AI Assistant updates the Pay field.',
+      '4. You say "publish" \u2014 in real life it would go live on the job board. (Demo: nothing was saved.)',
       DEMO_BANNER,
     ],
     blast: [
@@ -86,7 +141,7 @@ function demoWalkthrough(topic) {
     review: [
       DEMO_BANNER,
       '1. You pick **Review Magic Blasts**.',
-      '2. You see: Jul 20 · Industrial · 287 sent · 13 skipped · 34 interested so far.',
+      '2. You see: Jul 20 \u00b7 Industrial \u00b7 287 sent \u00b7 13 skipped \u00b7 34 interested so far.',
       DEMO_BANNER,
     ],
   };
@@ -111,7 +166,7 @@ function faqAnswer(question) {
  */
 async function answerHelpQuestion(question) {
   const q = String(question || '').trim();
-  if (!q) return 'Ask me anything about JobLink — job orders, magic blasts, cooldowns, imports, or how a flow works.';
+  if (!q) return '\ud83d\udcfa Watch the full walkthrough: https://www.loom.com/share/e4e782f6d42647438af99a84c6ecfb4a\n\nHelp & Tutorials \u2014 ask me anything about how JobLink works, or pick a topic:\n\u2022 Job orders & editing\n\u2022 Magic blasts & templates\n\u2022 Blast Guard & cooldowns\n\u2022 Imports & file format\n\u2022 Categories\n\u2022 Whippy setup\n\u2022 Team members & roles\n\u2022 Practice mode vs live\n\u2022 Error troubleshooting\n\nTry "how do I send a blast?" for a simulated walkthrough.';
 
   const wantsWalkthrough = /how do i|show me|walk|example|demo|simulate/i.test(q);
   const canned = faqAnswer(q);
@@ -133,7 +188,7 @@ async function answerHelpQuestion(question) {
           'job order fields: title, category (Industrial/Administrative/Skilled Trade), pay, shift/hours, location, requirements, description, status. ' +
           'You have NO tools and can take NO actions. If the user asks you to actually create, send, publish, or delete anything, ' +
           'explain that Help is a sandbox and point them to the right button. ' +
-          `If a walkthrough helps, simulate one — but it MUST start and end with this exact banner line: "${DEMO_BANNER}"`,
+          'If a walkthrough helps, simulate one \u2014 but it MUST start and end with this exact banner line: "' + DEMO_BANNER + '"',
         messages: [{ role: 'user', content: q.slice(0, 2000) }],
       });
       const text = msg.content?.[0]?.text || '';
@@ -149,7 +204,7 @@ async function answerHelpQuestion(question) {
       "I can explain any part of JobLink: creating job orders, sending magic blasts, Blast Guard cooldowns, " +
       "what candidates see, imports and the overwrite rule, or reviewing blast results. " +
       'Try asking "how do I send a blast?" for a simulated walkthrough. ' +
-      'Note: Help is a sandbox — to actually do these things, use the other three buttons.',
+      'Note: Help is a sandbox \u2014 to actually do these things, use the other three buttons.',
     );
   }
   return parts.join('\n\n');
