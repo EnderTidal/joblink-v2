@@ -76,6 +76,34 @@ app.get('/health', (_req, res) => {
   }
 });
 
+
+// Deploy webhook — HMAC-verified, triggered by GitHub Actions
+const crypto = require('crypto');
+const { execFile } = require('child_process');
+
+app.post('/webhooks/deploy', express.json(), (req, res) => {
+  const secret = process.env.DEPLOY_WEBHOOK_SECRET;
+  if (!secret) return res.status(503).json({ error: 'webhook not configured' });
+
+  const sig = req.headers['x-hub-signature-256'] || '';
+  const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(JSON.stringify(req.body)).digest('hex');
+  if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+    return res.status(401).json({ error: 'invalid signature' });
+  }
+
+  if (req.body.ref !== 'refs/heads/master') {
+    return res.json({ skipped: true, reason: 'not master' });
+  }
+
+  console.log('[deploy-webhook]', new Date().toISOString(), 'Deploy triggered by push to master');
+  res.json({ deploying: true });
+
+  execFile('/bin/bash', ['/root/joblink-v2/scripts/webhook-deploy.sh'], (err, stdout, stderr) => {
+    console.log('[deploy-webhook]', new Date().toISOString(), stdout);
+    if (err) console.error('[deploy-webhook] ERROR', stderr);
+  });
+});
+
 const auth = createAuth(sysDb);
 
 // Candidate-facing magic link pages — NO auth (token IS the auth), mounted first.

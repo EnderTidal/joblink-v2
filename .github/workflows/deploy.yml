@@ -2,7 +2,7 @@ name: CI/CD
 
 on:
   push:
-    branches: ['*']
+    branches: ["*"]
   pull_request:
     branches: [master]
 
@@ -26,17 +26,11 @@ jobs:
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to production
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: root
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            cd /root/joblink-v2
-            git fetch origin master
-            git reset --hard origin/master
-            npm ci --omit=dev
-            pm2 restart joblink-v2
-            sleep 3
-            curl -sf http://localhost:3849/health || exit 1
+      - name: Trigger deploy webhook
+        run: |
+          PAYLOAD='{"ref":"refs/heads/master"}'
+          SIG=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "${{ secrets.DEPLOY_WEBHOOK_SECRET }}" | awk '{print "sha256="$2}')
+          curl -sf -X POST https://app.joblinkplatform.com/webhooks/deploy \
+            -H "Content-Type: application/json" \
+            -H "X-Hub-Signature-256: $SIG" \
+            -d "$PAYLOAD"
