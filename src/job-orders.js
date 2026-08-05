@@ -69,20 +69,24 @@ function updateJobOrder(db, id, patch) {
 /** Dashboard-row actions (docs/DECISIONS.md — publishing later happens here). */
 function setStatus(db, id, status) {
   if (!STATUSES.includes(status)) throw new Error('Bad status');
+  const jo = db.prepare('SELECT * FROM job_orders WHERE id = ?').get(id);
+  if (!jo) throw new Error('Job order not found');
   if (status === 'Complete') {
     // Archive: delete all interest records and set status in a transaction
     db.exec('BEGIN');
     try {
       db.prepare('DELETE FROM interests WHERE job_order_id = ?').run(id);
-      const result = updateJobOrder(db, id, { status: 'Complete' });
+      db.prepare("UPDATE job_orders SET status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(status, id);
       db.exec('COMMIT');
-      return result;
+      return db.prepare('SELECT * FROM job_orders WHERE id = ?').get(id);
     } catch (e) {
       db.exec('ROLLBACK');
       throw e;
     }
   }
-  return updateJobOrder(db, id, { status });
+  // Simple status change — update directly, skip full validation
+  db.prepare("UPDATE job_orders SET status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(status, id);
+  return db.prepare('SELECT * FROM job_orders WHERE id = ?').get(id);
 }
 
 function listJobOrders(db, { status, category, recruiter } = {}) {
