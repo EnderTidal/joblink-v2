@@ -172,6 +172,15 @@ async function answerHelpQuestion(question) {
   const canned = faqAnswer(q);
   const demo = wantsWalkthrough ? demoWalkthrough(q) : null;
 
+
+  // Canned FAQ + demo take priority (free, fast, always correct)
+  if (canned || demo) {
+    const parts = [];
+    if (canned) parts.push(canned);
+    if (demo) parts.push(demo);
+    return parts.join("\n\n");
+  }
+
   if (process.env.ANTHROPIC_API_KEY) {
     try {
       const Anthropic = require('@anthropic-ai/sdk');
