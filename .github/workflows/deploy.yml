@@ -27,10 +27,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger deploy webhook
+        env:
+          DEPLOY_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
         run: |
           PAYLOAD='{"ref":"refs/heads/master"}'
-          SIG=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "${{ secrets.DEPLOY_WEBHOOK_SECRET }}" | awk '{print "sha256="$2}')
-          curl -sf -X POST https://app.joblinkplatform.com/webhooks/deploy \
-            -H "Content-Type: application/json" \
-            -H "X-Hub-Signature-256: $SIG" \
-            -d "$PAYLOAD"
+          SIG="sha256=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$DEPLOY_SECRET" -hex 2>/dev/null | sed 's/^.* //')"
+          echo "Calling webhook..."
+          HTTP_CODE=$(curl -s -o /tmp/resp.txt -w '%{http_code}' -X POST https://app.joblinkplatform.com/webhooks/deploy             -H 'Content-Type: application/json'             -H "X-Hub-Signature-256: $SIG"             -d "$PAYLOAD")
+          echo "HTTP $HTTP_CODE"
+          cat /tmp/resp.txt
+          [ "$HTTP_CODE" = "200" ] || exit 1
