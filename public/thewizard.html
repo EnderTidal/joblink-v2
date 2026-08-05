@@ -918,6 +918,21 @@ function addMsg(who, text, extra) {
     }
   }
   chat.appendChild(div);
+
+  // Auto-add "Yes" button when Tom asks "create another?" or "Send another?"
+  if (who === "tom" && text && /another\?/i.test(text)) {
+    var yesDiv = document.createElement("div");
+    yesDiv.className = "choices";
+    var yesBtn = document.createElement("button");
+    yesBtn.className = "btn sm";
+    yesBtn.textContent = currentPath === "blast" ? "Yes, send another" : "Yes, create another";
+    yesBtn.onclick = function() {
+      yesBtn.disabled = true;
+      tryStartPath(currentPath);
+    };
+    yesDiv.appendChild(yesBtn);
+    div.appendChild(yesDiv);
+  }
   div.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
 

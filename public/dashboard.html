@@ -10,6 +10,8 @@
   .pipeline-panel > .panel-header { padding:20px 22px 16px; border-bottom:1px solid var(--border); }
   .pipeline-panel > .panel-header h2 { margin:0 0 14px; font-size:16px; font-weight:800; letter-spacing:-.01em; }
   .pipeline-panel > .panel-filters { padding:14px 22px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; border-bottom:1px solid var(--border); }
+  .panel-thead span[onclick]:hover { color: var(--brand); }
+  .sort-arrow { font-size: 9px; margin-left: 2px; }
   .pipeline-panel > .panel-thead { display:grid; grid-template-columns:2.2fr 0.85fr 1.1fr 0.8fr 1.9fr 1fr 0.95fr; gap:12px; padding:12px 22px; font-size:11px; font-weight:700; letter-spacing:.06em; color:var(--text-subtle); border-bottom:1px solid var(--border); text-transform:uppercase; }
   .pipeline-row { display:grid; grid-template-columns:2.2fr 0.85fr 1.1fr 0.8fr 1.9fr 1fr 0.95fr; gap:12px; padding:16px 22px; align-items:center; border-bottom:1px solid var(--border); cursor:pointer; transition:background .12s; }
   .pipeline-row:hover { background:var(--surface-2); }
@@ -108,8 +110,14 @@
     </div>
 
     <!-- Table head (CSS grid) -->
-    <div class="panel-thead">
-      <span>JOB ORDER</span><span>COMPANY</span><span>CATEGORY</span><span>PAY</span><span>PIPELINE</span><span>RECRUITER</span><span style="text-align:right">STATUS</span>
+    <div class="panel-thead" id="sortableHeader">
+      <span onclick="headerSort('alpha')" style="cursor:pointer" data-col="alpha">JOB ORDER <span class="sort-arrow"></span></span>
+      <span onclick="headerSort('company')" style="cursor:pointer" data-col="company">COMPANY <span class="sort-arrow"></span></span>
+      <span onclick="headerSort('category')" style="cursor:pointer" data-col="category">CATEGORY <span class="sort-arrow"></span></span>
+      <span onclick="headerSort('pay')" style="cursor:pointer" data-col="pay">PAY <span class="sort-arrow"></span></span>
+      <span onclick="headerSort('pipeline')" style="cursor:pointer" data-col="pipeline">PIPELINE <span class="sort-arrow"></span></span>
+      <span>RECRUITER</span>
+      <span style="text-align:right">STATUS</span>
     </div>
 
     <!-- Pipeline rows -->
@@ -198,10 +206,13 @@ function renderTable() {
   else if (pipelineFilter === 'has_yeslisted') jobs = jobs.filter(function(jo) { return (jo.yeslisted_count || 0) > 0; });
   else if (pipelineFilter === 'has_confirmed') jobs = jobs.filter(function(jo) { return (jo.confirmed_count || 0) > 0; });
 
-  // Sort
-  if (currentSort === 'alpha') jobs.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-  else if (currentSort === 'category') jobs.sort((a, b) => (a.category || '').localeCompare(b.category || ''));
-  else if (currentSort === 'pay') jobs.sort((a, b) => parseFloat(b.pay || 0) - parseFloat(a.pay || 0));
+  // Sort (with direction support for header clicks)
+  var dir = headerSortDir[currentSort] === 'desc' ? -1 : 1;
+  if (currentSort === 'alpha') jobs.sort((a, b) => dir * (a.title || '').localeCompare(b.title || ''));
+  else if (currentSort === 'company') jobs.sort((a, b) => dir * (a.company || '').localeCompare(b.company || ''));
+  else if (currentSort === 'category') jobs.sort((a, b) => dir * (a.category || '').localeCompare(b.category || ''));
+  else if (currentSort === 'pay') jobs.sort((a, b) => dir * (parseFloat(b.pay || 0) - parseFloat(a.pay || 0)));
+  else if (currentSort === 'pipeline') jobs.sort((a, b) => dir * ((b.interested_count || 0) - (a.interested_count || 0)));
   else jobs.sort((a, b) => (b.interested_count || 0) - (a.interested_count || 0));
 
   // Split active vs completed
@@ -290,6 +301,33 @@ function toggleCompleted() {
 function onSearch(v) {
   searchQuery = v;
   renderTable();
+}
+
+// --- Click-to-sort column headers ---
+var headerSortDir = {}; // tracks asc/desc per column
+
+function headerSort(col) {
+  // Toggle direction: first click = asc, second = desc, repeat
+  if (!headerSortDir[col] || headerSortDir[col] === 'desc') headerSortDir[col] = 'asc';
+  else headerSortDir[col] = 'desc';
+  currentSort = col;
+  localStorage.setItem('jl_filter_sort', col);
+  renderTable();
+  updateSortArrows(col);
+}
+
+function updateSortArrows(activeCol) {
+  document.querySelectorAll('#sortableHeader .sort-arrow').forEach(function(el) {
+    var span = el.parentElement;
+    var col = span.dataset.col;
+    if (col === activeCol) {
+      el.textContent = headerSortDir[col] === 'asc' ? '▲' : '▼';
+      span.style.color = 'var(--brand)';
+    } else {
+      el.textContent = '';
+      span.style.color = '';
+    }
+  });
 }
 
 function sortBy(v) {
