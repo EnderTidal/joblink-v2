@@ -9,8 +9,11 @@
   .dev-hero h1 { font-size:27px; font-weight:800; letter-spacing:-.02em; margin:0 0 4px; }
   .dev-hero p { color:var(--text-muted); font-size:14px; margin:0 0 24px; }
   main.page { padding-top:16px; }
-  .grid.metrics { grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); margin-bottom:24px; }
+  .grid.metrics { grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); margin-bottom:24px; }
+
   .section-title { font-size:16px; font-weight:800; letter-spacing:-.01em; margin:0 0 14px; display:flex; align-items:center; gap:10px; }
+
+  /* Org table */
   .org-table { width:100%; }
   .org-table td { font-size:13.5px; }
   .org-table .org-name { font-weight:700; color:var(--brand); cursor:pointer; }
@@ -25,6 +28,44 @@
   .act-btn.suspend:hover { background:color-mix(in srgb,var(--red) 22%,var(--surface)); }
   .act-btn.reactivate { background:var(--green-soft); color:var(--green); }
   .act-btn.reactivate:hover { background:color-mix(in srgb,var(--green) 22%,var(--surface)); }
+
+  /* Pipeline funnel */
+  .funnel { display:grid; grid-template-columns:repeat(4,1fr); gap:0; }
+  .funnel-stage { text-align:center; padding:20px 14px; position:relative; }
+  .funnel-stage .stage-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px; }
+  .funnel-stage .stage-count { font-size:28px; font-weight:800; letter-spacing:-.02em; }
+  .funnel-stage .stage-pct { font-size:12px; font-weight:600; margin-top:4px; }
+  .funnel-stage:not(:last-child)::after {
+    content:''; position:absolute; right:0; top:20%; height:60%;
+    border-right:1px solid var(--border);
+  }
+  .funnel-stage.s-interested .stage-count { color:var(--blue); }
+  .funnel-stage.s-yeslisted .stage-count { color:var(--amber); }
+  .funnel-stage.s-confirmed .stage-count { color:var(--green); }
+  .funnel-stage.s-filled .stage-count { color:var(--violet); }
+  .funnel-stage.s-interested .stage-label { color:var(--blue); }
+  .funnel-stage.s-yeslisted .stage-label { color:var(--amber); }
+  .funnel-stage.s-confirmed .stage-label { color:var(--green); }
+  .funnel-stage.s-filled .stage-label { color:var(--violet); }
+  .funnel-arrow { color:var(--text-subtle); font-size:11px; }
+
+  /* Alerts */
+  .alert-item { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+  .alert-item:last-child { border-bottom:none; }
+  .alert-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+  .alert-icon.warn { background:var(--amber-soft); color:var(--amber); }
+  .alert-icon.danger { background:var(--red-soft); color:var(--red); }
+  .alert-icon.info { background:var(--blue-soft); color:var(--blue); }
+  .alert-text { font-size:13.5px; }
+  .alert-text strong { font-weight:700; }
+  .alert-text .alert-detail { color:var(--text-muted); font-size:12px; }
+  .no-alerts { padding:20px; text-align:center; color:var(--text-subtle); font-size:13.5px; }
+
+  /* Two-col bottom layout */
+  .bottom-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:900px) { .bottom-grid { grid-template-columns:1fr; } }
+
+  /* Org detail modal */
   .org-detail { max-width:640px; }
   .org-detail h2 { margin-bottom:20px; }
   .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
@@ -37,15 +78,10 @@
   .mini-table { width:100%; font-size:12.5px; }
   .mini-table td { padding:8px 6px; }
   .mini-table th { padding:8px 6px; }
-  .signup-list { margin-top:0; }
-  .signup-item { display:flex; align-items:center; gap:14px; padding:10px 0; border-bottom:1px solid var(--border); }
-  .signup-item:last-child { border-bottom:none; }
-  .signup-icon { width:36px; height:36px; border-radius:10px; background:var(--brand-soft); color:var(--brand); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; flex-shrink:0; }
-  .signup-name { font-weight:700; font-size:14px; }
-  .signup-date { font-size:12px; color:var(--text-muted); }
+
+  .loading { text-align:center; padding:40px; color:var(--text-muted); }
   .health-link { display:inline-flex; align-items:center; gap:8px; padding:10px 18px; border-radius:var(--radius-sm); background:var(--surface-2); border:1px solid var(--border); font-size:13.5px; font-weight:600; color:var(--text-muted); margin-top:24px; }
   .health-link:hover { background:var(--surface-3); color:var(--text); }
-  .loading { text-align:center; padding:40px; color:var(--text-muted); }
 </style>
 </head><body>
 
@@ -72,9 +108,9 @@
 </div>
 
 <main class="page">
-  <!-- Metrics -->
+  <!-- Section 1: Metrics Row -->
   <div class="grid metrics" id="metricsGrid">
-    <div class="card stat"><div class="lbl">Monthly Recurring Revenue</div><div class="num" id="mMrr">--</div></div>
+    <div class="card stat"><div class="lbl">MRR</div><div class="num" id="mMrr">--</div></div>
     <div class="card stat"><div class="lbl">Active Orgs</div><div class="num" id="mActive">--</div></div>
     <div class="card stat"><div class="lbl">Trialing</div><div class="num" id="mTrialing">--</div></div>
     <div class="card stat"><div class="lbl">Suspended / Churned</div><div class="num" id="mChurned">--</div></div>
@@ -84,23 +120,36 @@
     <div class="card stat"><div class="lbl">Total Orgs</div><div class="num" id="mTotal">--</div></div>
   </div>
 
-  <!-- Orgs table -->
+  <!-- Section 2: Orgs Table -->
   <div class="card">
     <h2 class="section-title">All Organizations</h2>
     <table class="org-table" id="orgTable">
       <thead><tr>
-        <th>Org</th><th>Slug</th><th>Status</th><th>Trial End</th>
+        <th>Org</th><th>Status</th><th>Trial End</th>
         <th>Users</th><th>Candidates</th><th>JOs</th><th>Blasts</th>
         <th>Created</th><th>Actions</th>
       </tr></thead>
-      <tbody id="orgBody"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
+      <tbody id="orgBody"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
     </table>
   </div>
 
-  <!-- Recent Signups -->
-  <div class="card">
-    <h2 class="section-title">Recent Signups</h2>
-    <div id="recentSignups" class="signup-list"><div class="loading">Loading...</div></div>
+  <!-- Section 3 & 4: Pipeline Funnel + Alerts side by side -->
+  <div class="bottom-grid">
+    <div class="card">
+      <h2 class="section-title">Pipeline Funnel (Platform-wide)</h2>
+      <div class="funnel" id="funnelGrid">
+        <div class="funnel-stage s-interested"><div class="stage-label">Interested</div><div class="stage-count" id="fInterested">--</div><div class="stage-pct">&nbsp;</div></div>
+        <div class="funnel-stage s-yeslisted"><div class="stage-label">Yes-Listed</div><div class="stage-count" id="fYesListed">--</div><div class="stage-pct" id="fPctYL">&nbsp;</div></div>
+        <div class="funnel-stage s-confirmed"><div class="stage-label">Confirmed</div><div class="stage-count" id="fConfirmed">--</div><div class="stage-pct" id="fPctC">&nbsp;</div></div>
+        <div class="funnel-stage s-filled"><div class="stage-label">Filled</div><div class="stage-count" id="fFilled">--</div><div class="stage-pct" id="fPctF">&nbsp;</div></div>
+      </div>
+      <div style="text-align:center;padding:8px 0 4px;font-size:12px;color:var(--text-subtle)" id="fTotal"></div>
+    </div>
+
+    <div class="card">
+      <h2 class="section-title">Alerts</h2>
+      <div id="alertsPanel"><div class="loading">Loading...</div></div>
+    </div>
   </div>
 
   <!-- System Health -->
@@ -128,6 +177,7 @@
 (async function boot() {
   try {
     var me = await api('/api/me');
+    if (me.org_id !== 1) { location.href = '/dashboard.html'; return; }
     document.getElementById('whoami').textContent = me.display_name || me.username;
   } catch(e) {
     location.href = '/login.html';
@@ -135,6 +185,8 @@
   }
   loadMetrics();
   loadOrgs();
+  loadPipeline();
+  loadAlerts();
 })();
 
 async function loadMetrics() {
@@ -160,22 +212,20 @@ async function loadOrgs() {
     var orgs = await api('/dev/api/orgs');
     orgsCache = orgs;
     renderOrgs(orgs);
-    renderRecentSignups(orgs);
   } catch(e) {
-    document.getElementById('orgBody').innerHTML = '<tr><td colspan="10" style="color:var(--red)">Failed to load: ' + e.message + '</td></tr>';
+    document.getElementById('orgBody').innerHTML = '<tr><td colspan="9" style="color:var(--red)">Failed to load: ' + e.message + '</td></tr>';
   }
 }
 
 function renderOrgs(orgs) {
   var tbody = document.getElementById('orgBody');
   if (!orgs.length) {
-    tbody.innerHTML = '<tr><td colspan="10" class="empty-msg">No orgs found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-msg">No orgs found</td></tr>';
     return;
   }
   tbody.innerHTML = orgs.map(function(o) {
     return '<tr>' +
       '<td><span class="org-name" onclick="viewOrg(' + o.id + ')">' + esc(o.name) + '</span></td>' +
-      '<td style="color:var(--text-muted)">' + esc(o.slug) + '</td>' +
       '<td><span class="status-pill ' + o.subscription_status + '">' + o.subscription_status + '</span></td>' +
       '<td style="color:var(--text-muted)">' + (o.trial_end ? new Date(o.trial_end).toLocaleDateString() : '--') + '</td>' +
       '<td>' + o.user_count + '</td>' +
@@ -196,19 +246,52 @@ function orgActions(o) {
   return '<button class="act-btn suspend" onclick="suspendOrg(' + o.id + ')">Suspend</button>';
 }
 
-function renderRecentSignups(orgs) {
-  var sorted = orgs.slice().sort(function(a, b) { return new Date(b.created_at) - new Date(a.created_at); }).slice(0, 10);
-  var el = document.getElementById('recentSignups');
-  if (!sorted.length) { el.innerHTML = '<div class="empty-msg">No signups yet</div>'; return; }
-  el.innerHTML = sorted.map(function(o) {
-    return '<div class="signup-item">' +
-      '<div class="signup-icon">' + esc(o.name.charAt(0).toUpperCase()) + '</div>' +
-      '<div>' +
-        '<div class="signup-name">' + esc(o.name) + '</div>' +
-        '<div class="signup-date">' + esc(o.slug) + ' &middot; ' + new Date(o.created_at).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) + ' &middot; <span class="status-pill ' + o.subscription_status + '">' + o.subscription_status + '</span></div>' +
-      '</div>' +
-    '</div>';
-  }).join('');
+async function loadPipeline() {
+  try {
+    var p = await api('/dev/api/pipeline');
+    document.getElementById('fInterested').textContent = p.interested.toLocaleString();
+    document.getElementById('fYesListed').textContent = p.yes_listed.toLocaleString();
+    document.getElementById('fConfirmed').textContent = p.confirmed.toLocaleString();
+    document.getElementById('fFilled').textContent = p.filled.toLocaleString();
+    document.getElementById('fPctYL').textContent = p.pct_yes_listed + '% of total';
+    document.getElementById('fPctC').textContent = p.pct_confirmed + '% of total';
+    document.getElementById('fPctF').textContent = p.pct_filled + '% of total';
+    document.getElementById('fTotal').textContent = p.total.toLocaleString() + ' total interests across all orgs';
+  } catch(e) {
+    console.error('pipeline', e);
+  }
+}
+
+async function loadAlerts() {
+  try {
+    var alerts = await api('/dev/api/alerts');
+    var el = document.getElementById('alertsPanel');
+    if (!alerts.length) {
+      el.innerHTML = '<div class="no-alerts">No alerts right now</div>';
+      return;
+    }
+    el.innerHTML = alerts.map(function(a) {
+      var icon = 'warn', emoji = '!';
+      var text = '';
+      if (a.type === 'trial_expiring') {
+        icon = 'warn'; emoji = '\u23F3';
+        text = '<strong>' + esc(a.org_name) + '</strong> trial expires ' + new Date(a.trial_end).toLocaleDateString();
+      } else if (a.type === 'zero_candidates') {
+        icon = 'danger'; emoji = '\u26A0';
+        text = '<strong>' + esc(a.org_name) + '</strong> has 0 candidates';
+      } else if (a.type === 'stale_blasts') {
+        icon = 'info'; emoji = '\uD83D\uDCE8';
+        text = '<strong>' + esc(a.org_name) + '</strong> no blasts in 7+ days<br><span class="alert-detail">Last: ' + new Date(a.last_blast).toLocaleDateString() + '</span>';
+      } else if (a.type === 'never_blasted') {
+        icon = 'info'; emoji = '\uD83D\uDCE8';
+        text = '<strong>' + esc(a.org_name) + '</strong> has candidates but never sent a blast';
+      }
+      return '<div class="alert-item"><div class="alert-icon ' + icon + '">' + emoji + '</div><div class="alert-text">' + text + '</div></div>';
+    }).join('');
+  } catch(e) {
+    console.error('alerts', e);
+    document.getElementById('alertsPanel').innerHTML = '<div class="no-alerts">Failed to load alerts</div>';
+  }
 }
 
 async function suspendOrg(id) {
