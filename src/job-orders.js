@@ -7,7 +7,7 @@ const { CATEGORIES } = require('./blast');
 const JOB_ORDER_FIELDS = [
   { key: 'title',        label: 'Title',        required: true },
   { key: 'category',     label: 'Category',     required: true }, // Industrial | Administrative | Skilled Trade
-  { key: 'pay',          label: 'Pay',          required: true },
+  { key: 'pay',          label: 'Pay',          required: false },
   { key: 'shift_hours',  label: 'Shift / Hours', required: false },
   { key: 'address',      label: 'Address',      required: false },
   { key: 'city_state',   label: 'City / State',  required: false },

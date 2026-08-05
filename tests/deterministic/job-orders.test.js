@@ -15,9 +15,9 @@ test('the field list is exactly the ten agreed fields', () => {
     ['title', 'category', 'pay', 'shift_hours', 'address', 'city_state', 'requirements', 'description', 'company', 'status']);
 });
 
-test('required fields: title, category, pay, status', () => {
+test('required fields: title, category, status', () => {
   const v = validateJobOrder({ description: 'something' });
-  assert.deepStrictEqual(v.missing.sort(), ['category', 'pay', 'status', 'title'].sort());
+  assert.deepStrictEqual(v.missing.sort(), ['category', 'status', 'title'].sort());
   assert.strictEqual(validateJobOrder(GOOD).ok, true);
 });
 

@@ -32,6 +32,14 @@ app.set("trust proxy", 1);  // Behind Cloudflare + Traefik
 
 app.use(morgan("combined"));
 
+// Prevent Cloudflare from caching HTML responses with stale headers
+app.use((req, res, next) => {
+  if (req.path.endsWith('.html') || req.path === '/') {
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  }
+  next();
+});
+
 // Stripe webhook needs raw body — mount BEFORE json parser
 app.use(createStripeWebhook(sysDb));
 

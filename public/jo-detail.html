@@ -36,6 +36,7 @@
         <label class="f">City / State<input name="city_state" id="fCityState"></label>
         <label class="f">Address <em style="font-weight:400;color:var(--text-subtle)">(hidden)</em><input name="address" id="fAddress"></label>
       </div>
+      <label class="f">Company <em style="font-weight:400;color:var(--text-subtle)">(hidden)</em><input name="company" id="fCompany"></label>
       <label class="f">Requirements<textarea name="requirements" id="fRequirements" rows="3"></textarea></label>
       <label class="f">Description<textarea name="description" id="fDescription" rows="3"></textarea></label>
       <div class="row2">
@@ -103,6 +104,7 @@ function populateEditForm(jo) {
   document.getElementById('fShift').value = jo.shift_hours || '';
   document.getElementById('fCityState').value = jo.city_state || '';
   document.getElementById('fAddress').value = jo.address || '';
+  document.getElementById('fCompany').value = jo.company || '';
   document.getElementById('fRequirements').value = jo.requirements || '';
   document.getElementById('fDescription').value = jo.description || '';
   document.getElementById('fStatus').value = jo.status || 'Unpublished';
@@ -133,6 +135,7 @@ async function saveEdit() {
     shift_hours: document.getElementById('fShift').value,
     city_state: document.getElementById('fCityState').value,
     address: document.getElementById('fAddress').value,
+    company: document.getElementById('fCompany').value,
     requirements: document.getElementById('fRequirements').value,
     description: document.getElementById('fDescription').value,
     assigned_recruiter: document.getElementById('fRecruiter').value,
