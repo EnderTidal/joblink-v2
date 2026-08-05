@@ -492,7 +492,8 @@ function createTom(db) {
     if (path === 'blast') return startBlast(s);
     if (path === 'review') return startReview(s);
     s.state = 'chat';
-    return reply(s, 'Help & Tutorials \u2014 ask me anything about how JobLink works. I can also simulate a walkthrough of any flow. (This is a sandbox: nothing I show is ever saved, sent, or published.)');
+    const greeting = await answerHelpQuestion(null);
+    return reply(s, greeting);
   }
 
   async function message(sessionId, input) {
