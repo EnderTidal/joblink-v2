@@ -27,23 +27,9 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 const sysDb = openSystemDb(process.env.SYSTEM_DB || path.join(DATA_DIR, 'system.db'));
 
 const app = express();
-const helmet = require("helmet");
 const morgan = require("morgan");
 app.set("trust proxy", 1);  // Behind Cloudflare + Traefik
 
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://static.cloudflareinsights.com", "https://js.stripe.com"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:"],
-      frameSrc: ["'self'", "https://js.stripe.com", "https://www.loom.com"],
-      connectSrc: ["'self'", "https://api.stripe.com"]
-    }
-  }
-}));
 app.use(morgan("combined"));
 
 // Stripe webhook needs raw body — mount BEFORE json parser
