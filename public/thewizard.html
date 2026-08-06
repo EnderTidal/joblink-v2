@@ -712,7 +712,7 @@ function updateTemplatePreview() {
 
 function hideBlastForm() {
   blastFormActive = false;
-  blastFormData = null;
+  // blastFormData preserved for Edit button
   var panel = document.getElementById('blast-form-panel');
   panel.className = '';
   panel.innerHTML = '';

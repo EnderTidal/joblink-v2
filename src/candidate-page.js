@@ -40,7 +40,8 @@ function renderCandidatePage(db, candidate, orgName) {
         ${jo.shift_hours ? `<span class="chip">\u{1F550} ${esc(jo.shift_hours)}</span>` : ''}
         ${jo.city_state ? `<span class="chip">\u{1F4CD} ${esc(jo.city_state)}</span>` : ''}
       </div>
-      ${jo.description ? `<p class="req"><strong>Description:</strong> ${esc(jo.description)}</p>` : ''}
+      ${jo.description ? `<p class="req"><strong>Description:</strong> ${esc(jo.description).replace(/
+/g, "<br>")}</p>` : ''}
       ${jo.requirements ? `<p class="req"><strong>Requirements:</strong> ${esc(jo.requirements)}</p>` : ''}
       <button class="interest ${done ? 'done' : ''}" data-id="${jo.id}" >
         ${done ? "\u2713 Interest Submitted" : "I'm Interested ✋"}
@@ -119,7 +120,7 @@ function renderPreviewPage(db, preSelectedCategory) {
         ${jo.shift_hours ? '<span class="chip">\u{1F550} ' + esc(jo.shift_hours) + '</span>' : ''}
         ${jo.city_state ? '<span class="chip">\u{1F4CD} ' + esc(jo.city_state) + '</span>' : ''}
       </div>
-      ${jo.description ? '<p class="req"><strong>Description:</strong> ' + esc(jo.description) + '</p>' : ''}
+      ${jo.description ? '<p class="req"><strong>Description:</strong> ' + esc(jo.description).replace(/\n/g, '<br>') + '</p>' : ''}
       ${jo.requirements ? '<p class="req"><strong>Requirements:</strong> ' + esc(jo.requirements) + '</p>' : ''}
       <button class="interest" disabled>I'm Interested ✋</button>
     </div>`).join('\n');
