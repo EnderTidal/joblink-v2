@@ -432,11 +432,7 @@ function showJOForm(draft, warnings) {
     formatSel.addEventListener('change', function() {
       var val = descTA.value;
       if (formatSel.value === 'bullets') {
-        var bLines = val.split("
-").filter(function(l){return l.trim();});
-        if (bLines.length <= 1 && val.length > 50) { bLines = val.split(/.s+/).filter(function(s){return s.trim();}); }
-        descTA.value = bLines.map(function(l){return l.replace(/^[•-*]s*/, "• ").replace(/.$/, "");}).join("
-");
+        descTA.value = val.split("\n").filter(function(l){return l.trim();}).map(function(l){return l.replace(/^[•\-\*]\s*/, '• ');}).join("\n");
       } else {
         descTA.value = val.split("\n").map(function(l){return l.replace(/^•\s*/, '');}).join("\n");
       }
@@ -444,11 +440,7 @@ function showJOForm(draft, warnings) {
     });
     // Auto-apply saved format to initial value
     if (savedFmt === 'bullets' && descTA.value) {
-      var bLines3 = descTA.value.split("
-").filter(function(l){return l.trim();});
-      if (bLines3.length <= 1 && descTA.value.length > 50) { bLines3 = descTA.value.split(/.s+/).filter(function(s){return s.trim();}); }
-      descTA.value = bLines3.map(function(l){return l.replace(/^[•-*]s*/, "• ").replace(/.$/, "");}).join("
-");
+      descTA.value = descTA.value.split("\n").filter(function(l){return l.trim();}).map(function(l){return l.replace(/^[•\-\*]\s*/, '• ');}).join("\n");
     }
   })();
 
