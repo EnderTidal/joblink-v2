@@ -82,6 +82,13 @@
   .loading { text-align:center; padding:40px; color:var(--text-muted); }
   .health-link { display:inline-flex; align-items:center; gap:8px; padding:10px 18px; border-radius:var(--radius-sm); background:var(--surface-2); border:1px solid var(--border); font-size:13.5px; font-weight:600; color:var(--text-muted); margin-top:24px; }
   .health-link:hover { background:var(--surface-3); color:var(--text); }
+
+  /* Env toggle */
+  .env-toggle { display:flex; gap:8px; margin-bottom:16px; }
+  .env-toggle .btn { padding:8px 20px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; border:1px solid var(--border); background:var(--surface-2); color:var(--text-muted); transition:all .15s; }
+  .env-toggle .btn.on { background:var(--brand); color:#fff; border-color:var(--brand); }
+  .env-toggle .btn:hover:not(.on) { background:var(--surface-3); }
+  .env-banner { display:none; background:color-mix(in srgb, #FFF3CD 15%, var(--surface)); color:#e2b93b; padding:10px 16px; border-radius:8px; font-weight:600; margin-bottom:16px; font-size:13.5px; }
 </style>
 </head><body>
 
@@ -108,6 +115,13 @@
 </div>
 
 <main class="page">
+  <!-- Env Toggle -->
+  <div class="env-toggle">
+    <button class="btn on" id="envProd" onclick="switchEnv('prod')">Production</button>
+    <button class="btn" id="envStaging" onclick="switchEnv('staging')">Staging</button>
+  </div>
+  <div class="env-banner" id="envBanner">&#9888;&#65039; Viewing STAGING environment data (read-only)</div>
+
   <!-- Section 1: Metrics Row -->
   <div class="grid metrics" id="metricsGrid">
     <div class="card stat"><div class="lbl">MRR</div><div class="num" id="mMrr">--</div></div>
@@ -174,6 +188,20 @@
 
 <script src="/app.js?v=5"></script>
 <script>
+var currentEnv = 'prod';
+function apiBase() { return currentEnv === 'staging' ? '/dev/api/staging' : '/dev/api'; }
+
+function switchEnv(env) {
+  currentEnv = env;
+  document.getElementById('envProd').className = env === 'prod' ? 'btn on' : 'btn';
+  document.getElementById('envStaging').className = env === 'staging' ? 'btn on' : 'btn';
+  document.getElementById('envBanner').style.display = env === 'staging' ? 'block' : 'none';
+  loadMetrics();
+  loadOrgs();
+  loadPipeline();
+  loadAlerts();
+}
+
 (async function boot() {
   try {
     var me = await api('/api/me');
@@ -191,7 +219,7 @@
 
 async function loadMetrics() {
   try {
-    var m = await api('/dev/api/metrics');
+    var m = await api(apiBase() + '/metrics');
     document.getElementById('mMrr').textContent = m.mrr_display;
     document.getElementById('mActive').textContent = m.active_orgs;
     document.getElementById('mTrialing').textContent = m.trialing_orgs;
@@ -209,7 +237,7 @@ var orgsCache = [];
 
 async function loadOrgs() {
   try {
-    var orgs = await api('/dev/api/orgs');
+    var orgs = await api(apiBase() + '/orgs');
     orgsCache = orgs;
     renderOrgs(orgs);
   } catch(e) {
@@ -232,13 +260,14 @@ function renderOrgs(orgs) {
       '<td>' + o.candidate_count.toLocaleString() + '</td>' +
       '<td>' + o.job_order_count + '</td>' +
       '<td>' + o.blast_count + '</td>' +
-      '<td style="color:var(--text-muted)">' + new Date(o.created_at).toLocaleDateString() + '</td>' +
+      '<td style="color:var(--text-muted)">' + new Date(o.created_at).toLocaleString() + '</td>' +
       '<td>' + orgActions(o) + '</td>' +
     '</tr>';
   }).join('');
 }
 
 function orgActions(o) {
+  if (currentEnv === 'staging') return '<span style="color:var(--text-subtle);font-size:12px">Read-only</span>';
   if (o.id === 1) return '<span style="color:var(--text-subtle);font-size:12px">Platform</span>';
   if (o.subscription_status === 'suspended') {
     return '<button class="act-btn reactivate" onclick="reactivateOrg(' + o.id + ')">Reactivate</button>';
@@ -248,7 +277,7 @@ function orgActions(o) {
 
 async function loadPipeline() {
   try {
-    var p = await api('/dev/api/pipeline');
+    var p = await api(apiBase() + '/pipeline');
     document.getElementById('fInterested').textContent = p.interested.toLocaleString();
     document.getElementById('fYesListed').textContent = p.yes_listed.toLocaleString();
     document.getElementById('fConfirmed').textContent = p.confirmed.toLocaleString();
@@ -264,7 +293,7 @@ async function loadPipeline() {
 
 async function loadAlerts() {
   try {
-    var alerts = await api('/dev/api/alerts');
+    var alerts = await api(apiBase() + '/alerts');
     var el = document.getElementById('alertsPanel');
     if (!alerts.length) {
       el.innerHTML = '<div class="no-alerts">No alerts right now</div>';
@@ -315,7 +344,7 @@ async function reactivateOrg(id) {
 
 async function viewOrg(id) {
   try {
-    var o = await api('/dev/api/orgs/' + id);
+    var o = await api(apiBase() + '/orgs/' + id);
     document.getElementById('modalOrgName').textContent = o.name;
 
     document.getElementById('modalDetail').innerHTML =
