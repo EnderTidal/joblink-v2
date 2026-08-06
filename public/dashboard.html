@@ -562,15 +562,10 @@ function archiveJob(id) {
 async function deleteJO(id) {  if (!confirm("Permanently delete this job order? This cannot be undone.")) return;  try {    await api("/api/job-orders/" + id, { method: "DELETE" });    toast("Job order deleted.");    loadRows(); loadStats();  } catch(e) { toast("Error: " + e.message); }}
 // Restore persisted filters (status/category always default to All)
 function restoreFilters() {
-  var savedRecruiter = localStorage.getItem('jl_filter_recruiter');
-  var savedPipeline = localStorage.getItem('jl_filter_pipeline');
-  var savedSort = localStorage.getItem('jl_filter_sort');
-  var savedSearch = localStorage.getItem('jl_filter_search');
-
-  if (savedRecruiter) {
-    recruiterFilter = savedRecruiter;
-    var rSel = document.getElementById('recruiterFilter');
-    if (rSel) rSel.value = savedRecruiter;
+    var sf = sessionStorage.getItem('jl_filter_status');
+    var cf = sessionStorage.getItem('jl_filter_category');
+    if (sf) { statusFilter = sf; var btn = document.querySelector('[data-filter-status="' + sf + '"]'); if (btn) { document.querySelectorAll('.status-filters button').forEach(function(b){b.classList.remove('on');}); btn.classList.add('on'); } }
+    if (cf) { categoryFilter = cf; var btn = document.querySelector('[data-filter-category="' + cf + '"]'); if (btn) { document.querySelectorAll('.category-filters button').forEach(function(b){b.classList.remove('on');}); btn.classList.add('on'); } }
   }
   if (savedPipeline) {
     pipelineFilter = savedPipeline;
