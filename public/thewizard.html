@@ -416,32 +416,6 @@ function showJOForm(draft, warnings) {
     descTA.addEventListener('input', checkLen);
     checkLen();
 
-    // Fix 5: Format dropdown
-    var formatSel = document.createElement('select');
-    formatSel.id = 'descFormat';
-    formatSel.style.cssText = 'font-size:.82rem;padding:4px 8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:6px;margin-bottom:4px;';
-    formatSel.innerHTML = '<option value="freetext">Free text</option><option value="bullets">Bullet points</option>';
-    var savedFmt = localStorage.getItem('jl_desc_format');
-    if (savedFmt === 'bullets') formatSel.value = 'bullets';
-    descTA.parentNode.insertBefore(formatSel, descTA);
-    var setDefaultLink = document.createElement('a');
-    setDefaultLink.style.cssText = 'font-size:.78rem;color:var(--brand);cursor:pointer;text-decoration:underline;margin-left:8px;';
-    setDefaultLink.textContent = 'Set as default';
-    setDefaultLink.addEventListener('click', function() { localStorage.setItem('jl_desc_format', formatSel.value); toast('Default format saved.'); });
-    formatSel.parentNode.insertBefore(setDefaultLink, formatSel.nextSibling);
-    formatSel.addEventListener('change', function() {
-      var val = descTA.value;
-      if (formatSel.value === 'bullets') {
-        descTA.value = val.split("\n").filter(function(l){return l.trim();}).map(function(l){return l.replace(/^[•\-\*]\s*/, '• ');}).join("\n");
-      } else {
-        descTA.value = val.split("\n").map(function(l){return l.replace(/^•\s*/, '');}).join("\n");
-      }
-      checkLen();
-    });
-    // Auto-apply saved format to initial value
-    if (savedFmt === 'bullets' && descTA.value) {
-      descTA.value = descTA.value.split("\n").filter(function(l){return l.trim();}).map(function(l){return l.replace(/^[•\-\*]\s*/, '• ');}).join("\n");
-    }
   })();
 
   var actions = document.createElement('div');
