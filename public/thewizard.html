@@ -434,7 +434,7 @@ function showJOForm(draft, warnings) {
       if (formatSel.value === 'bullets') {
         var bLines = val.split("\n").filter(function(l){return l.trim();});
         if (bLines.length <= 1 && val.length > 50) { bLines = val.split(/\.\s+/).filter(function(s){return s.trim();}); }
-        descTA.value = bLines.map(function(l){var clean=l.replace(/^[\u2022\-\*]\s*/,'').replace(/.$/,'');return clean?'• '+clean:'';}).join("\n");
+        descTA.value = bLines.map(function(l){var clean=l.replace(/^[\u2022\-\*]\s*/,'').replace(/\.$/,'');return clean?'• '+clean:'';}).join("\n");
       } else {
         descTA.value = val.split("\n").map(function(l){return l.replace(/^•\s*/, '');}).join("\n");
       }
@@ -444,7 +444,7 @@ function showJOForm(draft, warnings) {
     if (savedFmt === 'bullets' && descTA.value) {
         var autoLines = descTA.value.split("\n").filter(function(l){return l.trim();});
         if (autoLines.length <= 1 && descTA.value.length > 50) { autoLines = descTA.value.split(/\.\s+/).filter(function(s){return s.trim();}); }
-        descTA.value = autoLines.map(function(l){var clean=l.replace(/^[\u2022\-\*]\s*/,'').replace(/.$/,'');return clean?'• '+clean:'';}).join("\n");
+        descTA.value = autoLines.map(function(l){var clean=l.replace(/^[\u2022\-\*]\s*/,'').replace(/\.$/,'');return clean?'• '+clean:'';}).join("\n");
     }
   })();
 
