@@ -566,7 +566,6 @@ function restoreFilters() {
     var cf = sessionStorage.getItem('jl_filter_category');
     if (sf) { statusFilter = sf; var btn = document.querySelector('[data-filter-status="' + sf + '"]'); if (btn) { document.querySelectorAll('.status-filters button').forEach(function(b){b.classList.remove('on');}); btn.classList.add('on'); } }
     if (cf) { categoryFilter = cf; var btn = document.querySelector('[data-filter-category="' + cf + '"]'); if (btn) { document.querySelectorAll('.category-filters button').forEach(function(b){b.classList.remove('on');}); btn.classList.add('on'); } }
-  }
   if (savedPipeline) {
     pipelineFilter = savedPipeline;
     var pSel = document.getElementById('pipelineFilter');
