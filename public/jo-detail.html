@@ -128,14 +128,14 @@ function populateEditForm(jo) {
   fmtSel.addEventListener('change', function() {
     var val = descTA2.value;
     if (fmtSel.value === 'bullets') {
-      descTA2.value = val.split("\n").filter(function(l){return l.trim();}).map(function(l){var c=l.replace(/^[*-]s*/,'').replace(/^•s*/,'');return c?'• '+c:'';}).join("\n");
+      descTA2.value = val.split("\n").filter(function(l){return l.trim();}).map(function(l){var c=l.replace(/^[•*\x2d]\s*/,'');return c?'• '+c:'';}).join("\n");
     } else {
       descTA2.value = val.split("\n").map(function(l){return l.replace(/^•\s*/, '');}).join("\n");
     }
     checkDescLen();
   });
   if (savedFmt2 === 'bullets' && descTA2.value) {
-    descTA2.value = descTA2.value.split("\n").filter(function(l){return l.trim();}).map(function(l){var c=l.replace(/^[*-]s*/,'').replace(/^•s*/,'');return c?'• '+c:'';}).join("\n");
+    descTA2.value = descTA2.value.split("\n").filter(function(l){return l.trim();}).map(function(l){var c=l.replace(/^[•*\x2d]\s*/,'');return c?'• '+c:'';}).join("\n");
   }
   document.getElementById('fStatus').value = jo.status || 'Unpublished';
   var rSel = document.getElementById('fRecruiter');

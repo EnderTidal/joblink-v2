@@ -436,7 +436,7 @@ function showJOForm(draft, warnings) {
     formatSel.addEventListener('change', function() {
       var val = descTA.value;
       if (formatSel.value === 'bullets') {
-        descTA.value = val.split("\n").filter(function(l){return l.trim();}).map(function(l){var c=l.replace(/^[*-]s*/,'').replace(/^•s*/,'');return c?'• '+c:'';}).join("\n");
+        descTA.value = val.split("\n").filter(function(l){return l.trim();}).map(function(l){var c=l.replace(/^[•*\x2d]\s*/,'');return c?'• '+c:'';}).join("\n");
       } else {
         descTA.value = val.split("\n").map(function(l){return l.replace(/^•\s*/, '');}).join("\n");
       }
@@ -444,7 +444,7 @@ function showJOForm(draft, warnings) {
     });
     // Auto-apply saved format to initial value
     if (savedFmt === 'bullets' && descTA.value) {
-      descTA.value = descTA.value.split("\n").filter(function(l){return l.trim();}).map(function(l){var c=l.replace(/^[*-]s*/,'').replace(/^•s*/,'');return c?'• '+c:'';}).join("\n");
+      descTA.value = descTA.value.split("\n").filter(function(l){return l.trim();}).map(function(l){var c=l.replace(/^[•*\x2d]\s*/,'');return c?'• '+c:'';}).join("\n");
     }
   })();
 
