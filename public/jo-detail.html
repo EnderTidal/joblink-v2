@@ -39,7 +39,10 @@
       <label class="f">Company <em style="font-weight:400;color:var(--text-subtle)">(hidden)</em><input name="company" id="fCompany"></label>
       <label class="f">Requirements<textarea name="requirements" id="fRequirements" rows="3"></textarea></label>
       <label class="f">Description
+        <select id="descFormat" style="font-size:.82rem;padding:4px 8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:6px;margin-bottom:4px;display:inline-block;margin-left:8px;">
+          <option value="freetext">Free text</option><option value="bullets">Bullet points</option>
         </select>
+        <a id="descFmtDefault" style="font-size:.78rem;color:var(--brand);cursor:pointer;text-decoration:underline;margin-left:8px;">Set as default</a>
         <textarea name="description" id="fDescription" rows="3"></textarea>
         <div id="descLenWarn" style="background:#FFF3CD;color:#856404;padding:8px 12px;border-radius:6px;font-size:13px;margin-top:6px;display:none;">⚠️ Shorter descriptions tend to get higher engagement. Consider trimming to the essentials.</div>
       </label>
@@ -118,15 +121,21 @@ function populateEditForm(jo) {
   descTA2.addEventListener('input', checkDescLen);
   checkDescLen();
   // Format dropdown
+  var fmtSel = document.getElementById('descFormat');
+  var savedFmt2 = localStorage.getItem('jl_desc_format');
+  if (savedFmt2 === 'bullets') fmtSel.value = 'bullets';
+  document.getElementById('descFmtDefault').addEventListener('click', function() { localStorage.setItem('jl_desc_format', fmtSel.value); toast('Default format saved.'); });
   fmtSel.addEventListener('change', function() {
     var val = descTA2.value;
-      descTA2.value = val.split("\n").filter(function(l){return l.trim();}).map(function(l){var c=l.replace(/^[•*\x2d]\s*/,'');return c?'• '+c:'';}).join("\n");
+    if (fmtSel.value === 'bullets') {
+      descTA2.value = val.split("\n").filter(function(l){return l.trim();}).map(function(l){return l.replace(/^[•\-\*]\s*/, '• ');}).join("\n");
     } else {
       descTA2.value = val.split("\n").map(function(l){return l.replace(/^•\s*/, '');}).join("\n");
     }
     checkDescLen();
   });
-    descTA2.value = descTA2.value.split("\n").filter(function(l){return l.trim();}).map(function(l){var c=l.replace(/^[•*\x2d]\s*/,'');return c?'• '+c:'';}).join("\n");
+  if (savedFmt2 === 'bullets' && descTA2.value) {
+    descTA2.value = descTA2.value.split("\n").filter(function(l){return l.trim();}).map(function(l){return l.replace(/^[•\-\*]\s*/, '• ');}).join("\n");
   }
   document.getElementById('fStatus').value = jo.status || 'Unpublished';
   var rSel = document.getElementById('fRecruiter');
