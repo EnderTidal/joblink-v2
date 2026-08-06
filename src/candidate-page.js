@@ -9,9 +9,7 @@ function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function escNl(s) { return esc(s).replace(/
-/g, "<br>"); }
-
+function escNl(s) { return esc(s).replace(/\n/g, "<br>"); }
 function markInterest(db, candidate, jobOrderId) {
   const jo = db.prepare(`SELECT * FROM job_orders WHERE id = ? AND status = 'Published'`).get(jobOrderId);
   if (!jo) return { ok: false, error: 'job_not_available' };
