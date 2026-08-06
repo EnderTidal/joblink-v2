@@ -1022,8 +1022,40 @@ function showContactForm() {
 
   var hint = document.createElement('div');
   hint.className = 'cf-hint';
-  hint.textContent = 'Enter contacts below, or use the upload link to import a .csv / .xlsx file.';
+  hint.textContent = 'Upload your candidate list or add contacts manually below.';
   panel.appendChild(hint);
+
+  // === Upload section (primary) ===
+  var uploadSection = document.createElement('div');
+  uploadSection.style.cssText = 'margin-bottom:20px;';
+
+  var uploadBtn = document.createElement('button');
+  uploadBtn.className = 'btn';
+  uploadBtn.style.cssText = 'width:100%;padding:16px;font-size:15px;margin-bottom:8px;';
+  uploadBtn.innerHTML = '📁 Upload .csv or .xlsx file';
+  var uploadFileInput = document.createElement('input');
+  uploadFileInput.type = 'file';
+  uploadFileInput.accept = '.csv,.xlsx,.xls';
+  uploadFileInput.style.display = 'none';
+  uploadFileInput.addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    hideContactForm();
+    document.getElementById('composer').style.display = 'flex';
+    uploadFile(file);
+    e.target.value = '';
+  });
+  uploadBtn.addEventListener('click', function() { uploadFileInput.click(); });
+  uploadSection.appendChild(uploadBtn);
+  uploadSection.appendChild(uploadFileInput);
+
+  var divider = document.createElement('div');
+  divider.style.cssText = 'display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--text-muted);font-size:13px;';
+  divider.innerHTML = '<div style="flex:1;height:1px;background:var(--line);"></div>or add manually<div style="flex:1;height:1px;background:var(--line);"></div>';
+  uploadSection.appendChild(divider);
+
+  panel.appendChild(uploadSection);
+  // === End upload section ===
 
   var rows = document.createElement('div');
   rows.id = 'contact-rows';
@@ -1077,37 +1109,7 @@ function showContactForm() {
   addBtn.addEventListener('click', function() { addRow(true); });
   panel.appendChild(addBtn);
 
-  var orText = document.createElement('div');
-  orText.className = 'cf-or';
-  panel.appendChild(orText);
-  var orSpan = document.createTextNode('Or ');
-  orText.appendChild(orSpan);
-  var uploadLink = document.createElement('a');
-  uploadLink.href = '#';
-  uploadLink.style.cssText = 'color:var(--brand);text-decoration:underline;';
-  uploadLink.textContent = 'upload a .csv / .xlsx file';
-  uploadLink.addEventListener('click', function(e) {
-    e.preventDefault();
-    var fi = document.getElementById('cf-file-input');
-    if (fi) fi.click();
-  });
-  orText.appendChild(uploadLink);
-  orText.appendChild(document.createTextNode(' instead.'));
-
-  var fileInput = document.createElement('input');
-  fileInput.type = 'file';
-  fileInput.accept = '.csv,.xlsx,.xls';
-  fileInput.style.display = 'none';
-  fileInput.id = 'cf-file-input';
-  fileInput.addEventListener('change', function(e) {
-    var file = e.target.files[0];
-    if (!file) return;
-    hideContactForm();
-    document.getElementById('composer').style.display = 'flex';
-    uploadFile(file);
-    e.target.value = '';
-  });
-  panel.appendChild(fileInput);
+  // Upload moved to top of form
 
   var actions = document.createElement('div');
   actions.className = 'cf-actions';
