@@ -4,7 +4,7 @@
 // Now the router mounts auth.requireAuth itself so auth works regardless of mount path.
 
 const express = require('express');
-const { listOrgs, getOrg, listOrgUsers, updateOrgBilling } = require('../src/system-db');
+const { listOrgs, getOrg, listOrgUsers, updateOrgBilling, toggleOrgTest } = require('../src/system-db');
 const { getTenantDb, tenantDbExists } = require('../src/tenant');
 
 function requireSuperAdmin(req, res, next) {
@@ -51,7 +51,8 @@ function createDevRoutes(sysDb, auth) {
   // ---- Platform metrics ----
   router.get('/api/metrics', (_req, res) => {
     try {
-      const orgs = listOrgs(sysDb);
+      const allOrgs = listOrgs(sysDb);
+      const orgs = allOrgs.filter(o => !o.is_test);
       const active = orgs.filter(o => o.subscription_status === 'active');
       const trialing = orgs.filter(o => o.subscription_status === 'trialing');
       const suspended = orgs.filter(o => o.subscription_status === 'suspended');
@@ -74,7 +75,9 @@ function createDevRoutes(sysDb, auth) {
       res.json({
         mrr_cents: mrrCents,
         mrr_display: '$' + (mrrCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 }),
-        total_orgs: orgs.length,
+        total_orgs: allOrgs.length,
+        live_orgs: orgs.length,
+        test_orgs: allOrgs.length - orgs.length,
         active_orgs: active.length,
         trialing_orgs: trialing.length,
         suspended_orgs: suspended.length,
@@ -177,10 +180,23 @@ function createDevRoutes(sysDb, auth) {
     }
   });
 
+  // ---- Toggle test flag ----
+  router.post('/api/orgs/:id/toggle-test', (req, res) => {
+    try {
+      const org = getOrg(sysDb, req.params.id);
+      if (!org) return res.status(404).json({ error: 'org not found' });
+      if (org.id === 1) return res.status(400).json({ error: 'cannot mark platform org as test' });
+      const updated = toggleOrgTest(sysDb, org.id);
+      res.json({ ok: true, is_test: updated.is_test });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ---- Pipeline funnel (platform-wide) ----
   router.get('/api/pipeline', (_req, res) => {
     try {
-      const orgs = listOrgs(sysDb);
+      const orgs = listOrgs(sysDb).filter(o => !o.is_test);
       let interested = 0, yesListed = 0, confirmed = 0, filled = 0;
       for (const org of orgs) {
         try {
@@ -213,7 +229,7 @@ function createDevRoutes(sysDb, auth) {
   // ---- Alerts ----
   router.get('/api/alerts', (_req, res) => {
     try {
-      const orgs = listOrgs(sysDb);
+      const orgs = listOrgs(sysDb).filter(o => !o.is_test);
       const now = Date.now();
       const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
       const twoDaysMs = 48 * 60 * 60 * 1000;

@@ -27,6 +27,10 @@
   .act-btn.suspend { background:var(--red-soft); color:var(--red); }
   .act-btn.suspend:hover { background:color-mix(in srgb,var(--red) 22%,var(--surface)); }
   .act-btn.reactivate { background:var(--green-soft); color:var(--green); }
+  .act-btn.test-toggle { background:var(--surface-2); color:var(--text-muted); border:1px solid var(--border); margin-left:4px; }
+  .act-btn.test-toggle:hover { background:var(--surface-3); }
+  .test-pill { display:inline-block; padding:3px 10px; border-radius:99px; font-size:11.5px; font-weight:700; background:var(--surface-3); color:var(--text-subtle); margin-left:6px; }
+  tr.test-row { opacity:0.55; }
   .act-btn.reactivate:hover { background:color-mix(in srgb,var(--green) 22%,var(--surface)); }
 
   /* Pipeline funnel */
@@ -252,8 +256,9 @@ function renderOrgs(orgs) {
     return;
   }
   tbody.innerHTML = orgs.map(function(o) {
-    return '<tr>' +
-      '<td><span class="org-name" onclick="viewOrg(' + o.id + ')">' + esc(o.name) + '</span></td>' +
+    var testBadge = o.is_test ? '<span class="test-pill">Test</span>' : '';
+    return '<tr' + (o.is_test ? ' class="test-row"' : '') + '>' +
+      '<td><span class="org-name" onclick="viewOrg(' + o.id + ')">' + esc(o.name) + '</span>' + testBadge + '</td>' +
       '<td><span class="status-pill ' + o.subscription_status + '">' + o.subscription_status + '</span></td>' +
       '<td style="color:var(--text-muted)">' + (o.trial_end ? new Date(o.trial_end).toLocaleDateString() : '--') + '</td>' +
       '<td>' + o.user_count + '</td>' +
@@ -269,10 +274,11 @@ function renderOrgs(orgs) {
 function orgActions(o) {
   if (currentEnv === 'staging') return '<span style="color:var(--text-subtle);font-size:12px">Read-only</span>';
   if (o.id === 1) return '<span style="color:var(--text-subtle);font-size:12px">Platform</span>';
+  var testBtn = '<button class="act-btn test-toggle" onclick="toggleTest(' + o.id + ')">' + (o.is_test ? 'Mark Live' : 'Mark Test') + '</button>';
   if (o.subscription_status === 'suspended') {
-    return '<button class="act-btn reactivate" onclick="reactivateOrg(' + o.id + ')">Reactivate</button>';
+    return '<button class="act-btn reactivate" onclick="reactivateOrg(' + o.id + ')">Reactivate</button>' + testBtn;
   }
-  return '<button class="act-btn suspend" onclick="suspendOrg(' + o.id + ')">Suspend</button>';
+  return '<button class="act-btn suspend" onclick="suspendOrg(' + o.id + ')">Suspend</button>' + testBtn;
 }
 
 async function loadPipeline() {
@@ -339,6 +345,16 @@ async function reactivateOrg(id) {
     toast('Org reactivated');
     loadOrgs();
     loadMetrics();
+  } catch(e) { toast('Error: ' + e.message); }
+}
+
+async function toggleTest(id) {
+  try {
+    var r = await api('/dev/api/orgs/' + id + '/toggle-test', { method: 'POST' });
+    toast(r.is_test ? 'Marked as test — excluded from metrics' : 'Marked as live — included in metrics');
+    loadOrgs();
+    loadMetrics();
+    loadPipeline();
   } catch(e) { toast('Error: ' + e.message); }
 }
 

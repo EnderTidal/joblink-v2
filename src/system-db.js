@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS orgs (
   subscription_status TEXT NOT NULL DEFAULT 'trialing',
   plan_price_cents INTEGER NOT NULL DEFAULT 39900,
   trial_end TEXT,
-  reminder_sent INTEGER NOT NULL DEFAULT 0
+  reminder_sent INTEGER NOT NULL DEFAULT 0,
+  is_test INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS users (
@@ -62,6 +63,7 @@ function openSystemDb(filePath) {
   try { db.exec("ALTER TABLE orgs ADD COLUMN plan_price_cents INTEGER NOT NULL DEFAULT 39900"); } catch { /* exists */ }
   try { db.exec("ALTER TABLE orgs ADD COLUMN trial_end TEXT"); } catch { /* exists */ }
   try { db.exec("ALTER TABLE orgs ADD COLUMN reminder_sent INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
+  try { db.exec("ALTER TABLE orgs ADD COLUMN is_test INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
   return db;
 }
 
@@ -172,6 +174,14 @@ function updateOrgBilling(sysDb, orgId, fields) {
   return sysDb.prepare('SELECT * FROM orgs WHERE id = ?').get(orgId);
 }
 
+/** Toggle is_test flag on an org. */
+function toggleOrgTest(sysDb, orgId) {
+  const org = sysDb.prepare("SELECT is_test FROM orgs WHERE id = ?").get(orgId);
+  if (!org) return null;
+  const newVal = org.is_test ? 0 : 1;
+  sysDb.prepare("UPDATE orgs SET is_test = ? WHERE id = ?").run(newVal, orgId);
+  return sysDb.prepare("SELECT * FROM orgs WHERE id = ?").get(orgId);
+}
 /** Find org by Stripe customer ID. */
 function findOrgByStripeCustomer(sysDb, customerId) {
   return sysDb.prepare('SELECT * FROM orgs WHERE stripe_customer_id = ?').get(String(customerId)) || null;
@@ -181,5 +191,5 @@ module.exports = {
   openSystemDb, createOrg, findUser, findUserByEmail,
   findUserByInviteToken, findUserByMagicToken, getOrg, listOrgs, listOrgUsers, updateUser,
   createPendingSignup, findPendingBySession, findPendingByEmail, deletePendingSignup,
-  cleanExpiredSignups, updateOrgBilling, findOrgByStripeCustomer, findOrgBySlug,
+  cleanExpiredSignups, updateOrgBilling, findOrgByStripeCustomer, findOrgBySlug, toggleOrgTest,
 };
