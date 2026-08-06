@@ -429,6 +429,10 @@ function showJOForm(draft, warnings) {
     setDefaultLink.textContent = 'Set as default';
     setDefaultLink.addEventListener('click', function() { localStorage.setItem('jl_desc_format', formatSel.value); toast('Default format saved.'); });
     formatSel.parentNode.insertBefore(setDefaultLink, formatSel.nextSibling);
+    var hintText = document.createElement('div');
+    hintText.style.cssText = 'font-size:11px;color:var(--text-muted);margin-top:2px;';
+    hintText.textContent = 'Tip: press Enter between items for separate bullets';
+    setDefaultLink.parentNode.insertBefore(hintText, setDefaultLink.nextSibling);
     formatSel.addEventListener('change', function() {
       var val = descTA.value;
       if (formatSel.value === 'bullets') {
