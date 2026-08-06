@@ -118,6 +118,23 @@
   .silly-phrase { font-style:italic; color:var(--text-muted); font-size:.82rem; margin-top:4px; opacity:0; transition:opacity .3s; }
   .silly-phrase.visible { opacity:1; }
 
+
+  /* Contact form panel for blast entry */
+  #contact-form-panel { display:none; }
+  #contact-form-panel.active { display:block; }
+  #contact-form-panel .cf-title { font-size:1.05rem; font-weight:700; margin-bottom:4px; }
+  #contact-form-panel .cf-hint { color:var(--text-muted); font-size:13px; margin-bottom:12px; }
+  .contact-row { display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+  .contact-row input { flex:1; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    padding:8px 10px; border-radius:6px; font-size:.9rem; font-family:inherit; }
+  .contact-row input:focus { border-color:var(--brand); outline:none; }
+  .contact-row input::placeholder { color:var(--text-subtle); }
+  .contact-row .remove-row { padding:4px 10px; background:none; border:1px solid var(--border); color:var(--text-muted);
+    border-radius:6px; cursor:pointer; font-size:16px; line-height:1; transition:border-color .15s, color .15s; flex-shrink:0; }
+  .contact-row .remove-row:hover { border-color:#ef4444; color:#ef4444; }
+  #contact-form-panel .cf-actions { display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; align-items:center; }
+  #contact-form-panel .cf-or { color:var(--text-muted); font-size:13px; margin-top:8px; }
+
   /* Tom light mode */
 
 </style></head>
@@ -133,6 +150,7 @@
   <div class="card">
     <div id="jo-form-panel"></div>
     <div id="blast-form-panel"></div>
+    <div id="contact-form-panel"></div>
     <div id="chat"><div class="hint">Pick a button above to start. One task per conversation &mdash; switching tasks starts a fresh one.</div></div>
     <div id="composer" style="display:none">
       <button class="btn ghost" id="attach" title="Upload a file">&#x1F4CE;</button>
@@ -986,6 +1004,173 @@ function addMsg(who, text, extra) {
   div.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
 
+
+// ---- Contact Entry Form for Blast ----
+function showContactForm() {
+  var panel = document.getElementById('contact-form-panel');
+  panel.className = 'active';
+  panel.innerHTML = '';
+  document.getElementById('chat').style.display = 'none';
+  document.getElementById('jo-form-panel').className = '';
+  document.getElementById('blast-form-panel').className = '';
+  document.getElementById('composer').style.display = 'none';
+
+  var title = document.createElement('div');
+  title.className = 'cf-title';
+  title.textContent = 'Add Contacts';
+  panel.appendChild(title);
+
+  var hint = document.createElement('div');
+  hint.className = 'cf-hint';
+  hint.textContent = 'Enter contacts below, or use the upload link to import a .csv / .xlsx file.';
+  panel.appendChild(hint);
+
+  var rows = document.createElement('div');
+  rows.id = 'contact-rows';
+  panel.appendChild(rows);
+
+  function addRow(focus) {
+    var row = document.createElement('div');
+    row.className = 'contact-row';
+    var firstInp = document.createElement('input');
+    firstInp.type = 'text'; firstInp.placeholder = 'First name'; firstInp.className = 'contact-first';
+    var lastInp = document.createElement('input');
+    lastInp.type = 'text'; lastInp.placeholder = 'Last name'; lastInp.className = 'contact-last';
+    var phoneInp = document.createElement('input');
+    phoneInp.type = 'tel'; phoneInp.placeholder = 'Phone number'; phoneInp.className = 'contact-phone';
+    var removeBtn = document.createElement('button');
+    removeBtn.className = 'remove-row';
+    removeBtn.textContent = '\u00d7';
+    removeBtn.title = 'Remove';
+    removeBtn.addEventListener('click', function() {
+      row.remove();
+      if (!rows.children.length) addRow(true);
+    });
+
+    phoneInp.addEventListener('keydown', function(e) {
+      if (e.key === 'Tab' && !e.shiftKey) {
+        var allRows = rows.querySelectorAll('.contact-row');
+        if (allRows[allRows.length - 1] === row) {
+          if (firstInp.value.trim() || lastInp.value.trim() || phoneInp.value.trim()) {
+            e.preventDefault();
+            addRow(true);
+          }
+        }
+      }
+    });
+
+    row.appendChild(firstInp);
+    row.appendChild(lastInp);
+    row.appendChild(phoneInp);
+    row.appendChild(removeBtn);
+    rows.appendChild(row);
+    if (focus) firstInp.focus();
+    return row;
+  }
+
+  addRow(false); addRow(false); addRow(false);
+
+  var addBtn = document.createElement('button');
+  addBtn.className = 'btn sm ghost';
+  addBtn.textContent = '+ Add another';
+  addBtn.style.marginBottom = '4px';
+  addBtn.addEventListener('click', function() { addRow(true); });
+  panel.appendChild(addBtn);
+
+  var orText = document.createElement('div');
+  orText.className = 'cf-or';
+  panel.appendChild(orText);
+  var orSpan = document.createTextNode('Or ');
+  orText.appendChild(orSpan);
+  var uploadLink = document.createElement('a');
+  uploadLink.href = '#';
+  uploadLink.style.cssText = 'color:var(--brand);text-decoration:underline;';
+  uploadLink.textContent = 'upload a .csv / .xlsx file';
+  uploadLink.addEventListener('click', function(e) {
+    e.preventDefault();
+    var fi = document.getElementById('cf-file-input');
+    if (fi) fi.click();
+  });
+  orText.appendChild(uploadLink);
+  orText.appendChild(document.createTextNode(' instead.'));
+
+  var fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.csv,.xlsx,.xls';
+  fileInput.style.display = 'none';
+  fileInput.id = 'cf-file-input';
+  fileInput.addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    hideContactForm();
+    document.getElementById('composer').style.display = 'flex';
+    uploadFile(file);
+    e.target.value = '';
+  });
+  panel.appendChild(fileInput);
+
+  var actions = document.createElement('div');
+  actions.className = 'cf-actions';
+
+  var submitBtn = document.createElement('button');
+  submitBtn.className = 'btn';
+  submitBtn.textContent = 'Continue to blast settings';
+  submitBtn.addEventListener('click', function() { submitContactForm(); });
+
+  var startOverBtn = document.createElement('button');
+  startOverBtn.className = 'btn ghost';
+  startOverBtn.textContent = 'Start Over';
+  startOverBtn.addEventListener('click', function() { hideContactForm(); cfStartOver(); });
+
+  actions.appendChild(submitBtn);
+  actions.appendChild(startOverBtn);
+  panel.appendChild(actions);
+
+  setTimeout(function() {
+    var firstInput = rows.querySelector('.contact-first');
+    if (firstInput) firstInput.focus();
+  }, 50);
+}
+
+function hideContactForm() {
+  var panel = document.getElementById('contact-form-panel');
+  panel.className = '';
+  panel.innerHTML = '';
+  document.getElementById('chat').style.display = 'flex';
+  document.getElementById('composer').style.display = 'flex';
+}
+
+function submitContactForm() {
+  var rows = document.querySelectorAll('#contact-rows .contact-row');
+  var lines = [];
+  var hasError = false;
+  rows.forEach(function(row) {
+    var first = row.querySelector('.contact-first').value.trim();
+    var last = row.querySelector('.contact-last').value.trim();
+    var phone = row.querySelector('.contact-phone').value.trim();
+    if (!first && !last && !phone) return;
+    if (!phone) { toast('Each contact needs a phone number.'); hasError = true; return; }
+    var namePart = [first, last].filter(Boolean).join(' ');
+    lines.push(namePart + ' ' + phone);
+  });
+  if (hasError) return;
+  if (!lines.length) { toast('Add at least one contact with a phone number.'); return; }
+
+  hideContactForm();
+  var text = lines.join('\n');
+  addMsg('me', lines.length + ' contact' + (lines.length === 1 ? '' : 's') + ' entered');
+  showLoading();
+  api('/api/tom/message', { method: 'POST', body: { sessionId: session, text: text } }).then(function(r) {
+    hideLoading();
+    handleReply(r);
+  });
+}
+
+function cfStartOver() {
+  if (session) sendAction('start_over', {});
+  else if (currentPath) tryStartPath(currentPath);
+}
+
 function handleReply(r) {
   if (r.error) { addMsg('tom', r.text || r.error); return; }
   session = r.sessionId;
@@ -993,6 +1178,12 @@ function handleReply(r) {
   // JO form
   if (r.showForm && r.draft) {
     showJOForm(r.draft, r.warnings || []);
+    return;
+  }
+
+  // Contact form for blast path
+  if (r.path === 'blast' && r.state === 'await_contacts') {
+    showContactForm();
     return;
   }
 
@@ -1015,6 +1206,7 @@ async function startPath(path) {
   currentPath = path;
   hideJOForm();
   if (blastFormActive) hideBlastForm();
+  var cfp = document.getElementById("contact-form-panel"); if (cfp && cfp.classList.contains("active")) hideContactForm();
   document.querySelectorAll('.paths button').forEach(function(b) {
     b.classList.toggle('on', b.dataset.path === path);
   });
