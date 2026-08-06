@@ -556,8 +556,8 @@ function showBlastForm(data) {
   var recipGroup = document.createElement('div');
   recipGroup.className = 'bf-radio-group';
   recipGroup.innerHTML =
-    '<label title="Send to all matched candidates"><input type="radio" name="recipientMode" value="all" checked> All</label>' +
-    '<label title="Send to candidates with the most recent blast engagement"><input type="radio" name="recipientMode" value="top"> Top</label>' +
+    '<label><input type="radio" name="recipientMode" value="all" checked> All</label>' +
+    '<label><input type="radio" name="recipientMode" value="top"> Top</label>' +
     '<input type="number" id="recipientCount" value="300" min="1" max="' + data.contactCount + '" style="display:none">';
   recipField.appendChild(recipGroup);
   form.appendChild(recipField);
