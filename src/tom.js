@@ -137,10 +137,10 @@ function sortContacts(contacts, sortBy) {
 function createTom(db) {
   const sessions = new Map();
 
-  function newSession(path, user) {
+  function newSession(path, user, displayName) {
     if (!PATHS.includes(path)) throw new Error('Unknown path');
     const id = crypto.randomBytes(12).toString('base64url');
-    const s = { id, path, user: user || null, state: 'start', data: {}, createdAt: Date.now() };
+    const s = { id, path, user: user || null, displayName: displayName || user || null, state: 'start', data: {}, createdAt: Date.now() };
     sessions.set(id, s);
     for (const [k, v] of sessions) if (Date.now() - v.createdAt > SESSION_TTL_MS) sessions.delete(k);
     return s;
@@ -196,6 +196,7 @@ function createTom(db) {
           return reply(s, `Can't save yet \u2014 ${errors.join('; ')}.`,
             { showForm: true, draft, warnings: errors });
         }
+        if (!draft.assigned_recruiter) draft.assigned_recruiter = s.displayName || s.user || '';
         const id = createJobOrder(db, draft);
         s.state = 'ask_another';
         if (action === 'publish') {
@@ -214,6 +215,7 @@ function createTom(db) {
         draft.status = 'Published';
         const v = validateJobOrder(draft);
         if (!v.ok) return reply(s, `Can't publish yet \u2014 ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: v.missing });
+        if (!draft.assigned_recruiter) draft.assigned_recruiter = s.displayName || s.user || '';
         const id = createJobOrder(db, draft);
         s.state = 'ask_another';
         return reply(s, `\u2705 Published job order #${id}: ${draft.title} (${draft.category}). It's live on the job board now.\n\nWant to create another? (yes / no)`);
@@ -222,6 +224,7 @@ function createTom(db) {
         draft.status = draft.status === 'Published' ? 'Published' : 'Unpublished';
         const v = validateJobOrder(draft);
         if (!v.ok) return reply(s, `Almost \u2014 ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: v.missing });
+        if (!draft.assigned_recruiter) draft.assigned_recruiter = s.displayName || s.user || '';
         const id = createJobOrder(db, draft);
         s.state = 'ask_another';
         return reply(s, `\uD83D\uDCBE Saved job order #${id}: ${draft.title} (${draft.status}). You can publish it later from the Dashboard.\n\nWant to create another? (yes / no)`);
@@ -486,8 +489,8 @@ function createTom(db) {
   }
 
   // ---------- routing ----------
-  async function start(path, user) {
-    const s = newSession(path, user);
+  async function start(path, user, displayName) {
+    const s = newSession(path, user, displayName);
     if (path === 'job_order') return startJobOrder(s);
     if (path === 'blast') return startBlast(s);
     if (path === 'review') return startReview(s);

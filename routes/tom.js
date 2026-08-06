@@ -25,7 +25,7 @@ function createTomRoutes(sysDb) {
     try {
       const tom = getTom(req.db, req.user.org_id);
       const { path: tomPath } = req.body || {};
-      res.json(await tom.start(tomPath, req.user?.username));
+      res.json(await tom.start(tomPath, req.user?.username, req.user?.display_name));
     } catch (err) { next(err); }
   });
 

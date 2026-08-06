@@ -26,6 +26,8 @@
   .cat-chip.Industrial { color:var(--blue); background:var(--blue-soft); }
   .cat-chip.Administrative { color:var(--violet); background:var(--violet-soft); }
   .cat-chip.Skilled { color:var(--amber); background:var(--amber-soft); }
+  .jo-title-link { color: var(--brand); cursor: pointer; }
+  .pipeline-row:hover .jo-title-link { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -248,7 +250,7 @@ function renderRow(jo) {
   var sc = jo.sent_count || 0;
   return '<div class="pipeline-row" onclick="window.location=\'/jo-detail.html?id=' + jo.id + '\'">' +
     '<div style="min-width:0">' +
-      '<div style="font-size:14.5px;font-weight:700;color:var(--brand);letter-spacing:-.01em;line-height:1.25">' + esc(jo.title) + '</div>' +
+      '<div class="jo-title-link" style="font-size:14.5px;font-weight:700;letter-spacing:-.01em;line-height:1.25">' + esc(jo.title) + '</div>' +
       '<div class="jo-sub">' + esc(jo.city_state || '') + (jo.shift_hours ? ' &middot; ' + esc(jo.shift_hours) : '') + '</div>' +
     '</div>' +
     '<div class="col-company">' + esc(jo.company || '\u2014') + '</div>' +
@@ -356,8 +358,8 @@ function wireFilters(id, setter, storageKey) {
     });
   });
 }
-wireFilters('statusFilters', function(v) { statusFilter = v; }, 'jl_filter_status');
-wireFilters('catFilters', function(v) { categoryFilter = v; }, 'jl_filter_category');
+wireFilters('statusFilters', function(v) { statusFilter = v; });
+wireFilters('catFilters', function(v) { categoryFilter = v; });
 
 // ---- Pipeline action buttons for each status ----
 function pipelineButtons(c) {
@@ -532,8 +534,6 @@ async function toggleBlast(id) {
   } catch(e) { el.innerHTML = '<p class="mut jo-sub">Error loading recipients.</p>'; }
 }
 document.getElementById('joModal').addEventListener('click', function(e) { if (e.target === this) closeJoModal(); });
-
-
 var _recruiters = [];
 async function changeRecruiter(joId, value) {
   try {
@@ -555,36 +555,18 @@ async function loadRecruiterFilter() {
     });
   } catch(e) { /* non-admin may not have access */ }
 }
-
-
 function archiveJob(id) {
   if (!confirm('This will remove all interested/yeslisted/removed candidates from this job post and unpublish it. Continue?')) return;
   setStatus(id, 'Complete');
 }
 async function deleteJO(id) {  if (!confirm("Permanently delete this job order? This cannot be undone.")) return;  try {    await api("/api/job-orders/" + id, { method: "DELETE" });    toast("Job order deleted.");    loadRows(); loadStats();  } catch(e) { toast("Error: " + e.message); }}
-
-
-// Restore persisted filters
+// Restore persisted filters (status/category always default to All)
 function restoreFilters() {
-  var savedStatus = localStorage.getItem('jl_filter_status');
-  var savedCat = localStorage.getItem('jl_filter_category');
   var savedRecruiter = localStorage.getItem('jl_filter_recruiter');
   var savedPipeline = localStorage.getItem('jl_filter_pipeline');
   var savedSort = localStorage.getItem('jl_filter_sort');
   var savedSearch = localStorage.getItem('jl_filter_search');
 
-  if (savedStatus) {
-    statusFilter = savedStatus;
-    document.querySelectorAll('#statusFilters button').forEach(function(b) {
-      b.classList.toggle('on', b.dataset.v === savedStatus);
-    });
-  }
-  if (savedCat) {
-    categoryFilter = savedCat;
-    document.querySelectorAll('#catFilters button').forEach(function(b) {
-      b.classList.toggle('on', b.dataset.v === savedCat);
-    });
-  }
   if (savedRecruiter) {
     recruiterFilter = savedRecruiter;
     var rSel = document.getElementById('recruiterFilter');
@@ -606,7 +588,6 @@ function restoreFilters() {
     if (searchInput) searchInput.value = savedSearch;
   }
 }
-
 // Persist select-based filters
 var _recruiterSel = document.getElementById('recruiterFilter');
 if (_recruiterSel) _recruiterSel.addEventListener('change', function() { localStorage.setItem('jl_filter_recruiter', this.value); });
