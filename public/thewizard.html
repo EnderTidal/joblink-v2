@@ -954,8 +954,29 @@ function addMsg(who, text, extra) {
       if (toggle) div.appendChild(toggle);
     }
 
-    // "Start with blank form" link for JO path
+    // Upload button + blank form link for JO path
     if (extra.showBlankFormLink) {
+      var uploadWrap = document.createElement('div');
+      uploadWrap.style.cssText = 'margin-top:12px;display:flex;flex-direction:column;gap:10px;';
+
+      var joUploadBtn = document.createElement('button');
+      joUploadBtn.className = 'btn';
+      joUploadBtn.style.cssText = 'width:100%;padding:14px;font-size:15px;';
+      joUploadBtn.innerHTML = '\ud83d\udcc1 Upload .docx or .txt file';
+      var joFileInput = document.createElement('input');
+      joFileInput.type = 'file';
+      joFileInput.accept = '.docx,.doc,.txt';
+      joFileInput.style.display = 'none';
+      joFileInput.addEventListener('change', function(e) {
+        var f = e.target.files[0];
+        if (!f) return;
+        uploadFile(f);
+        e.target.value = '';
+      });
+      joUploadBtn.addEventListener('click', function() { joFileInput.click(); });
+      uploadWrap.appendChild(joUploadBtn);
+      uploadWrap.appendChild(joFileInput);
+
       var link = document.createElement('a');
       link.className = 'blank-form-link';
       link.textContent = 'Or start with a blank form';
@@ -963,7 +984,9 @@ function addMsg(who, text, extra) {
         e.preventDefault();
         sendAction('blank_form', {});
       });
-      div.appendChild(link);
+      uploadWrap.appendChild(link);
+
+      div.appendChild(uploadWrap);
     }
   }
   chat.appendChild(div);
