@@ -123,7 +123,7 @@ function renderPreviewPage(db, preSelectedCategory) {
       </div>
       ${jo.description ? '<p class="req"><strong>Description:</strong> ' + escNl(jo.description) + '</p>' : ''}
       ${jo.requirements ? '<p class="req"><strong>Requirements:</strong> ' + esc(jo.requirements) + '</p>' : ''}
-      <button class="interest" onclick="this.classList.toggle('done');this.textContent=this.classList.contains('done')?'\u2713 Interest Submitted':'I\'m Interested ✋'">I'm Interested ✋</button>
+      <button class="interest preview-toggle">I'm Interested ✋</button>
     </div>`).join('\n');
 
   const empty = '<div class="card empty" id="emptyMsg"><h2>No published positions right now</h2>' +
@@ -204,6 +204,18 @@ function filterCards() {
   document.getElementById("countBadge").textContent = sel ? (shown + " " + sel + " position" + (shown !== 1 ? "s" : "")) : "";
 }
 filterCards();
+document.querySelectorAll('.preview-toggle').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var isDone = btn.classList.contains('done');
+    if (isDone) {
+      btn.classList.remove('done');
+      btn.textContent = "I'm Interested \u270b";
+    } else {
+      btn.classList.add('done');
+      btn.textContent = "\u2713 Interest Submitted";
+    }
+  });
+});
 </script>
 </body></html>`;
 }
