@@ -181,29 +181,7 @@ async function answerHelpQuestion(question) {
     return parts.join("\n\n");
   }
 
-  if (process.env.ANTHROPIC_API_KEY) {
-    try {
-      const Anthropic = require('@anthropic-ai/sdk');
-      const client = new Anthropic();
-      const msg = await client.messages.create({
-        model: process.env.JOBLINK_HELP_MODEL || 'claude-haiku-4-5',
-        max_tokens: 700,
-        system:
-          'You are the Help assistant inside JobLink, a staffing tool. Answer questions about how JobLink works. ' +
-          'JobLink facts: four chat paths (New Job Order, Send Magic Blast, Review Magic Blasts, Help); ' +
-          'Blast Guard = 72h default cooldown, global across categories, STOP = permanent; ' +
-          'magic link shows Published jobs in the category of the most recent blast; ' +
-          'candidates mark interest on the link page; imports overwrite name only; Last Contacted is never stored; ' +
-          'job order fields: title, category (Industrial/Administrative/Skilled Trade), pay, shift/hours, location, requirements, description, status. ' +
-          'You have NO tools and can take NO actions. If the user asks you to actually create, send, publish, or delete anything, ' +
-          'explain that Help is a sandbox and point them to the right button. ' +
-          'If a walkthrough helps, simulate one \u2014 but it MUST start and end with this exact banner line: "' + DEMO_BANNER + '"',
-        messages: [{ role: 'user', content: q.slice(0, 2000) }],
-      });
-      const text = msg.content?.[0]?.text || '';
-      if (text) return text;
-    } catch { /* fall through to built-in answers */ }
-  }
+  // LLM fallback removed — deterministic FAQ only
 
   const parts = [];
   if (canned) parts.push(canned);
