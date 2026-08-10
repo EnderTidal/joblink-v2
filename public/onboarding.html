@@ -26,6 +26,15 @@
   .ok { color:#22c55e; font-weight:600; }
   .bad { color:#ef4444; font-weight:600; }
   .skipnote { background:rgba(255,181,0,0.12); border:1px solid rgba(255,181,0,0.35); border-radius:8px; padding:14px 16px; font-size:.88rem; margin-top:14px; color:#78350f; }
+  .whippy-prune { margin-top:14px; background:var(--surface-2,rgba(30,41,59,0.5)); border:1px solid var(--line,rgba(255,255,255,0.08)); border-radius:8px; padding:14px 16px; }
+  .whippy-prune h4 { margin:0 0 6px; font-size:.92rem; color:var(--text,#f1f5f9); }
+  .whippy-prune p.hint { font-size:.82rem; color:var(--mut,#94a3b8); margin:0 0 10px; }
+  .whippy-prune .wu-row { display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-bottom:1px solid var(--line,rgba(255,255,255,0.06)); font-size:.88rem; }
+  .whippy-prune .wu-row:last-child { border-bottom:none; }
+  .whippy-prune .wu-name { color:var(--text,#f1f5f9); }
+  .whippy-prune .wu-email { color:var(--mut,#94a3b8); font-size:.8rem; margin-left:8px; }
+  .whippy-prune .wu-remove { background:none; border:1px solid var(--line,rgba(255,255,255,0.1)); color:#ef4444; padding:3px 10px; border-radius:6px; cursor:pointer; font-size:.78rem; transition:border-color .15s; }
+  .whippy-prune .wu-remove:hover { border-color:#ef4444; }
   html.light-mode .skipnote { color:#78350f; }
   html:not(.light-mode) .skipnote { color:#fef3c7; }
   .bigdone { text-align:center; padding:22px 0; }
@@ -182,6 +191,64 @@ function go(n) {
 }
 
 
+function showWhippyUserPrune(users) {
+  var existing = document.getElementById('whippy-prune-section');
+  if (existing) existing.remove();
+  if (!users || !users.length) return;
+
+  var section = document.createElement('div');
+  section.className = 'whippy-prune';
+  section.id = 'whippy-prune-section';
+
+  var h4 = document.createElement('h4');
+  h4.textContent = 'Whippy Team Members (' + users.length + ')';
+  section.appendChild(h4);
+
+  var hint = document.createElement('p');
+  hint.className = 'hint';
+  hint.textContent = 'Remove anyone who should not receive blast assignments (old employees, test accounts, etc).';
+  section.appendChild(hint);
+
+  users.forEach(function(u) {
+    var row = document.createElement('div');
+    row.className = 'wu-row';
+    row.dataset.userId = u.id;
+
+    var info = document.createElement('span');
+    var nameSpan = document.createElement('span');
+    nameSpan.className = 'wu-name';
+    nameSpan.textContent = u.name || 'Unknown';
+    info.appendChild(nameSpan);
+    if (u.email) {
+      var emailSpan = document.createElement('span');
+      emailSpan.className = 'wu-email';
+      emailSpan.textContent = u.email;
+      info.appendChild(emailSpan);
+    }
+    row.appendChild(info);
+
+    var removeBtn = document.createElement('button');
+    removeBtn.className = 'wu-remove';
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', async function() {
+      try {
+        await api('/api/whippy-users/' + u.id, { method: 'DELETE' });
+        row.remove();
+        // Update count
+        var remaining = section.querySelectorAll('.wu-row').length;
+        h4.textContent = 'Whippy Team Members (' + remaining + ')';
+        if (remaining === 0) section.remove();
+      } catch(e) { /* ignore */ }
+    });
+    row.appendChild(removeBtn);
+    section.appendChild(row);
+  });
+
+  // Insert after the w-msg span
+  var msgRow = document.getElementById('w-msg').parentElement;
+  msgRow.parentElement.insertBefore(section, msgRow.nextSibling);
+}
+
 async function saveAndTest() {
   const msg = document.getElementById('w-msg');
   msg.textContent = 'Testing\u2026';
@@ -195,7 +262,19 @@ async function saveAndTest() {
     const r = await api('/api/settings/test-sms', { method: 'POST' });
     if (r.ok && r.provider === 'whippy') {
       whippyOk = true;
-      msg.innerHTML = '<span class="ok">\u2713 Connected!</span>';
+      msg.innerHTML = '<span class="ok">\u2713 Connected! Syncing team members...</span>';
+      // Auto-sync Whippy users after successful connection
+      try {
+        var syncResult = await api('/api/settings/sync-whippy-users', { method: 'POST' });
+        if (syncResult.ok && syncResult.count > 0) {
+          msg.innerHTML = '<span class="ok">\u2713 Connected! Found ' + syncResult.count + ' Whippy team members.</span>';
+          showWhippyUserPrune(syncResult.users || []);
+        } else {
+          msg.innerHTML = '<span class="ok">\u2713 Connected!</span>';
+        }
+      } catch(e) {
+        msg.innerHTML = '<span class="ok">\u2713 Connected!</span>';
+      }
       document.getElementById('w-next').disabled = false;
     } else if (r.provider !== 'whippy') {
       msg.innerHTML = '<span class="bad">\u2717 Missing one of the three values above</span>';

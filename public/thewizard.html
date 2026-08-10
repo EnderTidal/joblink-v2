@@ -661,12 +661,12 @@ function showBlastForm(data) {
   var recField = document.createElement('div');
   recField.className = 'bf-field';
   var recLabel = document.createElement('label');
-  recLabel.textContent = 'Recruiter';
+  recLabel.textContent = 'Assign to Whippy User';
   recField.appendChild(recLabel);
   var recSel = document.createElement('select');
   recSel.id = 'blastRecruiter';
   var noneOpt = document.createElement('option');
-  noneOpt.value = ''; noneOpt.textContent = '\u2014 None \u2014';
+  noneOpt.value = ''; noneOpt.textContent = '\u2014 No assignment \u2014';
   recSel.appendChild(noneOpt);
   // Prefer Whippy users, fall back to local
   var users = (data.whippyUsers && data.whippyUsers.length) ? data.whippyUsers : (data.localUsers || []);
