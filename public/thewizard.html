@@ -1340,7 +1340,17 @@ document.getElementById('fileinput').addEventListener('change', async function(e
 
 boot('tom').then(function() {
   var p = new URLSearchParams(location.search).get('path');
-  if (p && ['job_order','blast','review','help'].includes(p)) startPath(p);
+  if (p && ['job_order','blast','review','help'].includes(p)) {
+    startPath(p);
+    // Deep-link to a specific help topic if ?topic= is set
+    var topic = new URLSearchParams(location.search).get('topic');
+    if (p === 'help' && topic) {
+      // Wait for help topics to render, then auto-click the matching topic
+      setTimeout(function() {
+        sendAction('help_topic', { topic: topic });
+      }, 500);
+    }
+  }
 });
 </script>
 </body></html>
