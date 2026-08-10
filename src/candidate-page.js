@@ -72,7 +72,8 @@ function renderCandidatePage(db, candidate, orgName) {
   .req { font-size:.9rem; margin-bottom:8px; }
   p { font-size:.92rem; line-height:1.45; }
   .interest { width:100%; margin-top:12px; padding:13px; border:0; border-radius:var(--radius-sm); background:var(--brand);
-    color:var(--text); font-size:1rem; font-weight:700; cursor:pointer; }
+    color:#ffffff; font-size:1rem; font-weight:700; cursor:pointer; }
+  .interest:active { transform:scale(0.98); }
   .interest.done { background:var(--green); color:#fff; }
   .empty { text-align:center; padding:40px 18px; }
   .cat { text-align:center; font-size:.85rem; color:var(--text-muted); margin:4px 0 12px; }
