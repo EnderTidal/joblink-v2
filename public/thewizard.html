@@ -716,7 +716,7 @@ function hideBlastForm() {
   panel.className = '';
   panel.innerHTML = '';
   document.getElementById('chat').style.display = 'flex';
-  document.getElementById('composer').style.display = 'flex';
+  /* composer stays hidden — Patch B */
   document.getElementById('input').placeholder = 'Type here\u2026';
 }
 
@@ -1045,7 +1045,7 @@ function showContactForm() {
     var file = e.target.files[0];
     if (!file) return;
     hideContactForm();
-    document.getElementById('composer').style.display = 'flex';
+    /* composer stays hidden — Patch B */
     uploadFile(file);
     e.target.value = '';
   });
@@ -1143,7 +1143,7 @@ function hideContactForm() {
   panel.className = '';
   panel.innerHTML = '';
   document.getElementById('chat').style.display = 'flex';
-  document.getElementById('composer').style.display = 'flex';
+  /* composer stays hidden — Patch B */
 }
 
 function submitContactForm() {
@@ -1202,7 +1202,7 @@ function handleReply(r) {
   // If we were on blast form and got a non-form reply, hide it
   if (blastFormActive && !r.showBlastForm) {
     hideBlastForm();
-    document.getElementById('composer').style.display = 'flex';
+    /* composer stays hidden — Patch B */
   }
 
   addMsg('tom', r.text, r);
