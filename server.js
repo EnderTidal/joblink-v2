@@ -7,6 +7,7 @@ require('dotenv').config();
 const path = require('node:path');
 const fs = require('node:fs');
 const express = require('express');
+const helmet = require('helmet');
 const { getSetting } = require('./src/db');
 const { openSystemDb, listOrgs, updateOrgBilling, cleanExpiredSignups } = require('./src/system-db');
 const { getTenantDb, tenantMiddleware } = require('./src/tenant');
@@ -31,6 +32,12 @@ const morgan = require("morgan");
 app.set("trust proxy", 1);  // Behind Cloudflare + Traefik
 
 app.use(morgan("combined"));
+
+// Security headers (Helmet) - before any routes
+app.use(helmet({
+  contentSecurityPolicy: false, // CSP breaks inline scripts
+  crossOriginEmbedderPolicy: false
+}));
 
 // Prevent Cloudflare from caching HTML responses with stale headers
 app.use((req, res, next) => {
