@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JobLink — System Status</title>
+  <link rel="stylesheet" href="/app.css">
+  <style>
+    .status-container { max-width: 640px; margin: 80px auto; padding: 0 20px; }
+    .status-header { text-align: center; margin-bottom: 40px; }
+    .status-header h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 8px; }
+    .status-header p { color: var(--text-muted); font-size: 0.95rem; }
+
+    .overall-badge {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 10px 22px; border-radius: var(--radius);
+      background: var(--green-soft); color: var(--green);
+      font-weight: 600; font-size: 1.05rem; margin-bottom: 32px;
+    }
+    .overall-badge.degraded { background: var(--amber-soft); color: var(--amber); }
+    .overall-badge.down { background: var(--red-soft); color: var(--red); }
+    .overall-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--green); flex-shrink: 0;
+    }
+    .overall-badge.degraded .overall-dot { background: var(--amber); }
+    .overall-badge.down .overall-dot { background: var(--red); }
+
+    .services-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+    }
+    .service-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+    }
+    .service-row:last-child { border-bottom: none; }
+    .service-name { font-weight: 500; }
+    .service-status {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.9rem; font-weight: 500;
+    }
+    .service-status .dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+    }
+    .service-status.operational { color: var(--green); }
+    .service-status.degraded { color: var(--amber); }
+    .service-status.degraded .dot { background: var(--amber); }
+    .service-status.down { color: var(--red); }
+    .service-status.down .dot { background: var(--red); }
+
+    .status-footer {
+      text-align: center; margin-top: 24px;
+      color: var(--text-subtle); font-size: 0.85rem;
+    }
+    .uptime-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 20px; background: var(--surface-2);
+      border-top: 1px solid var(--border);
+    }
+    .uptime-label { color: var(--text-muted); font-size: 0.9rem; }
+    .uptime-value { font-weight: 600; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="status-container">
+    <div class="status-header">
+      <h1>JobLink System Status</h1>
+      <p>Real-time service health</p>
+    </div>
+
+    <div style="text-align:center">
+      <div class="overall-badge" id="overall-badge">
+        <span class="overall-dot"></span>
+        <span id="overall-text">Checking...</span>
+      </div>
+    </div>
+
+    <div class="services-card">
+      <div class="service-row">
+        <span class="service-name">API</span>
+        <span class="service-status" id="svc-api">
+          <span class="dot"></span> <span>Checking...</span>
+        </span>
+      </div>
+      <div class="service-row">
+        <span class="service-name">Database</span>
+        <span class="service-status" id="svc-database">
+          <span class="dot"></span> <span>Checking...</span>
+        </span>
+      </div>
+      <div class="service-row">
+        <span class="service-name">SMS (Whippy)</span>
+        <span class="service-status" id="svc-sms">
+          <span class="dot"></span> <span>Checking...</span>
+        </span>
+      </div>
+      <div class="uptime-row">
+        <span class="uptime-label">Uptime</span>
+        <span class="uptime-value" id="uptime-value">—</span>
+      </div>
+    </div>
+
+    <div class="status-footer">
+      <p>Last checked: <span id="last-checked">—</span></p>
+      <p style="margin-top:4px">Auto-refreshes every 60 seconds</p>
+    </div>
+  </div>
+
+  <script>
+    function formatUptime(seconds) {
+      if (!seconds && seconds !== 0) return '—';
+      const d = Math.floor(seconds / 86400);
+      const h = Math.floor((seconds % 86400) / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const parts = [];
+      if (d > 0) parts.push(d + 'd');
+      if (h > 0) parts.push(h + 'h');
+      parts.push(m + 'm');
+      return parts.join(' ');
+    }
+
+    function setServiceStatus(id, status) {
+      const el = document.getElementById(id);
+      const label = status === 'operational' ? 'Operational' : status === 'degraded' ? 'Degraded' : 'Down';
+      const cls = status === 'operational' ? 'operational' : status === 'degraded' ? 'degraded' : 'down';
+      el.className = 'service-status ' + cls;
+      el.querySelector('span:last-child').textContent = label;
+    }
+
+    function setOverall(status) {
+      const badge = document.getElementById('overall-badge');
+      const text = document.getElementById('overall-text');
+      badge.className = 'overall-badge';
+      if (status === 'operational') {
+        text.textContent = 'All Systems Operational';
+      } else if (status === 'degraded') {
+        badge.classList.add('degraded');
+        text.textContent = 'Partial Degradation';
+      } else {
+        badge.classList.add('down');
+        text.textContent = 'Service Disruption';
+      }
+    }
+
+    async function checkStatus() {
+      try {
+        const res = await fetch('/api/status');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+
+        const services = data.services || {};
+        let worstStatus = 'operational';
+
+        for (const [name, svc] of Object.entries(services)) {
+          setServiceStatus('svc-' + name, svc.status);
+          if (svc.status === 'down') worstStatus = 'down';
+          else if (svc.status === 'degraded' && worstStatus !== 'down') worstStatus = 'degraded';
+        }
+
+        setOverall(worstStatus);
+
+        if (data.uptime != null) {
+          document.getElementById('uptime-value').textContent = formatUptime(data.uptime);
+        }
+
+        document.getElementById('last-checked').textContent =
+          new Date().toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      } catch (e) {
+        setOverall('down');
+        setServiceStatus('svc-api', 'down');
+        setServiceStatus('svc-database', 'down');
+        setServiceStatus('svc-sms', 'down');
+        document.getElementById('last-checked').textContent =
+          new Date().toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) + ' (error)';
+      }
+    }
+
+    checkStatus();
+    setInterval(checkStatus, 60000);
+  </script>
+</body>
+</html>

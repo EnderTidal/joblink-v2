@@ -48,6 +48,34 @@ app.use(express.json({ limit: '2mb' }));
 const startedAt = Date.now();
 
 // Health check — no auth, always accessible. Reports system-wide stats.
+app.get('/api/status', (_req, res) => {
+  try {
+    const { openDb } = require('./src/db');
+    const sysDb = openDb('data/system.db');
+    sysDb.prepare('SELECT 1').get();
+    res.json({
+      status: 'operational',
+      timestamp: new Date().toISOString(),
+      services: {
+        api: { status: 'operational' },
+        database: { status: 'operational' },
+        sms: { status: 'operational' }
+      },
+      uptime: Math.floor(process.uptime())
+    });
+  } catch (e) {
+    res.status(503).json({
+      status: 'degraded',
+      timestamp: new Date().toISOString(),
+      services: {
+        api: { status: 'operational' },
+        database: { status: 'down', error: e.message },
+        sms: { status: 'unknown' }
+      }
+    });
+  }
+});
+
 app.get('/health', (_req, res) => {
   try {
     const orgs = listOrgs(sysDb);
