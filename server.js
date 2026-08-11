@@ -70,6 +70,29 @@ app.get('/health', (_req, res) => {
   }
 });
 
+// Public status endpoint — no auth required
+app.get('/api/status', (_req, res) => {
+  const uptime = Math.floor((Date.now() - startedAt) / 1000);
+  let dbStatus = 'operational';
+  try {
+    // Quick DB health check — query the system DB
+    sysDb.prepare('SELECT 1').get();
+  } catch (e) {
+    dbStatus = 'down';
+  }
+  res.json({
+    status: dbStatus === 'operational' ? 'operational' : 'degraded',
+    timestamp: new Date().toISOString(),
+    uptime,
+    services: {
+      api: { status: 'operational' },
+      database: { status: dbStatus },
+      sms: { status: 'operational' }
+    }
+  });
+});
+
+
 
 // Deploy webhook — HMAC-verified, triggered by GitHub Actions
 const crypto = require('crypto');
@@ -124,6 +147,13 @@ app.use(createAdminRoutes(sysDb, auth));
 app.use("/dev", createDevRoutes(sysDb, auth));
 
 // Static UI (login page is public; app pages check session client-side + APIs are guarded)
+
+// Super admin only — dev dashboard (moved from public/ to private/)
+app.get('/dev-dashboard.html', auth.requireAuth, (req, res) => {
+  if (!req.user || req.user.org_id !== 1) return res.status(403).send('<h1>Access Denied</h1><p>Super admin only.</p>');
+  res.sendFile(path.join(__dirname, 'private', 'dev-dashboard.html'));
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (_req, res) => res.redirect('/tom.html'));
 
