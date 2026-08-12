@@ -153,7 +153,7 @@ function createTom(db) {
   // ---------- path: job_order ----------
   async function startJobOrder(s) {
     s.state = 'await_input';
-    return reply(s, `Let's create a Job Order. ${JOB_ORDER_EXAMPLE}`, { showBlankFormLink: true });
+    return reply(s, `Let's create a Job Order.\n\nDrag and drop a .docx or .txt file with the job details, or start with a blank form below.`, { showBlankFormLink: true });
   }
 
   async function handleJobOrder(s, { text, action, payload, file }) {
@@ -169,7 +169,7 @@ function createTom(db) {
 
       let docText = text || '';
       if (file) docText = await extractText(file.buffer, file.originalname);
-      if (!docText.trim()) return reply(s, 'Type the job details or upload a .docx/.txt file to get started.', { showBlankFormLink: true });
+      if (!docText.trim()) return reply(s, 'Drop a .docx or .txt file with the job details, or use the blank form below.', { showBlankFormLink: true });
       const parsed = await parseJobOrderText(docText);
       if (!parsed.fields) return reply(s, 'That document looks empty \u2014 try again?', { showBlankFormLink: true });
       s.data.draft = parsed.fields;
@@ -494,17 +494,71 @@ function createTom(db) {
     if (path === 'job_order') return startJobOrder(s);
     if (path === 'blast') return startBlast(s);
     if (path === 'review') return startReview(s);
-    s.state = 'chat';
-    const greeting = await answerHelpQuestion(null);
-    return reply(s, greeting);
+    s.state = 'help_topics';
+    return reply(s, '\ud83d\udcfa Watch the full walkthrough: https://www.loom.com/share/e4e782f6d42647438af99a84c6ecfb4a\n\nPick a topic to learn more:', {
+      helpTopics: [
+        { key: 'job_orders', label: 'Job Orders & Editing' },
+        { key: 'blasts', label: 'Magic Blasts & Templates' },
+        { key: 'blast_guard', label: 'Blast Guard & Cooldowns' },
+        { key: 'imports', label: 'Imports & File Format' },
+        { key: 'categories', label: 'Categories' },
+        { key: 'whippy', label: 'Whippy Setup' },
+        { key: 'team', label: 'Team Members & Roles' },
+        { key: 'practice', label: 'Practice Mode vs Live' },
+        { key: 'magic_link', label: 'What Candidates See' },
+        { key: 'troubleshoot', label: 'Error Troubleshooting' },
+      ]
+    });
   }
 
   async function message(sessionId, input) {
     const s = sessions.get(sessionId);
     if (!s) return { error: 'session_not_found', text: 'That conversation expired \u2014 start a new one from the buttons above.' };
     if (s.path === 'help') {
-      const text = await answerHelpQuestion(input.text);
-      return reply(s, text);
+      if (input.action === 'help_topic') {
+        const topicAnswers = {
+          job_orders: 'Click any job order on the Dashboard to view details. Click Edit to change fields. Unpublish to hide from candidates. Archive to remove from active view.\n\nTo create a new JO: click New Job Order, upload a .docx/.txt file or use the blank form. Fields: title, category (Industrial/Administrative/Skilled Trade), pay, shift/hours, location, requirements, description.',
+          blasts: 'Blast messages come from templates (Admin \u2192 Templates) using {first_name} and {link} placeholders. A template without {link} is rejected \u2014 a magic blast without the magic link is just a text.\n\nTo send: click Send Magic Blast, upload your contact list (.csv or Excel), pick category and template, preview, then press Send.',
+          blast_guard: 'Blast Guard stops anyone from getting a new magic link within the cooldown window (default 72 hours), no matter which category the blast is for. Skipped people are shown in your preview BEFORE you send \u2014 e.g. "287 will send, 13 skipped (cooldown)".\n\nAdjust the cooldown window in Admin \u2192 Settings.',
+          imports: 'CSV or XLSX with columns: first_name, last_name, phone (required). Optional: last_contacted (used for filtering only, not stored).\n\nOn import, a phone number we already have with a different name gets its NAME updated \u2014 nothing else. Phone number is the anchor.',
+          categories: 'Three fixed categories: Industrial, Administrative, Skilled Trade. Set on job orders and candidates. Blasts send to candidates matching the JO\u2019s category. Candidates see only JOs matching their category on their magic link page.',
+          whippy: 'To connect Whippy: go to Admin \u2192 Settings, enter your Whippy API Key, SMS From Number, and Channel ID. You can find these in Whippy under Settings \u2192 Developers. Once connected, blasts will send real texts.',
+          team: 'Admin \u2192 Users to invite recruiters. Roles: admin (full access) or recruiter (limited). Each user gets their own login.',
+          practice: 'Without Whippy connected, you\u2019re in practice mode \u2014 everything works except texts don\u2019t actually send. Connect Whippy in Admin \u2192 Settings to go live.',
+          magic_link: 'Each candidate has ONE permanent magic link. It shows every PUBLISHED job order in the category of their most recent blast. They tap "I\u2019m Interested" on any job right on that page \u2014 no texting back needed.',
+          troubleshoot: '"Blast failed" usually means Whippy is not connected or your API key expired \u2014 check Admin \u2192 Settings. "No candidates matched" means the wrong category was selected or all candidates are in cooldown.',
+        };
+        const answer = topicAnswers[input.payload?.topic] || 'Pick a topic from the list above.';
+        return reply(s, answer, {
+          helpTopics: [
+            { key: 'job_orders', label: 'Job Orders & Editing' },
+            { key: 'blasts', label: 'Magic Blasts & Templates' },
+            { key: 'blast_guard', label: 'Blast Guard & Cooldowns' },
+            { key: 'imports', label: 'Imports & File Format' },
+            { key: 'categories', label: 'Categories' },
+            { key: 'whippy', label: 'Whippy Setup' },
+            { key: 'team', label: 'Team Members & Roles' },
+            { key: 'practice', label: 'Practice Mode vs Live' },
+            { key: 'magic_link', label: 'What Candidates See' },
+            { key: 'troubleshoot', label: 'Error Troubleshooting' },
+          ]
+        });
+      }
+      // If somehow free text arrives, redirect to topics
+      return reply(s, 'Pick a topic below to learn more:', {
+        helpTopics: [
+          { key: 'job_orders', label: 'Job Orders & Editing' },
+          { key: 'blasts', label: 'Magic Blasts & Templates' },
+          { key: 'blast_guard', label: 'Blast Guard & Cooldowns' },
+          { key: 'imports', label: 'Imports & File Format' },
+          { key: 'categories', label: 'Categories' },
+          { key: 'whippy', label: 'Whippy Setup' },
+          { key: 'team', label: 'Team Members & Roles' },
+          { key: 'practice', label: 'Practice Mode vs Live' },
+          { key: 'magic_link', label: 'What Candidates See' },
+          { key: 'troubleshoot', label: 'Error Troubleshooting' },
+        ]
+      });
     }
     if (s.path === 'review') return startReview(s);
     if (s.path === 'job_order') return handleJobOrder(s, input);

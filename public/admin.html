@@ -355,11 +355,13 @@ async function loadWhippyUsers() {
       return;
     }
     document.getElementById('whippy-list').innerHTML = users.map(function(u) {
-      return '<div class="edit-row">' +
-        '<span class="user-label">' + esc(u.name) + '</span>' +
-        '<span class="mut" style="font-size:13px">' + esc(u.id || '') + '</span>' +
-        '<span class="mut" style="font-size:13px">' + esc(u.email || '') + '</span>' +
-        '<button class="btn sm ghost" style="color:var(--red)" onclick="removeWhippyUser(' + "'" + esc(u.id) + "'" + ')">Remove</button>' +
+      return '<div class="edit-row" style="flex-wrap:nowrap;justify-content:space-between;">' +
+        '<div style="display:flex;gap:8px;align-items:center;overflow:hidden;min-width:0;">' +
+          '<span class="user-label" style="white-space:nowrap;">' + esc(u.name) + '</span>' +
+          '<span class="mut" style="font-size:13px;white-space:nowrap;">' + esc(u.id || '') + '</span>' +
+          '<span class="mut" style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(u.email || '') + '</span>' +
+        '</div>' +
+        '<button class="btn sm ghost" style="color:var(--red);flex-shrink:0;margin-left:auto;" onclick="removeWhippyUser(' + "'" + esc(u.id) + "'" + ')">Remove</button>' +
       '</div>';
     }).join('');
   } catch(e) { document.getElementById('whippy-list').innerHTML = '<p class="mut">Error loading messaging users.</p>'; }

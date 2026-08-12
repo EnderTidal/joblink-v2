@@ -72,7 +72,8 @@ function renderCandidatePage(db, candidate, orgName) {
   .req { font-size:.9rem; margin-bottom:8px; }
   p { font-size:.92rem; line-height:1.45; }
   .interest { width:100%; margin-top:12px; padding:13px; border:0; border-radius:var(--radius-sm); background:var(--brand);
-    color:var(--text); font-size:1rem; font-weight:700; cursor:pointer; }
+    color:#ffffff; font-size:1rem; font-weight:700; cursor:pointer; }
+  .interest:active { transform:scale(0.98); }
   .interest.done { background:var(--green); color:#fff; }
   .empty { text-align:center; padding:40px 18px; }
   .cat { text-align:center; font-size:.85rem; color:var(--text-muted); margin:4px 0 12px; }
@@ -122,7 +123,7 @@ function renderPreviewPage(db, preSelectedCategory) {
       </div>
       ${jo.description ? '<p class="req"><strong>Description:</strong> ' + escNl(jo.description) + '</p>' : ''}
       ${jo.requirements ? '<p class="req"><strong>Requirements:</strong> ' + esc(jo.requirements) + '</p>' : ''}
-      <button class="interest" disabled>I'm Interested ✋</button>
+      <button class="interest preview-toggle">I'm Interested ✋</button>
     </div>`).join('\n');
 
   const empty = '<div class="card empty" id="emptyMsg"><h2>No published positions right now</h2>' +
@@ -151,8 +152,10 @@ function renderPreviewPage(db, preSelectedCategory) {
   .chip.pay { background:#dcf3e5; font-weight:600; }
   .req { font-size:.9rem; margin-bottom:8px; }
   p { font-size:.92rem; line-height:1.45; }
-  .interest { width:100%; margin-top:12px; padding:13px; border:0; border-radius:var(--radius-sm); background:var(--green);
-    color:#fff; font-size:1rem; font-weight:700; cursor:default; }
+  .interest { width:100%; margin-top:12px; padding:13px; border:0; border-radius:var(--radius-sm); background:var(--brand);
+    color:#fff; font-size:1rem; font-weight:700; cursor:pointer; transition:background .15s,transform .1s; }
+  .interest:active { transform:scale(0.98); }
+  .interest.done { background:var(--green); }
   .empty { text-align:center; padding:40px 18px; }
   .count-badge { font-size:.82rem; color:var(--text-muted); text-align:center; margin-bottom:10px; }
 </style></head>
@@ -201,6 +204,18 @@ function filterCards() {
   document.getElementById("countBadge").textContent = sel ? (shown + " " + sel + " position" + (shown !== 1 ? "s" : "")) : "";
 }
 filterCards();
+document.querySelectorAll('.preview-toggle').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var isDone = btn.classList.contains('done');
+    if (isDone) {
+      btn.classList.remove('done');
+      btn.textContent = "I'm Interested \u270b";
+    } else {
+      btn.classList.add('done');
+      btn.textContent = "\u2713 Interest Submitted";
+    }
+  });
+});
 </script>
 </body></html>`;
 }

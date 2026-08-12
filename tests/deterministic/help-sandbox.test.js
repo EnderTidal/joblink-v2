@@ -34,11 +34,16 @@ test('STRUCTURAL: help-faq.js imports no write-capable module', () => {
 });
 
 test('STRUCTURAL: the tom router gives the help path no db-touching handler', () => {
-  const src = fs.readFileSync(path.join(__dirname, '../../src/tom.js'), 'utf8');
-  // The help branch must route ONLY to answerHelpQuestion
-  const helpBranch = src.split("s.path === 'help'")[1]?.split('}')[0] || '';
-  assert.ok(helpBranch.includes('answerHelpQuestion'), 'help path routes to the sandbox');
-  assert.ok(!helpBranch.includes('db.'), 'help path must not touch db');
+  const tomSrc = fs.readFileSync(path.join(__dirname, '../../src/tom.js'), 'utf8');
+  // The help branch must use ONLY inline topicAnswers — no db calls, no imports
+  const helpStart = tomSrc.indexOf("s.path === 'help'");
+  assert.ok(helpStart > -1, 'help path exists in tom.js');
+  // Extract the help block (from the if to its closing — look for the next s.path check)
+  const helpBlock = tomSrc.slice(helpStart, tomSrc.indexOf("s.path === 'review'", helpStart));
+  assert.ok(helpBlock.includes('topicAnswers'), 'help path uses inline topicAnswers');
+  assert.ok(!helpBlock.includes('db.prepare'), 'help path must not touch db');
+  assert.ok(!helpBlock.includes('db.run'), 'help path must not run db commands');
+  assert.ok(!helpBlock.includes('sendSms'), 'help path must not send SMS');
 });
 
 test('BEHAVIORAL: adversarial help questions change nothing', async () => {

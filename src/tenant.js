@@ -26,6 +26,8 @@ function getTenantDb(orgId) {
 function createTenantDb(orgId) {
   const filePath = path.join(getDataDir(), `org-${orgId}.db`);
   const db = openDb(filePath);
+  // Secure file permissions (owner-only read/write)
+  try { require('node:fs').chmodSync(filePath, 0o600); } catch {}
   tenantCache.set(orgId, db);
   return db;
 }
