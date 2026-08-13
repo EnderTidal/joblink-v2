@@ -3,6 +3,7 @@
 
 const express = require('express');
 const { renderCandidatePage, markInterest } = require('../src/candidate-page');
+const { logInterestEvent } = require('../src/db');
 const { listOrgs, findOrgBySlug } = require('../src/system-db');
 const { getTenantDb } = require('../src/tenant');
 
@@ -72,7 +73,13 @@ function createPublicRoutes(sysDb) {
       const db = getTenantDb(org.id);
       const candidate = db.prepare('SELECT * FROM candidates WHERE magic_token = ?').get(req.params.token);
       if (!candidate) return res.status(404).json({ ok: false, error: 'not_found' });
-      db.prepare('DELETE FROM interests WHERE phone = ? AND job_order_id = ?').run(candidate.phone, Number(req.body?.job_order_id));
+      const joId = Number(req.body?.job_order_id);
+      // Log the removal event before deleting
+      const existing = db.prepare('SELECT status FROM interests WHERE phone = ? AND job_order_id = ?').get(candidate.phone, joId);
+      if (existing) {
+        logInterestEvent(db, candidate.phone, joId, existing.status, 'withdrawn', 'candidate');
+      }
+      db.prepare('DELETE FROM interests WHERE phone = ? AND job_order_id = ?').run(candidate.phone, joId);
       res.json({ ok: true });
     } catch {
       res.status(404).json({ ok: false, error: 'not_found' });
@@ -100,6 +107,11 @@ function createPublicRoutes(sysDb) {
     const { candidate, db } = findCandidateByToken(sysDb, req.params.token);
     if (!candidate || !db) return res.status(404).json({ ok: false, error: 'not_found' });
     const joId = Number(req.body?.job_order_id);
+    // Log the removal event before deleting
+    const existing = db.prepare('SELECT status FROM interests WHERE phone = ? AND job_order_id = ?').get(candidate.phone, joId);
+    if (existing) {
+      logInterestEvent(db, candidate.phone, joId, existing.status, 'withdrawn', 'candidate');
+    }
     db.prepare('DELETE FROM interests WHERE phone = ? AND job_order_id = ?').run(candidate.phone, joId);
     res.json({ ok: true });
   });

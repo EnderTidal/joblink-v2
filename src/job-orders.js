@@ -3,6 +3,7 @@
 // them, the eval tests grade against them, and the candidate page displays them.
 
 const { CATEGORIES } = require('./blast');
+const { logInterestEvent } = require('./db');
 
 const JOB_ORDER_FIELDS = [
   { key: 'title',        label: 'Title',        required: true },
@@ -72,9 +73,13 @@ function setStatus(db, id, status) {
   const jo = db.prepare('SELECT * FROM job_orders WHERE id = ?').get(id);
   if (!jo) throw new Error('Job order not found');
   if (status === 'Complete') {
-    // Archive: delete all interest records and set status in a transaction
+    // Archive: log events for all interests being cleared, then delete and set status
     db.exec('BEGIN');
     try {
+      const interests = db.prepare('SELECT phone, job_order_id, status FROM interests WHERE job_order_id = ?').all(id);
+      for (const interest of interests) {
+        logInterestEvent(db, interest.phone, interest.job_order_id, interest.status, 'archived_complete', 'system');
+      }
       db.prepare('DELETE FROM interests WHERE job_order_id = ?').run(id);
       db.prepare("UPDATE job_orders SET status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(status, id);
       db.exec('COMMIT');

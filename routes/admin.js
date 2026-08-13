@@ -8,7 +8,7 @@ const https = require('node:https');
 const { listJobOrders, setStatus, updateJobOrder } = require('../src/job-orders');
 const { listBlasts, markDoNotContact } = require('../src/blast');
 const { getProvider } = require('../src/messaging');
-const { getSetting, setSetting } = require('../src/db');
+const { getSetting, setSetting, logInterestEvent } = require('../src/db');
 const { normalizePhone, formatPhone, toE164 } = require("../src/phone");
 const { listOrgUsers, updateUser } = require('../src/system-db');
 
@@ -100,7 +100,20 @@ function createAdminRoutes(sysDb, auth) {
     catch (err) { next(err); }
   });
 
-router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {    try {      const id = Number(req.params.id);      req.db.prepare("DELETE FROM interests WHERE job_order_id = ?").run(id);      req.db.prepare("DELETE FROM job_orders WHERE id = ?").run(id);      res.json({ ok: true });    } catch (err) { next(err); }  });
+router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      // Log events for all interests being deleted
+      const interests = req.db.prepare("SELECT phone, job_order_id, status FROM interests WHERE job_order_id = ?").all(id);
+      for (const interest of interests) {
+        logInterestEvent(req.db, interest.phone, interest.job_order_id, interest.status, 'deleted', req.user?.username || 'admin');
+      }
+      req.db.prepare("DELETE FROM interests WHERE job_order_id = ?").run(id);
+      req.db.prepare("DELETE FROM job_orders WHERE id = ?").run(id);
+      res.json({ ok: true });
+    } catch (err) { next(err); }
+  });
+
   // ---- Single Job Order detail with interested candidates grouped by status ----
   router.get('/api/job-orders/:id', (req, res) => {
     const id = Number(req.params.id);
@@ -149,7 +162,10 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {   
     if (!VALID.includes(status)) return res.status(400).json({ error: `status must be one of: ${VALID.join(', ')}` });
     const interest = req.db.prepare('SELECT * FROM interests WHERE id = ?').get(id);
     if (!interest) return res.status(404).json({ error: 'interest not found' });
+    const fromStatus = interest.status;
     req.db.prepare('UPDATE interests SET status = ? WHERE id = ?').run(status, id);
+    // Log the status transition
+    logInterestEvent(req.db, interest.phone, interest.job_order_id, fromStatus, status, req.user?.username || null);
     res.json({ ok: true, id, status });
   });
 
@@ -221,6 +237,90 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {   
     if (!phone) return res.status(400).json({ error: 'bad_phone' });
     markDoNotContact(req.db, phone, Boolean(req.body?.value ?? true));
     res.json({ ok: true });
+  });
+
+  // ---- Interest Events (audit log / analytics) ----
+  router.get('/api/interest-events', (req, res) => {
+    const phone = req.query.phone ? normalizePhone(req.query.phone) : null;
+    const jobOrderId = req.query.job_order_id ? Number(req.query.job_order_id) : null;
+    const limit = Math.min(Number(req.query.limit) || 200, 1000);
+
+    let sql = 'SELECT * FROM interest_events WHERE 1=1';
+    const params = [];
+    if (phone) { sql += ' AND phone = ?'; params.push(phone); }
+    if (jobOrderId) { sql += ' AND job_order_id = ?'; params.push(jobOrderId); }
+    sql += ' ORDER BY changed_at DESC LIMIT ?';
+    params.push(limit);
+
+    try {
+      const rows = req.db.prepare(sql).all(...params);
+      res.json(rows.map(r => ({ ...r, phone_display: formatPhone(r.phone) })));
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  router.get('/api/interest-events/summary', (req, res) => {
+    try {
+      // Events per day (last 30 days)
+      const eventsPerDay = req.db.prepare(
+        `SELECT date(changed_at) AS day, COUNT(*) AS event_count
+         FROM interest_events
+         WHERE changed_at >= datetime('now', '-30 days')
+         GROUP BY date(changed_at)
+         ORDER BY day DESC`
+      ).all();
+
+      // Transition counts (how many of each from->to)
+      const transitions = req.db.prepare(
+        `SELECT from_status, to_status, COUNT(*) AS count
+         FROM interest_events
+         GROUP BY from_status, to_status
+         ORDER BY count DESC`
+      ).all();
+
+      // Triage rate: how many interests moved past 'interested' vs total
+      const totalInterested = req.db.prepare(
+        `SELECT COUNT(*) AS n FROM interest_events WHERE to_status = 'interested'`
+      ).get().n;
+      const triaged = req.db.prepare(
+        `SELECT COUNT(DISTINCT phone || '-' || job_order_id) AS n
+         FROM interest_events
+         WHERE from_status = 'interested' AND to_status != 'interested'`
+      ).get().n;
+
+      // Avg time-to-triage (interested -> first non-interested status)
+      const avgTriageRows = req.db.prepare(
+        `SELECT AVG(triage_seconds) AS avg_seconds FROM (
+           SELECT ie2.phone, ie2.job_order_id,
+             (julianday(ie2.changed_at) - julianday(ie1.changed_at)) * 86400 AS triage_seconds
+           FROM interest_events ie1
+           JOIN interest_events ie2 ON ie1.phone = ie2.phone AND ie1.job_order_id = ie2.job_order_id
+           WHERE ie1.to_status = 'interested'
+             AND ie2.from_status = 'interested'
+             AND ie2.to_status != 'interested'
+             AND ie2.changed_at > ie1.changed_at
+           GROUP BY ie2.phone, ie2.job_order_id
+         )`
+      ).get();
+
+      const avgTriageHours = avgTriageRows.avg_seconds
+        ? Math.round((avgTriageRows.avg_seconds / 3600) * 10) / 10
+        : null;
+
+      res.json({
+        events_per_day: eventsPerDay,
+        transitions,
+        triage_rate: {
+          total_interested: totalInterested,
+          triaged,
+          pct: totalInterested > 0 ? Math.round((triaged / totalInterested) * 100) : 0,
+        },
+        avg_time_to_triage_hours: avgTriageHours,
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // ---- Settings (admin only) ----
