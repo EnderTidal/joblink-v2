@@ -73,6 +73,18 @@ CREATE TABLE IF NOT EXISTS interests (
   UNIQUE (phone, job_order_id)
 );
 
+CREATE TABLE IF NOT EXISTS interest_events (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  phone        TEXT NOT NULL,
+  job_order_id INTEGER NOT NULL,
+  from_status  TEXT,
+  to_status    TEXT NOT NULL,
+  changed_by   TEXT,
+  changed_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_interest_events_phone ON interest_events(phone);
+CREATE INDEX IF NOT EXISTS idx_interest_events_changed_at ON interest_events(changed_at);
+
 CREATE TABLE IF NOT EXISTS templates (
   id      INTEGER PRIMARY KEY AUTOINCREMENT,
   name    TEXT NOT NULL,
@@ -148,6 +160,20 @@ function openDb(filePath) {
   try { db.exec("ALTER TABLE users ADD COLUMN invite_expires TEXT"); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE users ADD COLUMN magic_login_token TEXT"); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE users ADD COLUMN magic_login_expires TEXT"); } catch { /* already exists */ }
+  // Migration: interest_events table (for existing DBs that were created before it was in SCHEMA)
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS interest_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      phone TEXT NOT NULL,
+      job_order_id INTEGER NOT NULL,
+      from_status TEXT,
+      to_status TEXT NOT NULL,
+      changed_by TEXT,
+      changed_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_interest_events_phone ON interest_events(phone)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_interest_events_changed_at ON interest_events(changed_at)');
+  } catch { /* already exists */ }
   // Seed defaults (INSERT OR IGNORE keeps this idempotent)
   const seed = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) seed.run(k, v);
@@ -180,4 +206,10 @@ function newMagicToken() {
   return crypto.randomBytes(16).toString('base64url');
 }
 
-module.exports = { openDb, getSetting, setSetting, getCooldownHours, newMagicToken, DEFAULT_TEMPLATE_BODY };
+/** Log a pipeline status transition to interest_events for analytics. */
+function logInterestEvent(db, phone, jobOrderId, fromStatus, toStatus, changedBy) {
+  db.prepare('INSERT INTO interest_events (phone, job_order_id, from_status, to_status, changed_by) VALUES (?, ?, ?, ?, ?)')
+    .run(phone, jobOrderId, fromStatus, toStatus, changedBy || null);
+}
+
+module.exports = { openDb, getSetting, setSetting, getCooldownHours, newMagicToken, DEFAULT_TEMPLATE_BODY, logInterestEvent };

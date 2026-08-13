@@ -4,6 +4,7 @@
 // an "I'm Interested" button per job. No PII in the URL — just the token.
 
 const { publishedInCategory } = require('./job-orders');
+const { logInterestEvent } = require('./db');
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -18,9 +19,15 @@ function markInterest(db, candidate, jobOrderId) {
     `SELECT b.id FROM blasts b JOIN blast_recipients br ON br.blast_id = b.id
      WHERE br.phone = ? AND br.status = 'sent' ORDER BY b.id DESC LIMIT 1`,
   ).get(candidate.phone);
-  db.prepare(
-    'INSERT OR IGNORE INTO interests (phone, job_order_id, blast_id) VALUES (?, ?, ?)',
-  ).run(candidate.phone, jobOrderId, blast ? blast.id : null);
+  // Check if already exists (INSERT OR IGNORE won't tell us)
+  const existing = db.prepare('SELECT id FROM interests WHERE phone = ? AND job_order_id = ?').get(candidate.phone, jobOrderId);
+  if (!existing) {
+    db.prepare(
+      'INSERT OR IGNORE INTO interests (phone, job_order_id, blast_id) VALUES (?, ?, ?)',
+    ).run(candidate.phone, jobOrderId, blast ? blast.id : null);
+    // Log the new interest event
+    logInterestEvent(db, candidate.phone, jobOrderId, null, 'interested', 'candidate');
+  }
   return { ok: true };
 }
 
