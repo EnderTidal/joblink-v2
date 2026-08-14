@@ -110,6 +110,11 @@ function populateEditForm(jo) {
   document.getElementById('fCompany').value = jo.company || '';
   document.getElementById('fRequirements').value = jo.requirements || '';
   document.getElementById('fDescription').value = jo.description || '';
+  // Preserve current status in edit form
+  var sSel = document.getElementById('fStatus');
+  for (var si = 0; si < sSel.options.length; si++) {
+    if (sSel.options[si].value === jo.status || sSel.options[si].textContent === jo.status) { sSel.selectedIndex = si; break; }
+  }
   // Description length warning
   var descTA2 = document.getElementById('fDescription');
   var warnEl2 = document.getElementById('descLenWarn');
