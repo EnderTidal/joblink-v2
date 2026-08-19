@@ -12,7 +12,7 @@ const { getSetting, setSetting, logInterestEvent } = require('../src/db');
 const { normalizePhone, formatPhone, toE164 } = require("../src/phone");
 const { listOrgUsers, updateUser } = require('../src/system-db');
 
-const SETTING_KEYS = ['cooldown_hours', 'sms_provider', 'whippy_api_key', 'whippy_channel_id', 'whippy_from_number'];
+const SETTING_KEYS = ['cooldown_hours', 'sms_provider', 'whippy_api_key', 'whippy_channel_id', 'whippy_from_number', 'whippy_numbers'];
 
 const RESEND_KEY = process.env.RESEND_KEY || '';
 const FEEDBACK_EMAIL = 'support@joblinkplatform.com';
@@ -350,6 +350,8 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
     if (out.whippy_api_key) out.whippy_api_key = '\u2022\u2022\u2022\u2022' + String(out.whippy_api_key).slice(-4);
     const wu = getSetting(req.db, 'whippy_users');
     if (wu) { try { out.whippy_users = JSON.parse(wu); } catch { /* ignore */ } }
+    const wn = getSetting(req.db, 'whippy_numbers');
+    if (wn) { try { out.whippy_numbers = JSON.parse(wn); } catch { /* ignore */ } }
     res.json(out);
   });
 
@@ -367,6 +369,46 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
     const provider = getProvider(req.db);
     const result = await provider.testConnection();
     res.json({ provider: provider.name, ...result });
+  });
+
+  // ---- Multi-Number Management (up to 5) ----
+  router.get('/api/settings/numbers', auth.requireAdmin, (req, res) => {
+    const raw = getSetting(req.db, 'whippy_numbers');
+    let numbers = [];
+    if (raw) { try { numbers = JSON.parse(raw); } catch { /* ignore */ } }
+    // Backward compat: if no whippy_numbers but single number exists, return it
+    if (!numbers.length) {
+      const fromNumber = getSetting(req.db, 'whippy_from_number');
+      const channelId = getSetting(req.db, 'whippy_channel_id');
+      if (fromNumber && channelId) {
+        numbers = [{ from_number: fromNumber, channel_id: channelId, label: 'Primary' }];
+      }
+    }
+    res.json(numbers);
+  });
+
+  router.post('/api/settings/numbers', auth.requireAdmin, (req, res) => {
+    const numbers = req.body?.numbers;
+    if (!Array.isArray(numbers)) return res.status(400).json({ error: 'numbers must be an array' });
+    if (numbers.length > 5) return res.status(400).json({ error: 'Maximum 5 numbers allowed' });
+    // Validate each entry
+    for (let i = 0; i < numbers.length; i++) {
+      const n = numbers[i];
+      if (!n.from_number || !n.channel_id) {
+        return res.status(400).json({ error: 'Each number must have from_number and channel_id (entry ' + (i + 1) + ')' });
+      }
+      // Normalize from_number to E.164
+      const e164 = toE164(n.from_number);
+      if (e164) n.from_number = e164;
+      if (!n.label) n.label = 'Number ' + (i + 1);
+    }
+    setSetting(req.db, 'whippy_numbers', JSON.stringify(numbers));
+    // Keep backward compat: update primary single-number fields with first entry
+    if (numbers.length > 0) {
+      setSetting(req.db, 'whippy_from_number', numbers[0].from_number);
+      setSetting(req.db, 'whippy_channel_id', numbers[0].channel_id);
+    }
+    res.json({ ok: true, count: numbers.length });
   });
 
   // ---- Sync Whippy Users ----

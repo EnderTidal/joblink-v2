@@ -29,7 +29,7 @@ const { planBlast, executeBlast, listBlasts, renderMessage, CATEGORIES } = requi
 const { JOB_ORDER_FIELDS, validateJobOrder, createJobOrder } = require('./job-orders');
 const { parseJobOrderText, extractText } = require('./ai/parse-job-order');
 const { answerHelpQuestion } = require('./ai/help-faq');
-const { getProvider } = require('./messaging');
+const { getProvider, resolveNumber } = require('./messaging');
 const { getSetting } = require('./db');
 
 const PATHS = ['job_order', 'blast', 'review', 'help'];
@@ -275,7 +275,18 @@ function createTom(db) {
 
     const localUsers = db.prepare('SELECT id, username, role FROM users ORDER BY username').all();
 
-    return { templates, defaultTemplate, whippyUsers, localUsers };
+    // Multi-number support: load configured numbers
+    let whippyNumbers = [];
+    const wn = getSetting(db, 'whippy_numbers');
+    if (wn) { try { whippyNumbers = JSON.parse(wn); } catch { /* ignore */ } }
+    // Backward compat: if no whippy_numbers, build from single fields
+    if (!whippyNumbers.length) {
+      const fn = getSetting(db, 'whippy_from_number');
+      const ci = getSetting(db, 'whippy_channel_id');
+      if (fn && ci) whippyNumbers = [{ from_number: fn, channel_id: ci, label: 'Primary' }];
+    }
+
+    return { templates, defaultTemplate, whippyUsers, localUsers, whippyNumbers };
   }
 
   async function handleBlast(s, { text, action, payload, file, user, reqHost, reqProto, orgSlug }) {
@@ -309,6 +320,7 @@ function createTom(db) {
         defaultTemplateId: formData.defaultTemplate ? formData.defaultTemplate.id : null,
         whippyUsers: formData.whippyUsers,
         localUsers: formData.localUsers.map(u => ({ id: u.id, username: u.username, role: u.role })),
+        whippyNumbers: formData.whippyNumbers,
       });
     }
 
@@ -342,6 +354,7 @@ function createTom(db) {
         const templateId = payload?.templateId ? Number(payload.templateId) : null;
         const templateBody = payload?.templateBody || '';
         const recruiterId = payload?.recruiterId ? Number(payload.recruiterId) : null;
+        const selectedFromNumber = payload?.fromNumber || null;
 
         if (!CATEGORIES.includes(category)) {
           return reply(s, 'Select a category before previewing.', { showBlastForm: true, keepForm: true });
@@ -371,6 +384,7 @@ function createTom(db) {
         }
 
         s.data.recruiterId = recruiterId;
+        s.data.selectedFromNumber = selectedFromNumber;
 
         const plan = planBlast(db, { phones: selected.map(c => c.phone), category });
         s.data.plan = plan;
@@ -422,13 +436,16 @@ function createTom(db) {
           defaultTemplateId: s.data.template?.id || (formData.defaultTemplate ? formData.defaultTemplate.id : null),
           whippyUsers: formData.whippyUsers,
           localUsers: formData.localUsers.map(u => ({ id: u.id, username: u.username, role: u.role })),
+          whippyNumbers: formData.whippyNumbers,
         });
       }
 
       if (action === 'confirm_send') {
         if (!s.data.plan.sendable.length) return reply(s, 'Nobody to send to \u2014 everyone was skipped.');
         s.state = 'sending';
-        const provider = getProvider(db);
+        // Resolve multi-number: pass selected fromNumber override to provider
+        const numberOverride = s.data.selectedFromNumber ? resolveNumber(db, s.data.selectedFromNumber) : null;
+        const provider = getProvider(db, numberOverride);
         const autoBaseUrl = reqHost ? ((reqProto === 'http' && reqHost.includes('localhost')) ? `http://${reqHost}` : `https://${reqHost}`) : undefined;
 
         const recruiterId = s.data.recruiterId || null;

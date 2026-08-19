@@ -657,6 +657,43 @@ function showBlastForm(data) {
   });
   bodyArea.addEventListener('input', function() { updateTemplatePreview(); });
 
+  // --- Sending Number (multi-number support) ---
+  var numField = document.createElement('div');
+  numField.className = 'bf-field';
+  numField.id = 'blastNumberField';
+  var numLabel = document.createElement('label');
+  numLabel.textContent = 'Sending Number *';
+  numField.appendChild(numLabel);
+  var numSel = document.createElement('select');
+  numSel.id = 'blastFromNumber';
+  var whippyNumbers = data.whippyNumbers || [];
+  if (whippyNumbers.length > 1) {
+    // Multiple numbers: required selection
+    var placeholderOpt = document.createElement('option');
+    placeholderOpt.value = '';
+    placeholderOpt.textContent = '— Select sending number —';
+    numSel.appendChild(placeholderOpt);
+    whippyNumbers.forEach(function(n, i) {
+      var opt = document.createElement('option');
+      opt.value = n.from_number;
+      opt.textContent = (n.label || 'Number ' + (i+1)) + ' (' + n.from_number + ')';
+      numSel.appendChild(opt);
+    });
+    numField.appendChild(numSel);
+    form.appendChild(numField);
+  } else if (whippyNumbers.length === 1) {
+    // Single number: auto-select, show as info
+    numSel.id = 'blastFromNumber';
+    var autoOpt = document.createElement('option');
+    autoOpt.value = whippyNumbers[0].from_number;
+    autoOpt.textContent = (whippyNumbers[0].label || 'Primary') + ' (' + whippyNumbers[0].from_number + ')';
+    autoOpt.selected = true;
+    numSel.appendChild(autoOpt);
+    numField.appendChild(numSel);
+    form.appendChild(numField);
+  }
+  // If zero numbers, field not shown — provider will use whatever is in settings
+
   // --- Recruiter ---
   var recField = document.createElement('div');
   recField.className = 'bf-field';
@@ -734,6 +771,8 @@ function getBlastFormValues() {
   var templateBody = bodyEl ? bodyEl.value : '';
   var recSel = document.getElementById('blastRecruiter');
   var recruiterId = recSel ? recSel.value : '';
+  var numSel = document.getElementById('blastFromNumber');
+  var fromNumber = numSel ? numSel.value : '';
 
   return {
     recipientMode: recipientMode,
@@ -743,6 +782,7 @@ function getBlastFormValues() {
     templateId: templateId,
     templateBody: templateBody,
     recruiterId: recruiterId || null,
+    fromNumber: fromNumber || null,
   };
 }
 
@@ -754,6 +794,12 @@ async function submitBlastForm() {
   }
   if (!vals.templateBody.trim()) {
     toast('Template message cannot be empty.');
+    return;
+  }
+  // Require number selection if multiple numbers are configured
+  var numSelEl = document.getElementById('blastFromNumber');
+  if (numSelEl && numSelEl.options.length > 2 && !vals.fromNumber) {
+    toast('Select a sending number before previewing.');
     return;
   }
   hideBlastForm();

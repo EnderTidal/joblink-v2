@@ -50,6 +50,23 @@
         <div id="whippy-users-info"></div>
       </div>
     </div>
+
+    <!-- Multi-Number Management -->
+    <div class="card" style="margin-top:20px">
+      <h3 style="margin:0 0 16px;font-size:17px;font-weight:800">Sending Numbers</h3>
+      <p class="mut" style="margin-bottom:12px">Configure up to 5 sending numbers. The first number is used as the primary default.</p>
+      <div id="numbers-list"></div>
+      <div id="add-number-form" style="display:none;margin-top:16px;padding:14px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border)">
+        <label class="f">Label <input id="new-num-label" placeholder="e.g. Main Office"></label>
+        <label class="f">From Number <input id="new-num-from" placeholder="+1..."></label>
+        <label class="f">Channel ID <input id="new-num-chan" placeholder="Whippy Place ID"></label>
+        <div class="row" style="gap:8px;margin-top:10px">
+          <button class="btn sm" onclick="confirmAddNumber()">Add</button>
+          <button class="btn sm ghost" onclick="cancelAddNumber()">Cancel</button>
+        </div>
+      </div>
+      <button class="btn ghost" id="btn-add-number" onclick="showAddNumberForm()" style="margin-top:12px">+ Add Number</button>
+    </div>
   </section>
 
   <section id="s-users"><div class="card half">
@@ -383,7 +400,75 @@ async function removeWhippyUser(id) {
 
 boot('admin').then((m) => {
   me = m;
-  loadSettings(); loadTemplates(); loadUsers(); loadCandidates(); loadFeedback(); loadChangelog(); loadWhippyUsers();
+  // ---- Multi-Number Management ----
+  var cachedNumbers = [];
+  async function loadNumbers() {
+    try {
+      var numbers = await api('/api/settings/numbers');
+      cachedNumbers = numbers || [];
+      var list = document.getElementById('numbers-list');
+      if (!numbers.length) {
+        list.innerHTML = '<p class="mut">No sending numbers configured. Add one below or enter credentials in the settings above.</p>';
+        document.getElementById('btn-add-number').style.display = '';
+        return;
+      }
+      list.innerHTML = numbers.map(function(n, i) {
+        var primary = i === 0 ? ' <span style="color:var(--green);font-weight:600">(Primary)</span>' : '';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px;background:var(--surface-2);border-radius:6px;border:1px solid var(--border)">' +
+          '<div style="flex:1">' +
+            '<div style="font-weight:600">' + esc(n.label || 'Number ' + (i+1)) + primary + '</div>' +
+            '<div class="mut" style="font-size:.85rem">' + esc(n.from_number) + ' &middot; Channel: ' + esc(n.channel_id) + '</div>' +
+          '</div>' +
+          '<button class="btn sm ghost" style="color:var(--red);flex-shrink:0" onclick="removeNumber(' + i + ')">Remove</button>' +
+        '</div>';
+      }).join('');
+      document.getElementById('btn-add-number').style.display = numbers.length >= 5 ? 'none' : '';
+    } catch(e) {
+      document.getElementById('numbers-list').innerHTML = '<p class="mut">Error loading numbers.</p>';
+    }
+  }
+  function showAddNumberForm() {
+    document.getElementById('add-number-form').style.display = '';
+    document.getElementById('btn-add-number').style.display = 'none';
+    document.getElementById('new-num-label').value = '';
+    document.getElementById('new-num-from').value = '';
+    document.getElementById('new-num-chan').value = '';
+    document.getElementById('new-num-label').focus();
+  }
+  function cancelAddNumber() {
+    document.getElementById('add-number-form').style.display = 'none';
+    document.getElementById('btn-add-number').style.display = '';
+  }
+  async function confirmAddNumber() {
+    var label = document.getElementById('new-num-label').value.trim() || ('Number ' + (cachedNumbers.length + 1));
+    var from = document.getElementById('new-num-from').value.trim();
+    var chan = document.getElementById('new-num-chan').value.trim();
+    if (!from || !chan) { toast('From number and channel ID are required.'); return; }
+    var updated = cachedNumbers.concat([{ from_number: from, channel_id: chan, label: label }]);
+    var r = await api('/api/settings/numbers', { method: 'POST', body: { numbers: updated } });
+    if (r.ok) {
+      toast('Number added.');
+      cancelAddNumber();
+      loadNumbers();
+      loadSettings(); // refresh primary fields
+    } else {
+      toast(r.error || 'Failed to add number.');
+    }
+  }
+  async function removeNumber(index) {
+    if (!confirm('Remove this sending number?')) return;
+    var updated = cachedNumbers.filter(function(_, i) { return i !== index; });
+    var r = await api('/api/settings/numbers', { method: 'POST', body: { numbers: updated } });
+    if (r.ok) {
+      toast('Number removed.');
+      loadNumbers();
+      loadSettings();
+    } else {
+      toast(r.error || 'Failed to remove number.');
+    }
+  }
+
+  loadSettings(); loadTemplates(); loadUsers(); loadCandidates(); loadFeedback(); loadChangelog(); loadWhippyUsers(); loadNumbers();
 });
 </script>
 </body></html>
