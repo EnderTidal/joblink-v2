@@ -11,6 +11,29 @@
   /* Template text wrapping fix */
   #s-templates .card { max-width:680px; }
   #s-templates .mut { word-wrap:break-word; overflow-wrap:break-word; white-space:pre-wrap; }
+
+  /* Two-column picker */
+  .picker-wrap { display:flex; gap:12px; margin-top:14px; }
+  .picker-col { flex:1; min-height:220px; border-radius:10px; overflow:hidden; display:flex; flex-direction:column; }
+  .picker-col.available { background:var(--surface-2,rgba(30,41,59,0.5)); border:1px solid var(--line,rgba(255,255,255,0.08)); }
+  .picker-col.selected { background:var(--surface-2,rgba(30,41,59,0.5)); border:2px solid var(--green,#22c55e); }
+  .picker-header { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid var(--line,rgba(255,255,255,0.08)); }
+  .picker-header h4 { margin:0; font-size:.88rem; color:var(--mut,#94a3b8); font-weight:600; }
+  .picker-col.selected .picker-header h4 { color:var(--green,#22c55e); }
+  .picker-header button { background:none; border:none; color:var(--blue,#60a5fa); font-size:.78rem; cursor:pointer; padding:2px 6px; font-weight:600; }
+  .picker-header button:hover { text-decoration:underline; }
+  .picker-list { flex:1; overflow-y:auto; max-height:350px; }
+  .picker-item { display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; border-bottom:1px solid var(--line,rgba(255,255,255,0.04)); transition:background .12s; font-size:.88rem; }
+  .picker-item:last-child { border-bottom:none; }
+  .picker-item:hover { background:rgba(96,165,250,0.08); }
+  .picker-col.available .picker-item { opacity:0.65; }
+  .picker-col.available .picker-item:hover { opacity:1; }
+  .picker-col.selected .picker-item { opacity:1; }
+  .picker-item .pi-name { color:var(--text,#f1f5f9); font-weight:500; }
+  .picker-item .pi-email { color:var(--mut,#94a3b8); font-size:.78rem; }
+  .picker-item .pi-arrow { margin-left:auto; font-size:.75rem; color:var(--mut,#94a3b8); }
+  .picker-empty { padding:20px 12px; text-align:center; color:var(--mut,#94a3b8); font-size:.82rem; font-style:italic; }
+  @media (max-width:600px) { .picker-wrap { flex-direction:column; } .picker-col { min-height:150px; } }
 </style></head>
 <body>
 <main class="page">
@@ -110,9 +133,13 @@
 
   <section id="s-whippy"><div class="card half">
     <h3 style="margin-bottom:12px">Messaging Users</h3>
-    <p class="mut" style="margin-bottom:10px">Manage synced messaging team members. These are used for blast recruiter assignment.</p>
-    <button class="btn" onclick="syncWhippyUsersTab()" style="margin-bottom:14px">Sync from Provider</button>
-    <div id="whippy-list"></div>
+    <p class="mut" style="margin-bottom:4px;font-weight:600">Select which team members should receive blast recruiter assignments.</p>
+    <p class="mut" style="margin-bottom:10px">Click a name to move them between columns. Only selected members will be active.</p>
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      <button class="btn" onclick="syncAndPickWhippyUsers()">Sync from Provider</button>
+      <button class="btn ghost" id="admin-picker-save" onclick="savePickerSelection()" style="display:none">Save Selection</button>
+    </div>
+    <div id="whippy-picker-container"></div>
   </div></section>
 
   <section id="s-candidates"><div class="card">
@@ -364,38 +391,121 @@ async function addChangelog() {
 }
 
 
+var adminPickerAvailable = [];
+var adminPickerSelected = [];
+
 async function loadWhippyUsers() {
   try {
     var users = await api('/api/whippy-users');
-    if (!users.length) {
-      document.getElementById('whippy-list').innerHTML = '<p class="mut">No messaging users synced yet. Click "Sync from Provider" to fetch them.</p>';
-      return;
-    }
-    document.getElementById('whippy-list').innerHTML = users.map(function(u) {
-      return '<div class="edit-row" style="flex-wrap:nowrap;justify-content:space-between;">' +
-        '<div style="display:flex;gap:8px;align-items:center;overflow:hidden;min-width:0;">' +
-          '<span class="user-label" style="white-space:nowrap;">' + esc(u.name) + '</span>' +
-          '<span class="mut" style="font-size:13px;white-space:nowrap;">' + esc(u.id || '') + '</span>' +
-          '<span class="mut" style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(u.email || '') + '</span>' +
-        '</div>' +
-        '<button class="btn sm ghost" style="color:var(--red);flex-shrink:0;margin-left:auto;" onclick="removeWhippyUser(' + "'" + esc(u.id) + "'" + ')">Remove</button>' +
-      '</div>';
-    }).join('');
-  } catch(e) { document.getElementById('whippy-list').innerHTML = '<p class="mut">Error loading messaging users.</p>'; }
+    adminPickerSelected = users.slice();
+    adminPickerAvailable = [];
+    renderAdminPicker();
+  } catch(e) { document.getElementById('whippy-picker-container').innerHTML = '<p class="mut">Error loading messaging users.</p>'; }
 }
-async function syncWhippyUsersTab() {
+async function syncAndPickWhippyUsers() {
   try {
     var r = await api('/api/settings/sync-whippy-users', { method: 'POST' });
-    if (r.ok) { toast('Synced ' + r.count + ' messaging users'); loadWhippyUsers(); }
-    else { toast('Sync failed: ' + (r.error || 'unknown')); }
+    if (r.ok && r.users) {
+      toast('Synced ' + r.count + ' messaging users from provider');
+      // Current saved users stay selected, new ones go to available
+      var currentIds = adminPickerSelected.map(function(u) { return u.id; });
+      var newUsers = r.users.filter(function(u) { return currentIds.indexOf(u.id) === -1; });
+      adminPickerAvailable = adminPickerAvailable.concat(newUsers);
+      renderAdminPicker();
+    } else {
+      toast('Sync failed: ' + (r.error || 'unknown'));
+    }
   } catch(e) { toast(e.message); }
 }
-async function removeWhippyUser(id) {
-  try {
-    await api('/api/whippy-users/' + id, { method: 'DELETE' });
-    toast('User removed.');
-    loadWhippyUsers();
-  } catch(e) { toast(e.message); }
+async function savePickerSelection() {
+  // Remove users that are in available (not selected)
+  var removed = 0;
+  for (var i = 0; i < adminPickerAvailable.length; i++) {
+    try {
+      await api('/api/whippy-users/' + adminPickerAvailable[i].id, { method: 'DELETE' });
+      removed++;
+    } catch(e) {}
+  }
+  adminPickerAvailable = [];
+  toast('Saved. ' + adminPickerSelected.length + ' active member' + (adminPickerSelected.length !== 1 ? 's' : '') + (removed > 0 ? ', removed ' + removed : '') + '.');
+  renderAdminPicker();
+  loadSettings();
+}
+function renderAdminPicker() {
+  var container = document.getElementById('whippy-picker-container');
+  var saveBtn = document.getElementById('admin-picker-save');
+  if (adminPickerSelected.length === 0 && adminPickerAvailable.length === 0) {
+    container.innerHTML = '<p class="mut">No messaging users synced yet. Click "Sync from Provider" to fetch them.</p>';
+    saveBtn.style.display = 'none';
+    return;
+  }
+  saveBtn.style.display = adminPickerAvailable.length > 0 ? '' : 'none';
+
+  container.innerHTML = '<div class="picker-wrap">' +
+    '<div class="picker-col available">' +
+      '<div class="picker-header">' +
+        '<h4 id="admin-avail-title">Available (' + adminPickerAvailable.length + ')</h4>' +
+        '<button onclick="adminSelectAll()">Select All \u2192</button>' +
+      '</div>' +
+      '<div class="picker-list" id="admin-avail-list"></div>' +
+    '</div>' +
+    '<div class="picker-col selected">' +
+      '<div class="picker-header">' +
+        '<button onclick="adminRemoveAll()" style="color:#ef4444">\u2190 Remove All</button>' +
+        '<h4 id="admin-sel-title">Selected (' + adminPickerSelected.length + ')</h4>' +
+      '</div>' +
+      '<div class="picker-list" id="admin-sel-list"></div>' +
+    '</div>' +
+  '</div>';
+
+  var al = document.getElementById('admin-avail-list');
+  if (adminPickerAvailable.length === 0) {
+    al.innerHTML = '<div class="picker-empty">All users selected</div>';
+  } else {
+    al.innerHTML = '';
+    adminPickerAvailable.forEach(function(u, idx) {
+      var item = document.createElement('div');
+      item.className = 'picker-item';
+      item.innerHTML = '<div><span class="pi-name">' + esc(u.name || 'Unknown') + '</span>' +
+        (u.email ? '<br><span class="pi-email">' + esc(u.email) + '</span>' : '') +
+        '</div><span class="pi-arrow">\u2192</span>';
+      item.addEventListener('click', function() {
+        adminPickerSelected.push(adminPickerAvailable.splice(idx, 1)[0]);
+        renderAdminPicker();
+      });
+      al.appendChild(item);
+    });
+  }
+
+  var sl = document.getElementById('admin-sel-list');
+  if (adminPickerSelected.length === 0) {
+    sl.innerHTML = '<div class="picker-empty">No users selected</div>';
+  } else {
+    sl.innerHTML = '';
+    adminPickerSelected.forEach(function(u, idx) {
+      var item = document.createElement('div');
+      item.className = 'picker-item';
+      item.innerHTML = '<span class="pi-arrow">\u2190</span>' +
+        '<div><span class="pi-name">' + esc(u.name || 'Unknown') + '</span>' +
+        (u.email ? '<br><span class="pi-email">' + esc(u.email) + '</span>' : '') +
+        '</div>';
+      item.addEventListener('click', function() {
+        adminPickerAvailable.push(adminPickerSelected.splice(idx, 1)[0]);
+        renderAdminPicker();
+      });
+      sl.appendChild(item);
+    });
+  }
+}
+function adminSelectAll() {
+  adminPickerSelected = adminPickerSelected.concat(adminPickerAvailable);
+  adminPickerAvailable = [];
+  renderAdminPicker();
+}
+function adminRemoveAll() {
+  adminPickerAvailable = adminPickerAvailable.concat(adminPickerSelected);
+  adminPickerSelected = [];
+  renderAdminPicker();
 }
 
 boot('admin').then((m) => {

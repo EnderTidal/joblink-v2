@@ -35,6 +35,30 @@
   .whippy-prune .wu-email { color:var(--mut,#94a3b8); font-size:.8rem; margin-left:8px; }
   .whippy-prune .wu-remove { background:none; border:1px solid var(--line,rgba(255,255,255,0.1)); color:#ef4444; padding:3px 10px; border-radius:6px; cursor:pointer; font-size:.78rem; transition:border-color .15s; }
   .whippy-prune .wu-remove:hover { border-color:#ef4444; }
+
+  /* Two-column picker */
+  .picker-wrap { display:flex; gap:12px; margin-top:14px; }
+  .picker-col { flex:1; min-height:200px; border-radius:10px; padding:0; overflow:hidden; display:flex; flex-direction:column; }
+  .picker-col.available { background:var(--surface-2,rgba(30,41,59,0.5)); border:1px solid var(--line,rgba(255,255,255,0.08)); }
+  .picker-col.selected { background:var(--surface-2,rgba(30,41,59,0.5)); border:2px solid var(--green,#22c55e); }
+  .picker-header { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid var(--line,rgba(255,255,255,0.08)); }
+  .picker-header h4 { margin:0; font-size:.88rem; color:var(--mut,#94a3b8); font-weight:600; }
+  .picker-col.selected .picker-header h4 { color:var(--green,#22c55e); }
+  .picker-header button { background:none; border:none; color:var(--blue,#60a5fa); font-size:.78rem; cursor:pointer; padding:2px 6px; font-weight:600; }
+  .picker-header button:hover { text-decoration:underline; }
+  .picker-list { flex:1; overflow-y:auto; max-height:300px; }
+  .picker-item { display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; border-bottom:1px solid var(--line,rgba(255,255,255,0.04)); transition:background .12s; font-size:.88rem; }
+  .picker-item:last-child { border-bottom:none; }
+  .picker-item:hover { background:rgba(96,165,250,0.08); }
+  .picker-col.available .picker-item { opacity:0.65; }
+  .picker-col.available .picker-item:hover { opacity:1; }
+  .picker-col.selected .picker-item { opacity:1; }
+  .picker-item .pi-name { color:var(--text,#f1f5f9); font-weight:500; }
+  .picker-item .pi-email { color:var(--mut,#94a3b8); font-size:.78rem; }
+  .picker-item .pi-arrow { margin-left:auto; font-size:.75rem; color:var(--mut,#94a3b8); }
+  .picker-empty { padding:20px 12px; text-align:center; color:var(--mut,#94a3b8); font-size:.82rem; font-style:italic; }
+  .picker-warn { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:8px; padding:10px 14px; margin-top:10px; font-size:.85rem; color:#fca5a5; display:none; }
+  @media (max-width:600px) { .picker-wrap { flex-direction:column; } .picker-col { min-height:150px; } }
   html.light-mode .skipnote { color:#78350f; }
   html:not(.light-mode) .skipnote { color:#fef3c7; }
   .bigdone { text-align:center; padding:22px 0; }
@@ -224,64 +248,166 @@ function showWhippyUserPrune(users) {
   if (existing) existing.remove();
   if (!users || !users.length) return;
 
+  var available = users.slice(); // all start in available
+  var selected = [];
+
   var section = document.createElement('div');
   section.className = 'whippy-prune';
   section.id = 'whippy-prune-section';
-
-  var h4 = document.createElement('h4');
-  h4.textContent = 'Your Whippy Team Members (' + users.length + ')';
-  section.appendChild(h4);
 
   var clarify = document.createElement('p');
   clarify.className = 'hint';
   clarify.style.fontWeight = '600';
   clarify.style.marginBottom = '4px';
-  clarify.textContent = 'These are your TEAM MEMBERS for recruiter assignment, not your candidates/contacts.';
+  clarify.textContent = 'Select the team members who should receive blast assignments.';
   section.appendChild(clarify);
 
   var hint = document.createElement('p');
   hint.className = 'hint';
-  hint.textContent = 'Remove anyone who should not receive blast assignments (old employees, test accounts, etc). Only people who actively work candidate calls should stay on this list.';
+  hint.textContent = 'Click a name to move them between columns. Only selected members will be saved.';
   section.appendChild(hint);
 
-  users.forEach(function(u) {
-    var row = document.createElement('div');
-    row.className = 'wu-row';
-    row.dataset.userId = u.id;
+  // Warning for zero selection
+  var warn = document.createElement('div');
+  warn.className = 'picker-warn';
+  warn.id = 'picker-warn';
+  warn.textContent = "You haven't selected any team members. You'll need at least one for blast recruiter assignment.";
+  section.appendChild(warn);
 
-    var info = document.createElement('span');
-    var nameSpan = document.createElement('span');
-    nameSpan.className = 'wu-name';
-    nameSpan.textContent = u.name || 'Unknown';
-    info.appendChild(nameSpan);
-    if (u.email) {
-      var emailSpan = document.createElement('span');
-      emailSpan.className = 'wu-email';
-      emailSpan.textContent = u.email;
-      info.appendChild(emailSpan);
-    }
-    row.appendChild(info);
+  // Two-column layout
+  var wrap = document.createElement('div');
+  wrap.className = 'picker-wrap';
 
-    var removeBtn = document.createElement('button');
-    removeBtn.className = 'wu-remove';
-    removeBtn.textContent = 'Remove';
-    removeBtn.addEventListener('click', async function() {
-      try {
-        await api('/api/whippy-users/' + u.id, { method: 'DELETE' });
-        row.remove();
-        // Update count
-        var remaining = section.querySelectorAll('.wu-row').length;
-        h4.textContent = 'Whippy Team Members (' + remaining + ')';
-        if (remaining === 0) section.remove();
-      } catch(e) { /* ignore */ }
-    });
-    row.appendChild(removeBtn);
-    section.appendChild(row);
+  // Left column - Available
+  var leftCol = document.createElement('div');
+  leftCol.className = 'picker-col available';
+  var leftHeader = document.createElement('div');
+  leftHeader.className = 'picker-header';
+  var leftTitle = document.createElement('h4');
+  leftTitle.id = 'picker-avail-title';
+  leftTitle.textContent = 'Available (' + available.length + ')';
+  var selectAllBtn = document.createElement('button');
+  selectAllBtn.textContent = 'Select All \u2192';
+  selectAllBtn.addEventListener('click', function() {
+    selected = selected.concat(available);
+    available = [];
+    renderPicker();
   });
+  leftHeader.appendChild(leftTitle);
+  leftHeader.appendChild(selectAllBtn);
+  leftCol.appendChild(leftHeader);
+  var leftList = document.createElement('div');
+  leftList.className = 'picker-list';
+  leftList.id = 'picker-avail-list';
+  leftCol.appendChild(leftList);
+
+  // Right column - Selected
+  var rightCol = document.createElement('div');
+  rightCol.className = 'picker-col selected';
+  var rightHeader = document.createElement('div');
+  rightHeader.className = 'picker-header';
+  var rightTitle = document.createElement('h4');
+  rightTitle.id = 'picker-sel-title';
+  rightTitle.textContent = 'Selected (0)';
+  var removeAllBtn = document.createElement('button');
+  removeAllBtn.textContent = '\u2190 Remove All';
+  removeAllBtn.style.color = '#ef4444';
+  removeAllBtn.addEventListener('click', function() {
+    available = available.concat(selected);
+    selected = [];
+    renderPicker();
+  });
+  rightHeader.appendChild(removeAllBtn);
+  rightHeader.appendChild(rightTitle);
+  rightCol.appendChild(rightHeader);
+  var rightList = document.createElement('div');
+  rightList.className = 'picker-list';
+  rightList.id = 'picker-sel-list';
+  rightCol.appendChild(rightList);
+
+  wrap.appendChild(leftCol);
+  wrap.appendChild(rightCol);
+  section.appendChild(wrap);
+
+  // Save button
+  var saveRow = document.createElement('div');
+  saveRow.style.cssText = 'margin-top:12px;display:flex;justify-content:flex-end;';
+  var saveBtn = document.createElement('button');
+  saveBtn.className = 'btn';
+  saveBtn.id = 'picker-save-btn';
+  saveBtn.textContent = 'Save & Continue';
+  saveBtn.addEventListener('click', async function() {
+    if (selected.length === 0) {
+      document.getElementById('picker-warn').style.display = 'block';
+      return;
+    }
+    // Delete users NOT in selected, keep those in selected
+    var selectedIds = selected.map(function(u) { return u.id; });
+    for (var i = 0; i < available.length; i++) {
+      try { await api('/api/whippy-users/' + available[i].id, { method: 'DELETE' }); } catch(e) {}
+    }
+    document.getElementById('w-msg').innerHTML = '<span class="ok">\u2713 Saved ' + selected.length + ' team member' + (selected.length !== 1 ? 's' : '') + '.</span>';
+    section.remove();
+  });
+  saveRow.appendChild(saveBtn);
+  section.appendChild(saveRow);
+
+  function renderPicker() {
+    // Update titles
+    document.getElementById('picker-avail-title').textContent = 'Available (' + available.length + ')';
+    document.getElementById('picker-sel-title').textContent = 'Selected (' + selected.length + ')';
+
+    // Warning
+    document.getElementById('picker-warn').style.display = 'none';
+
+    // Render available list
+    var al = document.getElementById('picker-avail-list');
+    if (available.length === 0) {
+      al.innerHTML = '<div class="picker-empty">All users selected</div>';
+    } else {
+      al.innerHTML = '';
+      available.forEach(function(u, idx) {
+        var item = document.createElement('div');
+        item.className = 'picker-item';
+        item.innerHTML = '<div><span class="pi-name">' + esc(u.name || 'Unknown') + '</span>' +
+          (u.email ? '<br><span class="pi-email">' + esc(u.email) + '</span>' : '') +
+          '</div><span class="pi-arrow">\u2192</span>';
+        item.addEventListener('click', function() {
+          selected.push(available.splice(idx, 1)[0]);
+          renderPicker();
+        });
+        al.appendChild(item);
+      });
+    }
+
+    // Render selected list
+    var sl = document.getElementById('picker-sel-list');
+    if (selected.length === 0) {
+      sl.innerHTML = '<div class="picker-empty">Click users to select them</div>';
+    } else {
+      sl.innerHTML = '';
+      selected.forEach(function(u, idx) {
+        var item = document.createElement('div');
+        item.className = 'picker-item';
+        item.innerHTML = '<span class="pi-arrow">\u2190</span>' +
+          '<div><span class="pi-name">' + esc(u.name || 'Unknown') + '</span>' +
+          (u.email ? '<br><span class="pi-email">' + esc(u.email) + '</span>' : '') +
+          '</div>';
+        item.addEventListener('click', function() {
+          available.push(selected.splice(idx, 1)[0]);
+          renderPicker();
+        });
+        sl.appendChild(item);
+      });
+    }
+  }
 
   // Insert after the w-msg span
   var msgRow = document.getElementById('w-msg').parentElement;
   msgRow.parentElement.insertBefore(section, msgRow.nextSibling);
+
+  // Initial render
+  renderPicker();
 }
 
 async function saveAndTest() {
