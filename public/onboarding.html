@@ -40,6 +40,14 @@
   .bigdone { text-align:center; padding:22px 0; }
   .bigdone .emoji { font-size:3rem; }
   #confetti-canvas { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:999; }
+
+  /* Patch 1: Prominent paste box styling */
+  .paste-label { display:block; font-size:.82rem; font-weight:600; color:var(--blue,#60a5fa); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; margin-top:4px; }
+  .paste-explainer { background:var(--surface-2,rgba(30,41,59,0.5)); border:1px solid var(--blue,#60a5fa); border-radius:8px; padding:12px 14px; margin:16px 0 6px; font-size:.88rem; color:var(--text,#f1f5f9); }
+  .paste-explainer strong { color:var(--blue,#60a5fa); }
+  label.f.highlight input { border:2px solid var(--blue,#60a5fa); background:var(--surface,rgba(15,23,42,0.6)); font-size:1rem; padding:10px 12px; }
+  label.f.highlight input:focus { border-color:var(--gold,#ffb500); box-shadow:0 0 0 3px rgba(255,181,0,0.15); }
+
 </style></head>
 <body>
 <canvas id="confetti-canvas"></canvas>
@@ -58,6 +66,7 @@
   <div class="step card" data-step="1">
     <h2>Connect Whippy (texting)</h2>
     <p class="mut">Whippy is the platform that actually sends your texts. JobLink needs three things from your Whippy account. Log into <a href="https://app.whippy.co" target="_blank" rel="noopener">Whippy</a> in another tab and follow along.</p>
+    <div class="paste-explainer"><strong>These 3 values connect JobLink to your Whippy account.</strong> Each one is a copy-paste from your Whippy settings. Follow the steps below each field to find and paste each value.</div>
 
     <h3>1 — Get your API Key</h3>
     <ol class="howto">
@@ -70,7 +79,8 @@
     <div class="shot-cap">Settings sidebar — scroll down to find Developers</div>
     <img class="shot" src="/tutorial/tutorial-api-keys.jpg" alt="Whippy API keys page">
     <div class="shot-cap">Developers &rarr; API keys — click the copy icon to grab your key</div>
-    <label class="f">Whippy API Key <input id="w-key" placeholder="paste the key you just copied"></label>
+    <div class="paste-label">Paste here ↓</div>
+    <label class="f highlight">Whippy API Key <input id="w-key" placeholder="paste the key you just copied"></label>
 
     <h3>2 — Get your From Number</h3>
     <ol class="howto">
@@ -79,7 +89,8 @@
     </ol>
     <img class="shot" src="/tutorial/tutorial-channels-list.jpg" alt="Whippy channels list">
     <div class="shot-cap">Settings &rarr; Channels — your From Number is in the Sender column</div>
-    <label class="f">Whippy From Number <input id="w-from" placeholder="e.g. +19729381717"></label>
+    <div class="paste-label">Paste here ↓</div>
+    <label class="f highlight">Whippy From Number <input id="w-from" placeholder="e.g. +19729381717"></label>
 
     <h3>3 — Get your Channel ID</h3>
     <ol class="howto">
@@ -90,7 +101,8 @@
     <div class="shot-cap">Click the three dots next to your channel to open details</div>
     <img class="shot" src="/tutorial/tutorial-channel-detail.jpg" alt="Whippy channel detail">
     <div class="shot-cap">Channel detail page — the Channel ID is the Place ID field</div>
-    <label class="f">Whippy Channel ID <input id="w-chan" placeholder="the Place ID value"></label>
+    <div class="paste-label">Paste here ↓</div>
+    <label class="f highlight">Whippy Channel ID <input id="w-chan" placeholder="the Place ID value"></label>
 
     <div class="row" style="margin-top:6px">
       <button class="btn" onclick="saveAndTest()">Save &amp; test connection</button>
@@ -217,12 +229,19 @@ function showWhippyUserPrune(users) {
   section.id = 'whippy-prune-section';
 
   var h4 = document.createElement('h4');
-  h4.textContent = 'Whippy Team Members (' + users.length + ')';
+  h4.textContent = 'Your Whippy Team Members (' + users.length + ')';
   section.appendChild(h4);
+
+  var clarify = document.createElement('p');
+  clarify.className = 'hint';
+  clarify.style.fontWeight = '600';
+  clarify.style.marginBottom = '4px';
+  clarify.textContent = 'These are your TEAM MEMBERS for recruiter assignment, not your candidates/contacts.';
+  section.appendChild(clarify);
 
   var hint = document.createElement('p');
   hint.className = 'hint';
-  hint.textContent = 'Remove anyone who should not receive blast assignments (old employees, test accounts, etc).';
+  hint.textContent = 'Remove anyone who should not receive blast assignments (old employees, test accounts, etc). Only people who actively work candidate calls should stay on this list.';
   section.appendChild(hint);
 
   users.forEach(function(u) {

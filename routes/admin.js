@@ -17,43 +17,63 @@ const SETTING_KEYS = ['cooldown_hours', 'sms_provider', 'whippy_api_key', 'whipp
 const RESEND_KEY = process.env.RESEND_KEY || '';
 const FEEDBACK_EMAIL = 'support@joblinkplatform.com';
 
-/** Fetch Whippy team members and cache in settings */
+/** Fetch ALL Whippy team members (paginated) and cache in settings */
 async function syncWhippyUsers(db) {
   const apiKey = getSetting(db, 'whippy_api_key');
   if (!apiKey) return { ok: false, error: 'no_api_key' };
-  return new Promise((resolve) => {
-    const opts = {
-      hostname: 'api.whippy.co',
-      port: 443,
-      path: '/v1/users',
-      method: 'GET',
-      headers: { 'X-WHIPPY-KEY': apiKey, 'Content-Type': 'application/json' },
-    };
-    const req = https.request(opts, (res) => {
-      let out = '';
-      res.on('data', (c) => (out += c));
-      res.on('end', () => {
-        try {
-          if (res.statusCode < 200 || res.statusCode >= 300) {
-            return resolve({ ok: false, error: `Whippy ${res.statusCode}: ${out}` });
+
+  // Helper: single page fetch
+  function fetchPage(page) {
+    return new Promise((resolve) => {
+      const opts = {
+        hostname: 'api.whippy.co',
+        port: 443,
+        path: '/v1/users?page=' + page + '&limit=100',
+        method: 'GET',
+        headers: { 'X-WHIPPY-KEY': apiKey, 'Content-Type': 'application/json' },
+      };
+      const req = https.request(opts, (res) => {
+        let out = '';
+        res.on('data', (c) => (out += c));
+        res.on('end', () => {
+          try {
+            if (res.statusCode < 200 || res.statusCode >= 300) {
+              return resolve({ ok: false, error: `Whippy ${res.statusCode}: ${out}` });
+            }
+            const parsed = JSON.parse(out);
+            const users = parsed.data || parsed.users || [];
+            resolve({ ok: true, users: Array.isArray(users) ? users : [] });
+          } catch (e) {
+            resolve({ ok: false, error: e.message });
           }
-          const parsed = JSON.parse(out);
-          const users = (parsed.data || parsed.users || parsed || []);
-          const mapped = (Array.isArray(users) ? users : []).map((u) => ({
-            id: u.id,
-            name: u.name || u.full_name || [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email || 'Unknown',
-            email: u.email || '',
-          }));
-          setSetting(db, 'whippy_users', JSON.stringify(mapped));
-          resolve({ ok: true, count: mapped.length, users: mapped });
-        } catch (e) {
-          resolve({ ok: false, error: e.message });
-        }
+        });
       });
+      req.on('error', (e) => resolve({ ok: false, error: e.message }));
+      req.end();
     });
-    req.on('error', (e) => resolve({ ok: false, error: e.message }));
-    req.end();
-  });
+  }
+
+  // Paginate through all pages
+  const allUsers = [];
+  let page = 1;
+  const MAX_PAGES = 50; // safety cap
+  while (page <= MAX_PAGES) {
+    const result = await fetchPage(page);
+    if (!result.ok) return result;
+    if (!result.users.length) break;
+    allUsers.push(...result.users);
+    // If we got fewer than the limit, we're on the last page
+    if (result.users.length < 100) break;
+    page++;
+  }
+
+  const mapped = allUsers.map((u) => ({
+    id: u.id,
+    name: u.name || u.full_name || [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email || 'Unknown',
+    email: u.email || '',
+  }));
+  setSetting(db, 'whippy_users', JSON.stringify(mapped));
+  return { ok: true, count: mapped.length, users: mapped };
 }
 
 /** Send feedback email via Resend */
