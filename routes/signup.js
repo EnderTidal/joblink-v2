@@ -71,6 +71,7 @@ function createSignupRoutes(sysDb) {
         line_items: [{ price: PRICE_ID, quantity: 1 }],
         subscription_data: {
           trial_period_days: 7,
+          description: 'JobLink Platform',
         },
         success_url: getBaseUrl(req) + '/api/signup/success?session_id={CHECKOUT_SESSION_ID}',
         cancel_url: getBaseUrl(req) + '/signup.html?cancelled=1',
@@ -245,6 +246,16 @@ function createStripeWebhook(sysDb) {
             subscription_status: 'past_due',
           });
           console.log('[stripe-webhook] Org ' + org.id + ' payment failed - marked past_due');
+          // Alert Josh
+          var amt = (invoice.amount_due / 100).toFixed(2);
+          var alertText = 'PAYMENT FAILED' + '\n' + 'Org: ' + (org.name || 'Unknown') + '\n' + 'Amount: ' + String.fromCharCode(36) + amt + '\n' + 'Attempt: ' + (invoice.attempt_count || 1) + '\n' + 'Invoice: ' + invoice.id;
+          var alertEmailBody = JSON.stringify({
+            from: 'JobLink <noreply@joblinkplatform.com>',
+            to: ['joshuafriends@gmail.com'],
+            subject: 'JobLink: Payment Failed - ' + (org.name || 'Unknown Org'),
+            text: alertText
+          });
+          fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.RESEND_KEY }, body: alertEmailBody }).catch(function(e) { console.error('[payment-alert]', e.message); });
           break;
         }
 

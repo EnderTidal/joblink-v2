@@ -170,6 +170,7 @@ function createAuth(sysDb) {
       return res.status(401).json({ error: 'bad_credentials' });
     }
     createSession(res, user);
+    updateUser(sysDb, user.id, { last_login_at: new Date().toISOString() });
     const isDefault = (user.username === 'admin' && bcrypt.compareSync('joblink2026', user.password_hash));
     const tenantDb = getTenantDb(user.org_id);
     res.json({

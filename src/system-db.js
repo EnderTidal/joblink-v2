@@ -64,6 +64,7 @@ function openSystemDb(filePath) {
   try { db.exec("ALTER TABLE orgs ADD COLUMN trial_end TEXT"); } catch { /* exists */ }
   try { db.exec("ALTER TABLE orgs ADD COLUMN reminder_sent INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
   try { db.exec("ALTER TABLE orgs ADD COLUMN is_test INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
+  try { db.exec("ALTER TABLE users ADD COLUMN last_login_at TEXT"); } catch { /* exists */ }
   return db;
 }
 
