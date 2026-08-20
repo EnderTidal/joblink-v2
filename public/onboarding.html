@@ -489,9 +489,9 @@ async function saveObNumbers() {
 
   msg.innerHTML = '<span class="ok">\u2713 ' + numbers.length + ' number' + (numbers.length !== 1 ? 's' : '') + ' saved.</span>';
 
-  // Hide the entire number picker (consistent with user picker behavior)
-  var numPicker = document.getElementById('ob-num-picker-wrap');
-  if (numPicker) numPicker.style.display = 'none';
+  // Hide the entire number picker section (container + save button)
+  var numSection = document.getElementById('ob-number-picker');
+  if (numSection) numSection.style.display = 'none';
 
   // Now sync users
   await syncUsersAfterConnect();
