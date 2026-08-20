@@ -308,9 +308,11 @@ function createTom(db) {
       const formData = loadBlastFormData(null);
 
       s.state = 'blast_form';
+      const _totalPool = db.prepare('SELECT COUNT(*) AS n FROM candidates').get().n;
       return reply(s, '', {
         showBlastForm: true,
         contactCount: parsed.contacts.length,
+        totalCandidates: _totalPool,
         invalidCount: parsed.invalid.length,
         importCounts: counts,
         hasLastContacted: hasLC,
@@ -470,7 +472,11 @@ function createTom(db) {
         if (result.skippedDnc) bits.push(`${result.skippedDnc} skipped (do not contact)`);
         if (result.failed) bits.push(`${result.failed} failed (their cooldowns were NOT burned)`);
         const recruiterNote = recruiterUsername ? `\nRecruiter assigned: ${recruiterUsername}` : '';
-        return reply(s, `\u2705 Blast #${result.blastId} complete: ${bits.join(', ')}.${recruiterNote}${mockNote}\n\nSend another? (yes / no)`);
+        const tips = '\n\n\uD83D\uDCC8 **Want better results?**\n' +
+          '\u2022 Import more contacts \u2014 the bigger your pool, the more interest you\u2019ll get\n' +
+          '\u2022 Try different categories \u2014 Industrial and Skilled Trade respond differently\n' +
+          '\u2022 Blast again in 72 hours \u2014 candidates who missed it the first time may respond';
+        return reply(s, `\u2705 Blast #${result.blastId} complete: ${bits.join(', ')}.${recruiterNote}${mockNote}${tips}\n\nSend another? (yes / no)`);
       }
       if (/\b(yes|send|confirm|go|do it)\b/i.test(String(text || ''))) {
         return reply(s, BLAST_CONFIRM_REJECTION, {

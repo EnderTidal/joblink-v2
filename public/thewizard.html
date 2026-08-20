@@ -293,6 +293,8 @@ function shuffleArray(arr) {
 }
 
 
+function dismissNudge(el) { el.style.transition='opacity .2s'; el.style.opacity='0'; setTimeout(function(){ el.remove(); }, 200); }
+
 function showLoading() {
   var chat = document.getElementById('chat');
   var el = document.createElement('div');
@@ -523,6 +525,20 @@ function showBlastForm(data) {
   }
   stat.innerHTML = statParts.join(' ');
   panel.appendChild(stat);
+
+  // Smart nudge: low candidate pool warning
+  if (data.totalCandidates !== undefined) {
+    var nudge = document.createElement('div');
+    if (data.totalCandidates < 50) {
+      nudge.style.cssText = 'background:rgba(251,146,60,0.12);border:1px solid rgba(251,146,60,0.4);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.88rem;color:#fb923c;display:flex;align-items:flex-start;gap:8px;';
+      nudge.innerHTML = '<span style="font-size:1.1rem;flex-shrink:0;">\u26A0\uFE0F</span><span>You only have <strong>' + data.totalCandidates + '</strong> candidates in your pool. For best results, import at least 200 contacts before blasting. <a href="#" onclick="dismissNudge(this.parentNode.parentNode);return false" style="color:inherit;text-decoration:underline;margin-left:4px;">Dismiss</a></span>';
+      panel.appendChild(nudge);
+    } else if (data.totalCandidates < 100) {
+      nudge.style.cssText = 'background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.35);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.88rem;color:#facc15;display:flex;align-items:flex-start;gap:8px;';
+      nudge.innerHTML = '<span style="font-size:1.1rem;flex-shrink:0;">\uD83D\uDCCA</span><span>Pro tip: You have <strong>' + data.totalCandidates + '</strong> candidates. Blasts to 200+ contacts see 10x more interest. Import more contacts for better results. <a href="#" onclick="dismissNudge(this.parentNode.parentNode);return false" style="color:inherit;text-decoration:underline;margin-left:4px;">Dismiss</a></span>';
+      panel.appendChild(nudge);
+    }
+  }
 
   var form = document.createElement('div');
   form.className = 'bf-form';
