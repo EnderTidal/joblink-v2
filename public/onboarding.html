@@ -72,6 +72,17 @@
   label.f.highlight input { border:2px solid var(--blue,#60a5fa); background:var(--surface,rgba(15,23,42,0.6)); font-size:1rem; padding:10px 12px; }
   label.f.highlight input:focus { border-color:var(--gold,#ffb500); box-shadow:0 0 0 3px rgba(255,181,0,0.15); }
 
+
+  /* Patch 5: Full-page centered step flow */
+  .wrap { max-width:100%; padding:0; }
+  .step { display:none; min-height:100vh; align-items:center; justify-content:center; padding:24px 16px; box-sizing:border-box; }
+  .step.on { display:flex; }
+  .step-inner { max-width:600px; width:100%; margin:0 auto; }
+  .brand-head { text-align:center; margin:0; padding:80px 0 0 0; }
+  html.light-mode .brand-head { background:var(--bg,#ffffff); }
+  .progress { max-width:600px; margin:0 auto 20px; padding:0 16px; box-sizing:border-box; }
+  body { padding-bottom:0; overflow-x:hidden; }
+
 </style></head>
 <body>
 <canvas id="confetti-canvas"></canvas>
@@ -80,7 +91,7 @@
   <div class="progress" id="progress"></div>
 
   <!-- Step 1: Welcome -->
-  <div class="step card" data-step="0">
+  <div class="step card" data-step="0"><div class="step-inner">
     <h2>What JobLink does</h2>
     <p style="margin-bottom:10px">JobLink finds you <strong>self-selected, interested candidates</strong> - zero cold calls. You'll do everything through the <strong>Wizard</strong> — a chat with four buttons: create job orders, send Magic Blasts (a text with each candidate's personal job link), review results, and get help.</p>
     <p>This setup walks you through connecting your <strong>messaging provider</strong> so blasts can actually send texts. You can skip this for now and stay in safe practice mode.</p>
@@ -93,13 +104,13 @@
         <div style="display:flex;align-items:center;gap:8px;"><span style="color:#22c55e;font-weight:700;">&#10003;</span> High-volume roles (industrial, warehouse, skilled trades)</div>
         <div style="display:flex;align-items:center;gap:8px;"><span style="color:#22c55e;font-weight:700;">&#10003;</span> Recurring fills (not one-off placements)</div>
       </div>
-      <p style="margin:10px 0 0;font-size:.82rem;color:var(--mut,#94a3b8);">The bigger your candidate pool, the better your results.</p>
+      <p style="margin:10px 0 0;font-size:.82rem;color:var(--text,#cbd5e1);font-weight:500;">The bigger your candidate pool, the better your results.</p>
     </div>
 
     <div class="navrow"><span></span><button class="btn" onclick="go(1)">Let's go &rarr;</button></div>
-  </div>
+  </div></div>
 <!-- Step 2: Whippy — API Key Only -->
-  <div class="step card" data-step="1">
+  <div class="step card" data-step="1"><div class="step-inner">
     <h2>Connect Your Messaging</h2>
     <p class="mut">JobLink sends texts through Whippy. All you need is your API key — we'll auto-detect everything else.</p>
 
@@ -155,10 +166,10 @@
         <button class="btn" id="w-next" onclick="go(2)" disabled>Next &rarr;</button>
       </span>
     </div>
-  </div>
+  </div></div>
 
   <!-- Step 3: Done -->
-  <div class="step card" data-step="2">
+  <div class="step card" data-step="2"><div class="step-inner">
     <div class="bigdone">
       <div class="emoji">&#x1F389;</div>
       <h2>You're all set!</h2>
@@ -182,7 +193,7 @@
 
       <button class="btn gold" style="font-size:1.05rem" onclick="finish()">Open JobLink &rarr;</button>
     </div>
-  </div>
+  </div></div>
 </div>
 <script src="/app.js?v=5"></script>
 <script>
@@ -323,8 +334,8 @@ var obUserSelected = [];
 
 function showObUserPicker(users) {
   if (!users || !users.length) return;
-  obUserAvailable = [];
-  obUserSelected = users.slice();
+  obUserAvailable = users.slice();
+  obUserSelected = [];
   var section = document.getElementById('ob-user-picker');
   section.style.display = '';
   section.innerHTML =
@@ -428,8 +439,8 @@ async function connectWhippy() {
       msg.innerHTML = '<span class="ok">\u2713 Connected! Found ' + channelResult.total + ' number' + (channelResult.total !== 1 ? 's' : '') + '.</span>';
 
       // Show number picker
-      obNumAvailable = [];
-      obNumSelected = channelResult.channels.slice();
+      obNumAvailable = channelResult.channels.slice();
+      obNumSelected = [];
       document.getElementById('ob-number-picker').style.display = '';
       renderObNumPicker();
 
