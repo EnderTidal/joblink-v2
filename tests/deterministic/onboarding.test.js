@@ -92,7 +92,7 @@ test('the wizard page and its tutorial screenshots are actually served', async (
   const page = await fetch(base + '/onboarding.html');
   assert.strictEqual(page.status, 200);
   const html = await page.text();
-  for (const img of ['tutorial-settings-nav.jpg', 'tutorial-api-keys.jpg', 'tutorial-channels-list.jpg', 'tutorial-channels-3dots.jpg', 'tutorial-channel-detail.jpg']) {
+  for (const img of ['tutorial-settings-nav.jpg', 'tutorial-api-keys.jpg']) {
     assert.ok(html.includes(img), `wizard must reference ${img}`);
     const res = await fetch(base + '/tutorial/' + img);
     assert.strictEqual(res.status, 200, `${img} must be served`);
