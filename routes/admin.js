@@ -18,7 +18,7 @@ const RESEND_KEY = process.env.RESEND_KEY || '';
 const FEEDBACK_EMAIL = 'support@joblinkplatform.com';
 
 /** Fetch ALL Whippy team members (paginated) and cache in settings */
-async function syncWhippyUsers(db) {
+async function syncWhippyUsers(db, preview) {
   const apiKey = getSetting(db, 'whippy_api_key');
   if (!apiKey) return { ok: false, error: 'no_api_key' };
 
@@ -72,7 +72,7 @@ async function syncWhippyUsers(db) {
     name: u.name || u.full_name || [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email || 'Unknown',
     email: u.email || '',
   }));
-  setSetting(db, 'whippy_users', JSON.stringify(mapped));
+  if (!preview) setSetting(db, 'whippy_users', JSON.stringify(mapped));
   return { ok: true, count: mapped.length, users: mapped };
 }
 
@@ -413,7 +413,8 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
 
   // ---- Sync Whippy Users ----
   router.post('/api/settings/sync-whippy-users', auth.requireAdmin, async (req, res) => {
-    const result = await syncWhippyUsers(req.db);
+    const preview = req.body && req.body.preview;
+    const result = await syncWhippyUsers(req.db, preview);
     res.json(result);
   });
 

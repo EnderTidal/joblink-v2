@@ -71,6 +71,17 @@
       </div>
       <div class="card">
         <div id="whippy-users-info"></div>
+        <div id="settings-user-picker" style="display:none;margin-top:14px">
+          <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:14px 16px">
+            <h4 style="margin:0 0 4px;color:var(--blue);font-size:.92rem">Select messaging users</h4>
+            <p class="mut" style="margin:0 0 10px;font-size:.82rem">Click a name to move between columns. Save when done.</p>
+            <div id="settings-picker-wrap"></div>
+            <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px">
+              <button class="btn ghost sm" onclick="cancelSettingsPicker()">Cancel</button>
+              <button class="btn sm" onclick="saveSettingsPicker()">Save Selection</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -223,16 +234,132 @@ async function testSms() {
     toast('\u2717 ' + r.error);
   }
 }
+var settingsPickerAvail = [];
+var settingsPickerSel = [];
+
 async function syncWhippyUsers() {
   try {
-    const r = await api('/api/settings/sync-whippy-users', { method: 'POST' });
-    if (r.ok) {
-      toast('\u2713 Synced ' + r.count + ' messaging users');
-      loadSettings();
-    } else {
+    // Fetch all users from Whippy without saving (preview mode)
+    var r = await api('/api/settings/sync-whippy-users', { method: 'POST', body: { preview: true } });
+    if (!r.ok || !r.users) {
       toast('\u2717 ' + (r.error || 'Sync failed'));
+      return;
     }
+    toast('Fetched ' + r.count + ' messaging users from provider');
+
+    // Load currently saved users
+    var saved = [];
+    try {
+      saved = await api('/api/whippy-users');
+    } catch(e) { saved = []; }
+    var savedIds = saved.map(function(u) { return String(u.id); });
+
+    // Split: saved go to Selected, new ones go to Available
+    settingsPickerSel = [];
+    settingsPickerAvail = [];
+    r.users.forEach(function(u) {
+      if (savedIds.indexOf(String(u.id)) !== -1) {
+        settingsPickerSel.push(u);
+      } else {
+        settingsPickerAvail.push(u);
+      }
+    });
+    // Also keep any saved users that weren't in the Whippy fetch (edge case)
+    var fetchedIds = r.users.map(function(u) { return String(u.id); });
+    saved.forEach(function(u) {
+      if (fetchedIds.indexOf(String(u.id)) === -1) {
+        settingsPickerSel.push(u);
+      }
+    });
+
+    document.getElementById('settings-user-picker').style.display = '';
+    renderSettingsPicker();
   } catch (e) { toast(e.message); }
+}
+
+function renderSettingsPicker() {
+  var wrap = document.getElementById('settings-picker-wrap');
+  wrap.innerHTML =
+    '<div class="picker-wrap">' +
+      '<div class="picker-col available">' +
+        '<div class="picker-header">' +
+          '<h4>Available (' + settingsPickerAvail.length + ')</h4>' +
+          '<button onclick="settingsSelectAll()">Select All \u2192</button>' +
+        '</div>' +
+        '<div class="picker-list" id="settings-avail-list"></div>' +
+      '</div>' +
+      '<div class="picker-col selected">' +
+        '<div class="picker-header">' +
+          '<button onclick="settingsRemoveAll()" style="color:#ef4444">\u2190 Remove All</button>' +
+          '<h4>Selected (' + settingsPickerSel.length + ')</h4>' +
+        '</div>' +
+        '<div class="picker-list" id="settings-sel-list"></div>' +
+      '</div>' +
+    '</div>';
+
+  var al = document.getElementById('settings-avail-list');
+  if (settingsPickerAvail.length === 0) {
+    al.innerHTML = '<div class="picker-empty">All users selected</div>';
+  } else {
+    al.innerHTML = '';
+    settingsPickerAvail.forEach(function(u, idx) {
+      var item = document.createElement('div');
+      item.className = 'picker-item';
+      item.innerHTML = '<div><span class="pi-name">' + esc(u.name || 'Unknown') + '</span>' +
+        (u.email ? '<br><span class="pi-email">' + esc(u.email) + '</span>' : '') +
+        '</div><span class="pi-arrow">\u2192</span>';
+      item.addEventListener('click', function() {
+        settingsPickerSel.push(settingsPickerAvail.splice(idx, 1)[0]);
+        renderSettingsPicker();
+      });
+      al.appendChild(item);
+    });
+  }
+
+  var sl = document.getElementById('settings-sel-list');
+  if (settingsPickerSel.length === 0) {
+    sl.innerHTML = '<div class="picker-empty">No users selected</div>';
+  } else {
+    sl.innerHTML = '';
+    settingsPickerSel.forEach(function(u, idx) {
+      var item = document.createElement('div');
+      item.className = 'picker-item';
+      item.innerHTML = '<span class="pi-arrow">\u2190</span>' +
+        '<div><span class="pi-name">' + esc(u.name || 'Unknown') + '</span>' +
+        (u.email ? '<br><span class="pi-email">' + esc(u.email) + '</span>' : '') +
+        '</div>';
+      item.addEventListener('click', function() {
+        settingsPickerAvail.push(settingsPickerSel.splice(idx, 1)[0]);
+        renderSettingsPicker();
+      });
+      sl.appendChild(item);
+    });
+  }
+}
+
+function settingsSelectAll() {
+  settingsPickerSel = settingsPickerSel.concat(settingsPickerAvail);
+  settingsPickerAvail = [];
+  renderSettingsPicker();
+}
+function settingsRemoveAll() {
+  settingsPickerAvail = settingsPickerAvail.concat(settingsPickerSel);
+  settingsPickerSel = [];
+  renderSettingsPicker();
+}
+function cancelSettingsPicker() {
+  document.getElementById('settings-user-picker').style.display = 'none';
+}
+async function saveSettingsPicker() {
+  try {
+    await api('/api/settings', { method: 'POST', body: {
+      whippy_users: JSON.stringify(settingsPickerSel)
+    }});
+    toast('\u2713 Saved ' + settingsPickerSel.length + ' messaging user' + (settingsPickerSel.length !== 1 ? 's' : ''));
+    document.getElementById('settings-user-picker').style.display = 'none';
+    loadSettings();
+    loadWhippyUsers(); // refresh the Messaging tab too
+  } catch(e) { toast(e.message); }
 }
 async function rerunSetup() {
   await api('/api/onboarding/reset', { method: 'POST' });
