@@ -437,6 +437,14 @@ async function connectWhippy() {
 
     if (channelResult.ok && channelResult.channels && channelResult.channels.length > 0) {
       msg.innerHTML = '<span class="ok">\u2713 Connected! Found ' + channelResult.total + ' number' + (channelResult.total !== 1 ? 's' : '') + '.</span>';
+      // Hide API key section after successful connect
+      var apiSection = document.getElementById('w-key').closest('.step-inner') || document.getElementById('w-key').parentElement;
+      // Hide everything before the number picker: screenshots, paste label, input, button
+      var toHide = document.querySelectorAll('.shot, .shot-cap, .paste-label, #w-key, #ob-connect-btn, .howto, [id="ob-manual-link"]');
+      toHide.forEach(function(el) { el.style.display = 'none'; });
+      // Also hide the label wrapping the input
+      var keyLabel = document.getElementById('w-key');
+      if (keyLabel && keyLabel.parentElement && keyLabel.parentElement.tagName === 'LABEL') keyLabel.parentElement.style.display = 'none';
 
       // Show number picker
       obNumAvailable = channelResult.channels.slice();
