@@ -94,7 +94,7 @@
   <div class="step card" data-step="0"><div class="step-inner">
     <h2>What JobLink does</h2>
     <p style="margin-bottom:10px">JobLink finds you <strong>self-selected, interested candidates</strong> - zero cold calls. You'll do everything through the <strong>Wizard</strong> — a chat with four buttons: create job orders, send Magic Blasts (a text with each candidate's personal job link), review results, and get help.</p>
-    <p>This setup walks you through connecting your <strong>messaging provider</strong> so blasts can actually send texts. You can skip this for now and stay in safe practice mode.</p>
+    <p>This setup walks you through connecting your <strong>messaging provider</strong> so blasts can actually send texts. Connect your messaging provider so blasts can send real texts.</p>
 
     <div style="background:var(--surface-2,rgba(30,41,59,0.5));border:1px solid var(--line,rgba(255,255,255,0.08));border-radius:10px;padding:16px 18px;margin-top:18px;margin-bottom:8px;">
       <h4 style="margin:0 0 10px;font-size:.92rem;color:var(--blue,#60a5fa);font-weight:700;">JobLink works best when you have:</h4>
@@ -132,16 +132,8 @@
         <span id="w-msg"></span>
       </div>
 
-      <!-- Manual fallback (hidden by default) -->
-      <div id="ob-manual-section" style="display:none;margin-top:16px;padding:16px;background:var(--surface-2,rgba(30,41,59,0.5));border:1px solid var(--line);border-radius:8px">
-        <p class="mut" style="margin:0 0 10px;font-weight:600">We couldn't auto-detect your numbers. Please enter them manually:</p>
-        <label class="f highlight">Whippy From Number <input id="w-from" placeholder="e.g. +19729381717"></label>
-        <label class="f highlight">Whippy Channel ID <input id="w-chan" placeholder="the Place ID value"></label>
-        <div class="row" style="margin-top:8px">
-          <button class="btn" onclick="saveManualAndTest()">Save &amp; test connection</button>
-        </div>
-      </div>
-      <div style="margin-top:8px"><a href="#" id="ob-manual-link" onclick="document.getElementById('ob-manual-section').style.display='';this.style.display='none';return false" style="font-size:.82rem;color:var(--mut)">Enter manually instead</a></div>
+      
+      
     </div>
 
     <!-- Number picker (shown after successful connect) -->
@@ -157,12 +149,12 @@
     <!-- User picker (shown after numbers are saved) -->
     <div id="ob-user-picker" style="display:none"></div>
 
-    <div class="skipnote">Not ready? That's fine — <strong>skip this step</strong> and JobLink stays in <strong>practice mode</strong>: everything works, but no real texts can be sent. You can connect Whippy any time in Admin &rarr; Settings.</div>
+    
 
     <div class="navrow">
       <button class="btn ghost" onclick="go(0)">&larr; Back</button>
       <span>
-        <button class="btn ghost" onclick="go(2)">Skip for now</button>
+        
         <button class="btn" id="w-next" onclick="go(2)" disabled>Next &rarr;</button>
       </span>
     </div>
