@@ -553,11 +553,9 @@ async function resyncNumbers() {
         adminResyncAvail.push(ch);
       }
     });
-    // If nothing was pre-selected, select all by default
-    if (adminResyncSel.length === 0) {
-      adminResyncSel = r.channels.slice();
-      adminResyncAvail = [];
-    }
+    // Always start in Available (left) — user opts in
+    adminResyncAvail = r.channels.slice();
+    adminResyncSel = [];
 
     document.getElementById('admin-number-picker').style.display = '';
     renderAdminNumPicker();
@@ -646,10 +644,10 @@ function renderAdminNumPicker() {
 function adminNumSelectAll() { adminResyncSel = adminResyncSel.concat(adminResyncAvail); adminResyncAvail = []; renderAdminNumPicker(); }
 function adminNumRemoveAll() { adminResyncAvail = adminResyncAvail.concat(adminResyncSel); adminResyncSel = []; renderAdminNumPicker(); }
 
+var cachedNumbers = [];
 boot('admin').then((m) => {
   me = m;
   // ---- Multi-Number Management ----
-  var cachedNumbers = [];
   async function loadNumbers() {
     try {
       var numbers = await api('/api/settings/numbers');

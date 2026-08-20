@@ -407,10 +407,10 @@ function obUserSelectAll() { obUserSelected = obUserSelected.concat(obUserAvaila
 function obUserRemoveAll() { obUserAvailable = obUserAvailable.concat(obUserSelected); obUserSelected = []; renderObUserPicker(); }
 
 async function saveObUsers() {
-  // Delete unselected users
-  for (var i = 0; i < obUserAvailable.length; i++) {
-    try { await api('/api/whippy-users/' + obUserAvailable[i].id, { method: 'DELETE' }); } catch(e) {}
-  }
+  // Save selected users as the whippy_users setting (replaces all)
+  try {
+    await api('/api/settings', { method: 'POST', body: { whippy_users: JSON.stringify(obUserSelected) } });
+  } catch(e) { console.error('Failed to save users:', e); }
   document.getElementById('w-msg').innerHTML = '<span class="ok">\u2713 Setup complete! ' + obUserSelected.length + ' team member' + (obUserSelected.length !== 1 ? 's' : '') + ' saved.</span>';
   document.getElementById('ob-user-picker').style.display = 'none';
   document.getElementById('w-next').disabled = false;

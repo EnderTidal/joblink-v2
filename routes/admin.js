@@ -12,7 +12,7 @@ const { getSetting, setSetting, logInterestEvent } = require('../src/db');
 const { normalizePhone, formatPhone, toE164 } = require("../src/phone");
 const { listOrgUsers, updateUser } = require('../src/system-db');
 
-const SETTING_KEYS = ['cooldown_hours', 'sms_provider', 'whippy_api_key', 'whippy_channel_id', 'whippy_from_number', 'whippy_numbers', 'whippy_channels'];
+const SETTING_KEYS = ['cooldown_hours', 'sms_provider', 'whippy_api_key', 'whippy_channel_id', 'whippy_from_number', 'whippy_numbers', 'whippy_channels', 'whippy_users'];
 
 const RESEND_KEY = process.env.RESEND_KEY || '';
 const FEEDBACK_EMAIL = 'support@joblinkplatform.com';
