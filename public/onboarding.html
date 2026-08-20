@@ -86,52 +86,53 @@
     <p>This setup walks you through connecting your <strong>messaging provider</strong> so blasts can actually send texts. You can skip this for now and stay in safe practice mode.</p>
     <div class="navrow"><span></span><button class="btn" onclick="go(1)">Let's go &rarr;</button></div>
   </div>
-<!-- Step 2: Whippy -->
+<!-- Step 2: Whippy — API Key Only -->
   <div class="step card" data-step="1">
-    <h2>Connect Whippy (texting)</h2>
-    <p class="mut">Whippy is the platform that actually sends your texts. JobLink needs three things from your Whippy account. Log into <a href="https://app.whippy.co" target="_blank" rel="noopener">Whippy</a> in another tab and follow along.</p>
-    <div class="paste-explainer"><strong>These 3 values connect JobLink to your Whippy account.</strong> Each one is a copy-paste from your Whippy settings. Follow the steps below each field to find and paste each value.</div>
+    <h2>Connect Your Messaging</h2>
+    <p class="mut">JobLink sends texts through Whippy. All you need is your API key — we'll auto-detect everything else.</p>
 
-    <h3>1 — Get your API Key</h3>
-    <ol class="howto">
-      <li>In Whippy, click <strong>Settings</strong> (gear icon in the left sidebar)</li>
-      <li>Scroll down the settings menu to <strong>Developers</strong> (near the bottom)</li>
-      <li>Open <strong>Developers</strong> — you'll see the <strong>API keys</strong> tab</li>
-      <li>Click <strong>+ Add key</strong>, name it <strong>JobLink</strong>, then click the <strong>copy icon</strong></li>
-    </ol>
-    <img class="shot" src="/tutorial/tutorial-settings-nav.jpg" alt="Whippy settings sidebar">
-    <div class="shot-cap">Settings sidebar — scroll down to find Developers</div>
-    <img class="shot" src="/tutorial/tutorial-api-keys.jpg" alt="Whippy API keys page">
-    <div class="shot-cap">Developers &rarr; API keys — click the copy icon to grab your key</div>
-    <div class="paste-label">Paste here ↓</div>
-    <label class="f highlight">Whippy API Key <input id="w-key" placeholder="paste the key you just copied"></label>
+    <div id="ob-connect-section">
+      <h3>Get your API Key</h3>
+      <ol class="howto">
+        <li>Log into <a href="https://app.whippy.co" target="_blank" rel="noopener">Whippy</a></li>
+        <li>Go to <strong>Settings</strong> (gear icon) &rarr; <strong>Developers</strong></li>
+        <li>Click <strong>+ Add key</strong>, name it <strong>JobLink</strong>, then copy it</li>
+      </ol>
+      <img class="shot" src="/tutorial/tutorial-settings-nav.jpg" alt="Whippy settings sidebar">
+      <div class="shot-cap">Settings sidebar — scroll down to find Developers</div>
+      <img class="shot" src="/tutorial/tutorial-api-keys.jpg" alt="Whippy API keys page">
+      <div class="shot-cap">Developers &rarr; API keys — click the copy icon to grab your key</div>
+      <div class="paste-label">Paste your API Key here ↓</div>
+      <label class="f highlight">Whippy API Key <input id="w-key" placeholder="paste the key you just copied"></label>
+      <div class="row" style="margin-top:8px;gap:10px">
+        <button class="btn" onclick="connectWhippy()" id="ob-connect-btn">Connect &amp; detect numbers</button>
+        <span id="w-msg"></span>
+      </div>
 
-    <h3>2 — Get your From Number</h3>
-    <ol class="howto">
-      <li>Go to <strong>Settings &rarr; Channels</strong></li>
-      <li>Find your SMS channel — the phone number in the <strong>Sender</strong> column is your From Number</li>
-    </ol>
-    <img class="shot" src="/tutorial/tutorial-channels-list.jpg" alt="Whippy channels list">
-    <div class="shot-cap">Settings &rarr; Channels — your From Number is in the Sender column</div>
-    <div class="paste-label">Paste here ↓</div>
-    <label class="f highlight">Whippy From Number <input id="w-from" placeholder="e.g. +19729381717"></label>
-
-    <h3>3 — Get your Channel ID</h3>
-    <ol class="howto">
-      <li>Click the <strong>three dots (&vellip;)</strong> next to your channel &rarr; <strong>Edit Channel</strong></li>
-      <li>Copy the full <strong>Place ID</strong> value from the channel detail page</li>
-    </ol>
-    <img class="shot" src="/tutorial/tutorial-channels-3dots.jpg" alt="Whippy channel three-dots menu">
-    <div class="shot-cap">Click the three dots next to your channel to open details</div>
-    <img class="shot" src="/tutorial/tutorial-channel-detail.jpg" alt="Whippy channel detail">
-    <div class="shot-cap">Channel detail page — the Channel ID is the Place ID field</div>
-    <div class="paste-label">Paste here ↓</div>
-    <label class="f highlight">Whippy Channel ID <input id="w-chan" placeholder="the Place ID value"></label>
-
-    <div class="row" style="margin-top:6px">
-      <button class="btn" onclick="saveAndTest()">Save &amp; test connection</button>
-      <span id="w-msg"></span>
+      <!-- Manual fallback (hidden by default) -->
+      <div id="ob-manual-section" style="display:none;margin-top:16px;padding:16px;background:var(--surface-2,rgba(30,41,59,0.5));border:1px solid var(--line);border-radius:8px">
+        <p class="mut" style="margin:0 0 10px;font-weight:600">We couldn't auto-detect your numbers. Please enter them manually:</p>
+        <label class="f highlight">Whippy From Number <input id="w-from" placeholder="e.g. +19729381717"></label>
+        <label class="f highlight">Whippy Channel ID <input id="w-chan" placeholder="the Place ID value"></label>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" onclick="saveManualAndTest()">Save &amp; test connection</button>
+        </div>
+      </div>
+      <div style="margin-top:8px"><a href="#" id="ob-manual-link" onclick="document.getElementById('ob-manual-section').style.display='';this.style.display='none';return false" style="font-size:.82rem;color:var(--mut)">Enter manually instead</a></div>
     </div>
+
+    <!-- Number picker (shown after successful connect) -->
+    <div id="ob-number-picker" style="display:none;margin-top:16px">
+      <div class="whippy-prune">
+        <h4 style="margin:0 0 4px;color:var(--blue)">Select your sending numbers</h4>
+        <p class="hint" style="margin:0 0 10px">Click a number to move it between columns. Selected numbers will be used for blasts.</p>
+        <div class="picker-warn" id="ob-num-warn">Select at least one number to continue.</div>
+        <div class="picker-wrap" id="ob-num-picker-wrap"></div>
+      </div>
+    </div>
+
+    <!-- User picker (shown after numbers are saved) -->
+    <div id="ob-user-picker" style="display:none"></div>
 
     <div class="skipnote">Not ready? That's fine — <strong>skip this step</strong> and JobLink stays in <strong>practice mode</strong>: everything works, but no real texts can be sent. You can connect Whippy any time in Admin &rarr; Settings.</div>
 
@@ -243,175 +244,256 @@ function go(n) {
 }
 
 
-function showWhippyUserPrune(users) {
-  var existing = document.getElementById('whippy-prune-section');
-  if (existing) existing.remove();
-  if (!users || !users.length) return;
+// ---- Number Picker State ----
+var obNumAvailable = [];
+var obNumSelected = [];
 
-  var available = users.slice(); // all start in available
-  var selected = [];
+function renderObNumPicker() {
+  var wrap = document.getElementById('ob-num-picker-wrap');
+  wrap.innerHTML =
+    '<div class="picker-col available">' +
+      '<div class="picker-header"><h4 id="ob-num-avail-title">Available (' + obNumAvailable.length + ')</h4>' +
+      '<button onclick="obNumSelectAll()">Select All \u2192</button></div>' +
+      '<div class="picker-list" id="ob-num-avail-list"></div>' +
+    '</div>' +
+    '<div class="picker-col selected">' +
+      '<div class="picker-header"><button onclick="obNumRemoveAll()" style="color:#ef4444">\u2190 Remove All</button>' +
+      '<h4 id="ob-num-sel-title">Selected (' + obNumSelected.length + ')</h4></div>' +
+      '<div class="picker-list" id="ob-num-sel-list"></div>' +
+    '</div>';
 
-  var section = document.createElement('div');
-  section.className = 'whippy-prune';
-  section.id = 'whippy-prune-section';
+  document.getElementById('ob-num-warn').style.display = 'none';
 
-  var clarify = document.createElement('p');
-  clarify.className = 'hint';
-  clarify.style.fontWeight = '600';
-  clarify.style.marginBottom = '4px';
-  clarify.textContent = 'Select the team members who should receive blast assignments.';
-  section.appendChild(clarify);
-
-  var hint = document.createElement('p');
-  hint.className = 'hint';
-  hint.textContent = 'Click a name to move them between columns. Only selected members will be saved.';
-  section.appendChild(hint);
-
-  // Warning for zero selection
-  var warn = document.createElement('div');
-  warn.className = 'picker-warn';
-  warn.id = 'picker-warn';
-  warn.textContent = "You haven't selected any team members. You'll need at least one for blast recruiter assignment.";
-  section.appendChild(warn);
-
-  // Two-column layout
-  var wrap = document.createElement('div');
-  wrap.className = 'picker-wrap';
-
-  // Left column - Available
-  var leftCol = document.createElement('div');
-  leftCol.className = 'picker-col available';
-  var leftHeader = document.createElement('div');
-  leftHeader.className = 'picker-header';
-  var leftTitle = document.createElement('h4');
-  leftTitle.id = 'picker-avail-title';
-  leftTitle.textContent = 'Available (' + available.length + ')';
-  var selectAllBtn = document.createElement('button');
-  selectAllBtn.textContent = 'Select All \u2192';
-  selectAllBtn.addEventListener('click', function() {
-    selected = selected.concat(available);
-    available = [];
-    renderPicker();
-  });
-  leftHeader.appendChild(leftTitle);
-  leftHeader.appendChild(selectAllBtn);
-  leftCol.appendChild(leftHeader);
-  var leftList = document.createElement('div');
-  leftList.className = 'picker-list';
-  leftList.id = 'picker-avail-list';
-  leftCol.appendChild(leftList);
-
-  // Right column - Selected
-  var rightCol = document.createElement('div');
-  rightCol.className = 'picker-col selected';
-  var rightHeader = document.createElement('div');
-  rightHeader.className = 'picker-header';
-  var rightTitle = document.createElement('h4');
-  rightTitle.id = 'picker-sel-title';
-  rightTitle.textContent = 'Selected (0)';
-  var removeAllBtn = document.createElement('button');
-  removeAllBtn.textContent = '\u2190 Remove All';
-  removeAllBtn.style.color = '#ef4444';
-  removeAllBtn.addEventListener('click', function() {
-    available = available.concat(selected);
-    selected = [];
-    renderPicker();
-  });
-  rightHeader.appendChild(removeAllBtn);
-  rightHeader.appendChild(rightTitle);
-  rightCol.appendChild(rightHeader);
-  var rightList = document.createElement('div');
-  rightList.className = 'picker-list';
-  rightList.id = 'picker-sel-list';
-  rightCol.appendChild(rightList);
-
-  wrap.appendChild(leftCol);
-  wrap.appendChild(rightCol);
-  section.appendChild(wrap);
-
-  // Save button
-  var saveRow = document.createElement('div');
-  saveRow.style.cssText = 'margin-top:12px;display:flex;justify-content:flex-end;';
-  var saveBtn = document.createElement('button');
-  saveBtn.className = 'btn';
-  saveBtn.id = 'picker-save-btn';
-  saveBtn.textContent = 'Save & Continue';
-  saveBtn.addEventListener('click', async function() {
-    if (selected.length === 0) {
-      document.getElementById('picker-warn').style.display = 'block';
-      return;
-    }
-    // Delete users NOT in selected, keep those in selected
-    var selectedIds = selected.map(function(u) { return u.id; });
-    for (var i = 0; i < available.length; i++) {
-      try { await api('/api/whippy-users/' + available[i].id, { method: 'DELETE' }); } catch(e) {}
-    }
-    document.getElementById('w-msg').innerHTML = '<span class="ok">\u2713 Saved ' + selected.length + ' team member' + (selected.length !== 1 ? 's' : '') + '.</span>';
-    section.remove();
-  });
-  saveRow.appendChild(saveBtn);
-  section.appendChild(saveRow);
-
-  function renderPicker() {
-    // Update titles
-    document.getElementById('picker-avail-title').textContent = 'Available (' + available.length + ')';
-    document.getElementById('picker-sel-title').textContent = 'Selected (' + selected.length + ')';
-
-    // Warning
-    document.getElementById('picker-warn').style.display = 'none';
-
-    // Render available list
-    var al = document.getElementById('picker-avail-list');
-    if (available.length === 0) {
-      al.innerHTML = '<div class="picker-empty">All users selected</div>';
-    } else {
-      al.innerHTML = '';
-      available.forEach(function(u, idx) {
-        var item = document.createElement('div');
-        item.className = 'picker-item';
-        item.innerHTML = '<div><span class="pi-name">' + esc(u.name || 'Unknown') + '</span>' +
-          (u.email ? '<br><span class="pi-email">' + esc(u.email) + '</span>' : '') +
-          '</div><span class="pi-arrow">\u2192</span>';
-        item.addEventListener('click', function() {
-          selected.push(available.splice(idx, 1)[0]);
-          renderPicker();
-        });
-        al.appendChild(item);
+  var al = document.getElementById('ob-num-avail-list');
+  if (obNumAvailable.length === 0) {
+    al.innerHTML = '<div class="picker-empty">All numbers selected</div>';
+  } else {
+    al.innerHTML = '';
+    obNumAvailable.forEach(function(ch, idx) {
+      var item = document.createElement('div');
+      item.className = 'picker-item';
+      item.innerHTML = '<div><span class="pi-name">' + esc(ch.emoji || '') + ' ' + esc(ch.phone) + '</span>' +
+        '<br><span class="pi-email">' + esc(ch.name || 'Unnamed channel') + '</span></div>' +
+        '<span class="pi-arrow">\u2192</span>';
+      item.addEventListener('click', function() {
+        obNumSelected.push(obNumAvailable.splice(idx, 1)[0]);
+        renderObNumPicker();
       });
-    }
-
-    // Render selected list
-    var sl = document.getElementById('picker-sel-list');
-    if (selected.length === 0) {
-      sl.innerHTML = '<div class="picker-empty">Click users to select them</div>';
-    } else {
-      sl.innerHTML = '';
-      selected.forEach(function(u, idx) {
-        var item = document.createElement('div');
-        item.className = 'picker-item';
-        item.innerHTML = '<span class="pi-arrow">\u2190</span>' +
-          '<div><span class="pi-name">' + esc(u.name || 'Unknown') + '</span>' +
-          (u.email ? '<br><span class="pi-email">' + esc(u.email) + '</span>' : '') +
-          '</div>';
-        item.addEventListener('click', function() {
-          available.push(selected.splice(idx, 1)[0]);
-          renderPicker();
-        });
-        sl.appendChild(item);
-      });
-    }
+      al.appendChild(item);
+    });
   }
 
-  // Insert after the w-msg span
-  var msgRow = document.getElementById('w-msg').parentElement;
-  msgRow.parentElement.insertBefore(section, msgRow.nextSibling);
+  var sl = document.getElementById('ob-num-sel-list');
+  if (obNumSelected.length === 0) {
+    sl.innerHTML = '<div class="picker-empty">Click numbers to select them</div>';
+  } else {
+    sl.innerHTML = '';
+    obNumSelected.forEach(function(ch, idx) {
+      var item = document.createElement('div');
+      item.className = 'picker-item';
+      item.innerHTML = '<span class="pi-arrow">\u2190</span>' +
+        '<div><span class="pi-name">' + esc(ch.emoji || '') + ' ' + esc(ch.phone) + '</span>' +
+        '<br><span class="pi-email">' + esc(ch.name || 'Unnamed channel') + '</span></div>';
+      item.addEventListener('click', function() {
+        obNumAvailable.push(obNumSelected.splice(idx, 1)[0]);
+        renderObNumPicker();
+      });
+      sl.appendChild(item);
+    });
+  }
+}
+function obNumSelectAll() { obNumSelected = obNumSelected.concat(obNumAvailable); obNumAvailable = []; renderObNumPicker(); }
+function obNumRemoveAll() { obNumAvailable = obNumAvailable.concat(obNumSelected); obNumSelected = []; renderObNumPicker(); }
 
-  // Initial render
-  renderPicker();
+// ---- User Picker State ----
+var obUserAvailable = [];
+var obUserSelected = [];
+
+function showObUserPicker(users) {
+  if (!users || !users.length) return;
+  obUserAvailable = [];
+  obUserSelected = users.slice();
+  var section = document.getElementById('ob-user-picker');
+  section.style.display = '';
+  section.innerHTML =
+    '<div class="whippy-prune">' +
+      '<h4 style="margin:0 0 4px;color:var(--blue)">Select team members for blast assignments</h4>' +
+      '<p class="hint" style="margin:0 0 10px">Click a name to move them between columns.</p>' +
+      '<div class="picker-wrap" id="ob-user-picker-wrap"></div>' +
+      '<div style="margin-top:12px;display:flex;justify-content:flex-end">' +
+        '<button class="btn" onclick="saveObUsers()">Save &amp; Continue</button>' +
+      '</div>' +
+    '</div>';
+  renderObUserPicker();
 }
 
-async function saveAndTest() {
-  const msg = document.getElementById('w-msg');
+function renderObUserPicker() {
+  var wrap = document.getElementById('ob-user-picker-wrap');
+  wrap.innerHTML =
+    '<div class="picker-col available">' +
+      '<div class="picker-header"><h4>Available (' + obUserAvailable.length + ')</h4>' +
+      '<button onclick="obUserSelectAll()">Select All \u2192</button></div>' +
+      '<div class="picker-list" id="ob-user-avail-list"></div>' +
+    '</div>' +
+    '<div class="picker-col selected">' +
+      '<div class="picker-header"><button onclick="obUserRemoveAll()" style="color:#ef4444">\u2190 Remove All</button>' +
+      '<h4>Selected (' + obUserSelected.length + ')</h4></div>' +
+      '<div class="picker-list" id="ob-user-sel-list"></div>' +
+    '</div>';
+
+  var al = document.getElementById('ob-user-avail-list');
+  if (obUserAvailable.length === 0) {
+    al.innerHTML = '<div class="picker-empty">All users selected</div>';
+  } else {
+    al.innerHTML = '';
+    obUserAvailable.forEach(function(u, idx) {
+      var item = document.createElement('div');
+      item.className = 'picker-item';
+      item.innerHTML = '<div><span class="pi-name">' + esc(u.name || 'Unknown') + '</span>' +
+        (u.email ? '<br><span class="pi-email">' + esc(u.email) + '</span>' : '') +
+        '</div><span class="pi-arrow">\u2192</span>';
+      item.addEventListener('click', function() {
+        obUserSelected.push(obUserAvailable.splice(idx, 1)[0]);
+        renderObUserPicker();
+      });
+      al.appendChild(item);
+    });
+  }
+
+  var sl = document.getElementById('ob-user-sel-list');
+  if (obUserSelected.length === 0) {
+    sl.innerHTML = '<div class="picker-empty">Click users to select them</div>';
+  } else {
+    sl.innerHTML = '';
+    obUserSelected.forEach(function(u, idx) {
+      var item = document.createElement('div');
+      item.className = 'picker-item';
+      item.innerHTML = '<span class="pi-arrow">\u2190</span>' +
+        '<div><span class="pi-name">' + esc(u.name || 'Unknown') + '</span>' +
+        (u.email ? '<br><span class="pi-email">' + esc(u.email) + '</span>' : '') +
+        '</div>';
+      item.addEventListener('click', function() {
+        obUserAvailable.push(obUserSelected.splice(idx, 1)[0]);
+        renderObUserPicker();
+      });
+      sl.appendChild(item);
+    });
+  }
+}
+function obUserSelectAll() { obUserSelected = obUserSelected.concat(obUserAvailable); obUserAvailable = []; renderObUserPicker(); }
+function obUserRemoveAll() { obUserAvailable = obUserAvailable.concat(obUserSelected); obUserSelected = []; renderObUserPicker(); }
+
+async function saveObUsers() {
+  // Delete unselected users
+  for (var i = 0; i < obUserAvailable.length; i++) {
+    try { await api('/api/whippy-users/' + obUserAvailable[i].id, { method: 'DELETE' }); } catch(e) {}
+  }
+  document.getElementById('w-msg').innerHTML = '<span class="ok">\u2713 Setup complete! ' + obUserSelected.length + ' team member' + (obUserSelected.length !== 1 ? 's' : '') + ' saved.</span>';
+  document.getElementById('ob-user-picker').style.display = 'none';
+  document.getElementById('w-next').disabled = false;
+}
+
+// ---- Main Connect Flow ----
+async function connectWhippy() {
+  var msg = document.getElementById('w-msg');
+  var apiKey = document.getElementById('w-key').value.trim();
+  if (!apiKey) { msg.innerHTML = '<span class="bad">\u2717 Paste your API key first</span>'; return; }
+
+  msg.textContent = 'Connecting\u2026';
+  document.getElementById('ob-connect-btn').disabled = true;
+
+  try {
+    // 1. Save the API key + set provider to whippy
+    await api('/api/settings', { method: 'POST', body: {
+      sms_provider: 'whippy',
+      whippy_api_key: apiKey,
+    }});
+
+    // 2. Fetch channels
+    var channelResult = await api('/api/settings/fetch-channels', { method: 'POST', body: { whippy_api_key: apiKey } });
+
+    if (channelResult.ok && channelResult.channels && channelResult.channels.length > 0) {
+      msg.innerHTML = '<span class="ok">\u2713 Connected! Found ' + channelResult.total + ' number' + (channelResult.total !== 1 ? 's' : '') + '.</span>';
+
+      // Show number picker
+      obNumAvailable = [];
+      obNumSelected = channelResult.channels.slice();
+      document.getElementById('ob-number-picker').style.display = '';
+      renderObNumPicker();
+
+      // Add save button for numbers
+      var pickerSection = document.getElementById('ob-number-picker').querySelector('.whippy-prune');
+      var existingSave = pickerSection.querySelector('.ob-num-save-row');
+      if (!existingSave) {
+        var saveRow = document.createElement('div');
+        saveRow.className = 'ob-num-save-row';
+        saveRow.style.cssText = 'margin-top:12px;display:flex;justify-content:flex-end;';
+        saveRow.innerHTML = '<button class="btn" onclick="saveObNumbers()">Save Numbers &amp; Continue</button>';
+        pickerSection.appendChild(saveRow);
+      }
+
+    } else {
+      // Channels not found — fall back to manual
+      msg.innerHTML = '<span class="ok">\u2713 API key works!</span>';
+      document.getElementById('ob-manual-section').style.display = '';
+      document.getElementById('ob-manual-link').style.display = 'none';
+
+      // Still try to sync users
+      await syncUsersAfterConnect();
+    }
+  } catch (e) {
+    msg.innerHTML = '<span class="bad">\u2717 ' + (e.message || 'Connection failed') + '</span>';
+  }
+  document.getElementById('ob-connect-btn').disabled = false;
+}
+
+async function saveObNumbers() {
+  if (obNumSelected.length === 0) {
+    document.getElementById('ob-num-warn').style.display = 'block';
+    return;
+  }
+
+  var msg = document.getElementById('w-msg');
+  msg.textContent = 'Saving numbers\u2026';
+
+  // Build whippy_numbers array for backward compat
+  var numbers = obNumSelected.map(function(ch, i) {
+    return { from_number: ch.phone, channel_id: ch.id, label: ch.name || ('Number ' + (i+1)) };
+  });
+
+  // Save via the numbers endpoint
+  await api('/api/settings/numbers', { method: 'POST', body: { numbers: numbers } });
+
+  msg.innerHTML = '<span class="ok">\u2713 ' + numbers.length + ' number' + (numbers.length !== 1 ? 's' : '') + ' saved.</span>';
+
+  // Hide the number picker save row
+  document.getElementById('ob-number-picker').querySelector('.ob-num-save-row').style.display = 'none';
+
+  // Now sync users
+  await syncUsersAfterConnect();
+}
+
+async function syncUsersAfterConnect() {
+  var msg = document.getElementById('w-msg');
+  try {
+    var syncResult = await api('/api/settings/sync-whippy-users', { method: 'POST' });
+    if (syncResult.ok && syncResult.count > 0) {
+      msg.innerHTML = msg.innerHTML.replace('</span>', ' | Found ' + syncResult.count + ' team member' + (syncResult.count !== 1 ? 's' : '') + '.</span>');
+      showObUserPicker(syncResult.users || []);
+    } else {
+      // No users found — just enable Next
+      document.getElementById('w-next').disabled = false;
+      whippyOk = true;
+    }
+  } catch(e) {
+    // User sync failed — still allow proceeding
+    document.getElementById('w-next').disabled = false;
+    whippyOk = true;
+  }
+}
+
+async function saveManualAndTest() {
+  var msg = document.getElementById('w-msg');
   msg.textContent = 'Testing\u2026';
   try {
     await api('/api/settings', { method: 'POST', body: {
@@ -420,27 +502,14 @@ async function saveAndTest() {
       whippy_from_number: document.getElementById('w-from').value.trim(),
       whippy_channel_id: document.getElementById('w-chan').value.trim(),
     }});
-    const r = await api('/api/settings/test-sms', { method: 'POST' });
+    var r = await api('/api/settings/test-sms', { method: 'POST' });
     if (r.ok && r.provider === 'whippy') {
       whippyOk = true;
-      msg.innerHTML = '<span class="ok">\u2713 Connected! Syncing team members...</span>';
-      // Auto-sync Whippy users after successful connection
-      try {
-        var syncResult = await api('/api/settings/sync-whippy-users', { method: 'POST' });
-        if (syncResult.ok && syncResult.count > 0) {
-          msg.innerHTML = '<span class="ok">\u2713 Connected! Found ' + syncResult.count + ' Whippy team members.</span>';
-          showWhippyUserPrune(syncResult.users || []);
-        } else {
-          msg.innerHTML = '<span class="ok">\u2713 Connected!</span>';
-        }
-      } catch(e) {
-        msg.innerHTML = '<span class="ok">\u2713 Connected!</span>';
-      }
+      msg.innerHTML = '<span class="ok">\u2713 Connected!</span>';
       document.getElementById('w-next').disabled = false;
-    } else if (r.provider !== 'whippy') {
-      msg.innerHTML = '<span class="bad">\u2717 Missing one of the three values above</span>';
+      await syncUsersAfterConnect();
     } else {
-      msg.innerHTML = '<span class="bad">\u2717 ' + (r.error || 'Connection failed \u2014 double-check the API key') + '</span>';
+      msg.innerHTML = '<span class="bad">\u2717 ' + (r.error || 'Connection failed') + '</span>';
     }
   } catch (e) { msg.innerHTML = '<span class="bad">\u2717 ' + e.message + '</span>'; }
 }

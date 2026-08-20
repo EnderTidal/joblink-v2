@@ -77,8 +77,25 @@
     <!-- Multi-Number Management -->
     <div class="card" style="margin-top:20px">
       <h3 style="margin:0 0 16px;font-size:17px;font-weight:800">Sending Numbers</h3>
-      <p class="mut" style="margin-bottom:12px">Configure up to 5 sending numbers. The first number is used as the primary default.</p>
+      <p class="mut" style="margin-bottom:12px">Your sending numbers are auto-detected from Whippy. Click Re-sync to refresh.</p>
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="btn" onclick="resyncNumbers()">Re-sync Numbers from Whippy</button>
+        <button class="btn ghost" id="btn-add-number" onclick="showAddNumberForm()">+ Add Manually</button>
+      </div>
+      <span id="resync-msg" style="font-size:.88rem"></span>
       <div id="numbers-list"></div>
+      <!-- Number picker for re-sync (hidden by default) -->
+      <div id="admin-number-picker" style="display:none;margin-top:14px">
+        <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:14px 16px">
+          <h4 style="margin:0 0 4px;color:var(--blue);font-size:.92rem">Select numbers to use for blasts</h4>
+          <p class="mut" style="margin:0 0 10px;font-size:.82rem">Click a number to move it between columns. Save when done.</p>
+          <div class="picker-wrap" id="admin-num-picker-wrap"></div>
+          <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px">
+            <button class="btn ghost sm" onclick="cancelResync()">Cancel</button>
+            <button class="btn sm" onclick="saveResyncNumbers()">Save Selection</button>
+          </div>
+        </div>
+      </div>
       <div id="add-number-form" style="display:none;margin-top:16px;padding:14px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border)">
         <label class="f">Label <input id="new-num-label" placeholder="e.g. Main Office"></label>
         <label class="f">From Number <input id="new-num-from" placeholder="+1..."></label>
@@ -88,7 +105,6 @@
           <button class="btn sm ghost" onclick="cancelAddNumber()">Cancel</button>
         </div>
       </div>
-      <button class="btn ghost" id="btn-add-number" onclick="showAddNumberForm()" style="margin-top:12px">+ Add Number</button>
     </div>
   </section>
 
@@ -507,6 +523,128 @@ function adminRemoveAll() {
   adminPickerSelected = [];
   renderAdminPicker();
 }
+
+// ---- Admin Number Resync ----
+var adminResyncAvail = [];
+var adminResyncSel = [];
+
+async function resyncNumbers() {
+  var msg = document.getElementById('resync-msg');
+  msg.textContent = 'Fetching numbers from Whippy...';
+  try {
+    var r = await api('/api/settings/fetch-channels', { method: 'POST' });
+    if (!r.ok || !r.channels || r.channels.length === 0) {
+      msg.innerHTML = '<span class="bad">Could not detect numbers. ' + (r.error || 'No channels found.') + '</span>';
+      return;
+    }
+    msg.innerHTML = '<span class="ok">Found ' + r.total + ' number' + (r.total !== 1 ? 's' : '') + ' — select which to use:</span>';
+
+    // Current saved numbers
+    var currentNumbers = cachedNumbers || [];
+    var currentPhones = currentNumbers.map(function(n) { return n.from_number; });
+
+    // Pre-select channels that match current saved numbers
+    adminResyncSel = [];
+    adminResyncAvail = [];
+    r.channels.forEach(function(ch) {
+      if (currentPhones.indexOf(ch.phone) !== -1) {
+        adminResyncSel.push(ch);
+      } else {
+        adminResyncAvail.push(ch);
+      }
+    });
+    // If nothing was pre-selected, select all by default
+    if (adminResyncSel.length === 0) {
+      adminResyncSel = r.channels.slice();
+      adminResyncAvail = [];
+    }
+
+    document.getElementById('admin-number-picker').style.display = '';
+    renderAdminNumPicker();
+  } catch(e) {
+    msg.innerHTML = '<span class="bad">Error: ' + e.message + '</span>';
+  }
+}
+
+function cancelResync() {
+  document.getElementById('admin-number-picker').style.display = 'none';
+  document.getElementById('resync-msg').textContent = '';
+}
+
+async function saveResyncNumbers() {
+  if (adminResyncSel.length === 0) {
+    toast('Select at least one number.');
+    return;
+  }
+  var numbers = adminResyncSel.map(function(ch, i) {
+    return { from_number: ch.phone, channel_id: ch.id, label: ch.name || ('Number ' + (i+1)) };
+  });
+  var r = await api('/api/settings/numbers', { method: 'POST', body: { numbers: numbers } });
+  if (r.ok) {
+    toast('Saved ' + numbers.length + ' number' + (numbers.length !== 1 ? 's' : '') + '.');
+    document.getElementById('admin-number-picker').style.display = 'none';
+    document.getElementById('resync-msg').textContent = '';
+    loadNumbers();
+    loadSettings();
+  } else {
+    toast(r.error || 'Failed to save.');
+  }
+}
+
+function renderAdminNumPicker() {
+  var wrap = document.getElementById('admin-num-picker-wrap');
+  wrap.innerHTML =
+    '<div class="picker-col available">' +
+      '<div class="picker-header"><h4>Available (' + adminResyncAvail.length + ')</h4>' +
+      '<button onclick="adminNumSelectAll()">Select All \u2192</button></div>' +
+      '<div class="picker-list" id="admin-num-avail-list"></div>' +
+    '</div>' +
+    '<div class="picker-col selected">' +
+      '<div class="picker-header"><button onclick="adminNumRemoveAll()" style="color:#ef4444">\u2190 Remove All</button>' +
+      '<h4>Selected (' + adminResyncSel.length + ')</h4></div>' +
+      '<div class="picker-list" id="admin-num-sel-list"></div>' +
+    '</div>';
+
+  var al = document.getElementById('admin-num-avail-list');
+  if (adminResyncAvail.length === 0) {
+    al.innerHTML = '<div class="picker-empty">All numbers selected</div>';
+  } else {
+    al.innerHTML = '';
+    adminResyncAvail.forEach(function(ch, idx) {
+      var item = document.createElement('div');
+      item.className = 'picker-item';
+      item.innerHTML = '<div><span class="pi-name">' + esc(ch.emoji || '') + ' ' + esc(ch.phone) + '</span>' +
+        '<br><span class="pi-email">' + esc(ch.name || 'Unnamed') + '</span></div>' +
+        '<span class="pi-arrow">\u2192</span>';
+      item.addEventListener('click', function() {
+        adminResyncSel.push(adminResyncAvail.splice(idx, 1)[0]);
+        renderAdminNumPicker();
+      });
+      al.appendChild(item);
+    });
+  }
+
+  var sl = document.getElementById('admin-num-sel-list');
+  if (adminResyncSel.length === 0) {
+    sl.innerHTML = '<div class="picker-empty">Click numbers to select them</div>';
+  } else {
+    sl.innerHTML = '';
+    adminResyncSel.forEach(function(ch, idx) {
+      var item = document.createElement('div');
+      item.className = 'picker-item';
+      item.innerHTML = '<span class="pi-arrow">\u2190</span>' +
+        '<div><span class="pi-name">' + esc(ch.emoji || '') + ' ' + esc(ch.phone) + '</span>' +
+        '<br><span class="pi-email">' + esc(ch.name || 'Unnamed') + '</span></div>';
+      item.addEventListener('click', function() {
+        adminResyncAvail.push(adminResyncSel.splice(idx, 1)[0]);
+        renderAdminNumPicker();
+      });
+      sl.appendChild(item);
+    });
+  }
+}
+function adminNumSelectAll() { adminResyncSel = adminResyncSel.concat(adminResyncAvail); adminResyncAvail = []; renderAdminNumPicker(); }
+function adminNumRemoveAll() { adminResyncAvail = adminResyncAvail.concat(adminResyncSel); adminResyncSel = []; renderAdminNumPicker(); }
 
 boot('admin').then((m) => {
   me = m;

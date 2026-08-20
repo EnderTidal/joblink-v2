@@ -12,7 +12,7 @@ const { getSetting, setSetting, logInterestEvent } = require('../src/db');
 const { normalizePhone, formatPhone, toE164 } = require("../src/phone");
 const { listOrgUsers, updateUser } = require('../src/system-db');
 
-const SETTING_KEYS = ['cooldown_hours', 'sms_provider', 'whippy_api_key', 'whippy_channel_id', 'whippy_from_number', 'whippy_numbers'];
+const SETTING_KEYS = ['cooldown_hours', 'sms_provider', 'whippy_api_key', 'whippy_channel_id', 'whippy_from_number', 'whippy_numbers', 'whippy_channels'];
 
 const RESEND_KEY = process.env.RESEND_KEY || '';
 const FEEDBACK_EMAIL = 'support@joblinkplatform.com';
@@ -415,6 +415,57 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
   router.post('/api/settings/sync-whippy-users', auth.requireAdmin, async (req, res) => {
     const result = await syncWhippyUsers(req.db);
     res.json(result);
+  });
+
+  // ---- Fetch Whippy Channels (auto-detect numbers) ----
+  router.post('/api/settings/fetch-channels', auth.requireAdmin, async (req, res) => {
+    // Use API key from request body (during onboarding) or from saved settings
+    const apiKey = req.body?.whippy_api_key || getSetting(req.db, 'whippy_api_key');
+    if (!apiKey) return res.status(400).json({ ok: false, error: 'No API key provided' });
+
+    try {
+      const channels = await new Promise((resolve, reject) => {
+        const opts = {
+          hostname: 'api.whippy.co',
+          port: 443,
+          path: '/v1/channels',
+          method: 'GET',
+          headers: { 'X-WHIPPY-KEY': apiKey, 'Content-Type': 'application/json' },
+        };
+        const req = https.request(opts, (httpRes) => {
+          let out = '';
+          httpRes.on('data', (c) => (out += c));
+          httpRes.on('end', () => {
+            try {
+              if (httpRes.statusCode === 401) return reject(new Error('Invalid API key'));
+              if (httpRes.statusCode < 200 || httpRes.statusCode >= 300) {
+                return reject(new Error('Whippy returned ' + httpRes.statusCode));
+              }
+              const parsed = JSON.parse(out);
+              const data = parsed.data || parsed.channels || [];
+              resolve(Array.isArray(data) ? data : []);
+            } catch (e) { reject(e); }
+          });
+        });
+        req.on('error', reject);
+        req.end();
+      });
+
+      // Map to simplified channel objects
+      const mapped = channels
+        .filter(c => c.type === 'phone' && c.phone) // only phone channels with a number
+        .map(c => ({
+          id: c.id,
+          phone: c.phone,
+          name: c.name || '',
+          emoji: c.emoji || '',
+          description: c.description || '',
+        }));
+
+      res.json({ ok: true, channels: mapped, total: mapped.length });
+    } catch (err) {
+      res.json({ ok: false, error: err.message || 'Failed to fetch channels', channels: [] });
+    }
   });
 
   // ---- Get Whippy Users ----
