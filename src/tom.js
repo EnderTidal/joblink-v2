@@ -412,7 +412,7 @@ function createTom(db) {
           `Sample message: "${sample}"\n\n` +
           `${plan.sendable.length} will be sent${skippedBits.length ? ', ' + skippedBits.join(', ') : ''}.\n` +
           (recruiterUsername ? `Recruiter: ${recruiterUsername}\n` : '') +
-          '\nPress the Send button to send. (Typing "yes" won\'t send it \u2014 the button is the gate.)',
+          '\nPress the Send button to send. You can safely close this tab after \u2014 your blast will continue in the background.',
           {
             confirmButton: { action: 'confirm_send', label: `Send to ${plan.sendable.length} people` },
             plan: { sendable: plan.sendable.map(c => ({ first_name: c.first_name, last_name: c.last_name, phone: c.phone })) },
