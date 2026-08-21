@@ -497,10 +497,11 @@ function createTom(db) {
   // ---------- path: review ----------
   async function startReview(s) {
     s.state = 'report';
+    const orgTz = (db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get() || {}).value || 'America/Chicago';
     const blasts = listBlasts(db, 20);
-    if (!blasts.length) return reply(s, 'No magic blasts yet. Once you send one, its results show up here.', { blasts: [] });
+    if (!blasts.length) return reply(s, 'No magic blasts yet. Once you send one, its results show up here.', { blasts: [], timezone: orgTz });
     const lines = blasts.map((b) => {
-      const d = new Date(b.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+      const d = new Date(b.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: orgTz });
       const bits = [`${b.sent_count} sent`];
       if (b.skipped_cooldown_count) bits.push(`${b.skipped_cooldown_count} skipped (cooldown)`);
       if (b.skipped_dnc_count) bits.push(`${b.skipped_dnc_count} skipped (DNC)`);
@@ -508,7 +509,7 @@ function createTom(db) {
       bits.push(`${b.interested_count} interested`);
       return `#${b.id} \u00B7 ${d} \u00B7 ${b.category}${b.sent_by ? ' \u00B7 by ' + b.sent_by : ''} \u2014 ${bits.join(', ')}`;
     });
-    return reply(s, `Recent Magic Blasts:\n\n${lines.join('\n')}`, { blasts });
+    return reply(s, `Recent Magic Blasts:\n\n${lines.join('\n')}`, { blasts, timezone: orgTz });
   }
 
   // ---------- routing ----------
