@@ -26,14 +26,30 @@ jobs:
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger deploy webhook
+      - name: Deploy via SSH
         env:
-          DEPLOY_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
-          PAYLOAD='{"ref":"refs/heads/master"}'
-          SIG="sha256=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$DEPLOY_SECRET" -hex 2>/dev/null | sed 's/^.* //')"
-          echo "Calling webhook..."
-          HTTP_CODE=$(curl -s -o /tmp/resp.txt -w '%{http_code}' -X POST http://187.124.230.128:3849/webhooks/deploy             -H 'Content-Type: application/json'             -H "X-Hub-Signature-256: $SIG"             -d "$PAYLOAD")
-          echo "HTTP $HTTP_CODE"
-          cat /tmp/resp.txt
-          [ "$HTTP_CODE" = "200" ] || exit 1
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          echo "Deploying to staging..."
+          ssh -i ~/.ssh/deploy_key root@"$HOST" "cd /root/joblink-v2-staging && git fetch origin && git reset --hard origin/master && npm ci --omit=dev && pm2 restart joblink-v2-staging"
+
+          echo "Verifying staging..."
+          STAGING_HEALTH=$(ssh -i ~/.ssh/deploy_key root@"$HOST" "curl -sf http://localhost:3850/health" || echo "FAIL")
+          echo "Staging health: $STAGING_HEALTH"
+          echo "$STAGING_HEALTH" | grep -q '"ok"' || { echo "Staging health check failed"; exit 1; }
+
+          echo "Deploying to production..."
+          ssh -i ~/.ssh/deploy_key root@"$HOST" "cd /root/joblink-v2 && git fetch origin && git reset --hard origin/master && npm ci --omit=dev && pm2 restart joblink-v2"
+
+          echo "Verifying production..."
+          PROD_HEALTH=$(ssh -i ~/.ssh/deploy_key root@"$HOST" "curl -sf http://localhost:3849/health" || echo "FAIL")
+          echo "Production health: $PROD_HEALTH"
+          echo "$PROD_HEALTH" | grep -q '"ok"' || { echo "Production health check failed"; exit 1; }
+
+          echo "Deploy complete!"
