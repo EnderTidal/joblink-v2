@@ -500,7 +500,7 @@ function createTom(db) {
     const blasts = listBlasts(db, 20);
     if (!blasts.length) return reply(s, 'No magic blasts yet. Once you send one, its results show up here.', { blasts: [] });
     const lines = blasts.map((b) => {
-      const d = new Date(b.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const d = new Date(b.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
       const bits = [`${b.sent_count} sent`];
       if (b.skipped_cooldown_count) bits.push(`${b.skipped_cooldown_count} skipped (cooldown)`);
       if (b.skipped_dnc_count) bits.push(`${b.skipped_dnc_count} skipped (DNC)`);

@@ -15,8 +15,8 @@ const { splitName } = require('./names');
 const { newMagicToken } = require('./db');
 
 const HEADER_ALIASES = {
-  first: ['first name', 'firstname', 'first', 'fname'],
-  last: ['last name', 'lastname', 'last', 'lname', 'surname'],
+  first: ['first name', 'firstname', 'first', 'fname', 'formal first name', 'formal first', 'given name'],
+  last: ['last name', 'lastname', 'last', 'lname', 'surname', 'formal last name', 'formal last', 'family name'],
   name: ['name', 'full name', 'fullname', 'contact', 'contact name', 'candidate', 'candidate name'],
   phone: ['phone', 'phone number', 'phone#', 'cell', 'cell phone', 'mobile', 'number', 'text number', 'telephone'],
   lastContacted: ['last contacted', 'last contact', 'lastcontacted', 'last contact date', 'date last contacted'],
