@@ -14,11 +14,11 @@ const EXEMPT_PATHS = [
 function billingMiddleware(sysDb) {
   return (req, res, next) => {
     // Skip for non-API routes
-    if (!req.path.startsWith('/api/')) return next();
+    if (!req.originalUrl.startsWith('/api/')) return next();
 
     // Skip exempt paths
     for (const exempt of EXEMPT_PATHS) {
-      if (req.path.startsWith(exempt)) return next();
+      if (req.originalUrl.startsWith(exempt)) return next();
     }
 
     // Need auth info
