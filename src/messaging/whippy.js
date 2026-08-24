@@ -68,7 +68,7 @@ function create(config) {
 
     async getOpenConversationIds() {
       try {
-        const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=300&status=open', null);
+        const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=1000&status=open', null);
         return (result?.data || []).map(c => c.id);
       } catch(e) { return []; }
     },
@@ -76,7 +76,7 @@ function create(config) {
     async assignAndCloseNewConversations(recruiterId, preBlastIds) {
       try {
         const pre = preBlastIds || new Set();
-        const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=300&status=open', null);
+        const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=1000&status=open', null);
         const allOpen = result?.data || [];
         const newConvos = allOpen.filter(c => !pre.has(c.id));
         let assigned = 0, closed = 0;

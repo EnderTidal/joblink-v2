@@ -19,6 +19,7 @@ const { createAdminRoutes } = require('./routes/admin');
 const { createPublicRoutes } = require('./routes/public');
 const { createSignupRoutes, createStripeWebhook } = require('./routes/signup');
 const { billingMiddleware } = require('./middleware/billing');
+const { createWebhookRoutes } = require('./routes/webhooks');
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
@@ -49,6 +50,9 @@ app.use((req, res, next) => {
 
 // Stripe webhook needs raw body — mount BEFORE json parser
 app.use(createStripeWebhook(sysDb));
+
+// Whippy inbound webhook — no auth, uses its own json parser
+app.use(createWebhookRoutes(sysDb));
 
 app.use(express.json({ limit: '2mb' }));
 
