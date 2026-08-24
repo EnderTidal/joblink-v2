@@ -30,7 +30,7 @@ const { JOB_ORDER_FIELDS, validateJobOrder, createJobOrder } = require('./job-or
 const { parseJobOrderText, extractText } = require('./ai/parse-job-order');
 const { answerHelpQuestion } = require('./ai/help-faq');
 const { getProvider, resolveNumber } = require('./messaging');
-const { getSetting } = require('./db');
+const { getSetting, getCooldownHours } = require('./db');
 
 const PATHS = ['job_order', 'blast', 'review', 'help'];
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000;
@@ -309,9 +309,25 @@ function createTom(db) {
 
       s.state = 'blast_form';
       const _totalPool = db.prepare('SELECT COUNT(*) AS n FROM candidates').get().n;
+      // Pre-guard: count how many of the parsed contacts are in cooldown or DNC
+      const cooldownHrs = getCooldownHours(db);
+      const cooldownCutoff = new Date(Date.now() - cooldownHrs * 3600000).toISOString();
+      const parsedPhones = parsed.contacts.map(c => c.phone);
+      let inCooldown = 0, inDnc = 0;
+      const checkStmt = db.prepare('SELECT last_blast, do_not_contact FROM candidates WHERE phone = ?');
+      for (const p of parsedPhones) {
+        const row = checkStmt.get(p);
+        if (!row) continue;
+        if (row.do_not_contact) { inDnc++; continue; }
+        if (row.last_blast && row.last_blast > cooldownCutoff) { inCooldown++; }
+      }
+      const estimatedSendable = parsed.contacts.length - inCooldown - inDnc;
       return reply(s, '', {
         showBlastForm: true,
         contactCount: parsed.contacts.length,
+        estimatedSendable: estimatedSendable,
+        estimatedCooldown: inCooldown,
+        estimatedDnc: inDnc,
         totalCandidates: _totalPool,
         invalidCount: parsed.invalid.length,
         importCounts: counts,

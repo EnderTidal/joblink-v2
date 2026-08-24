@@ -532,6 +532,26 @@ function showBlastForm(data) {
   stat.innerHTML = statParts.join(' ');
   panel.appendChild(stat);
 
+  // Show estimated sendable count (after cooldown/DNC filtering)
+  if (data.estimatedSendable !== undefined) {
+    var guardStat = document.createElement('div');
+    guardStat.className = 'bf-stat';
+    var excluded = (data.estimatedCooldown || 0) + (data.estimatedDnc || 0);
+    if (excluded > 0) {
+      var parts = [];
+      if (data.estimatedCooldown) parts.push(data.estimatedCooldown + ' in cooldown');
+      if (data.estimatedDnc) parts.push(data.estimatedDnc + ' do-not-contact');
+      guardStat.innerHTML = '→ <strong>' + data.estimatedSendable + ' estimated sendable</strong> (' + parts.join(', ') + ' excluded)';
+      guardStat.style.color = 'var(--text-muted)';
+    } else {
+      guardStat.innerHTML = '→ <strong>All ' + data.contactCount + ' contacts are sendable</strong> (none in cooldown or DNC)';
+      guardStat.style.color = '#22c55e';
+    }
+    panel.appendChild(guardStat);
+    // Update the credit counter to use estimated sendable as default
+    window._blastContactCount = data.estimatedSendable;
+  }
+
   // Smart nudge: low candidate pool warning
   if (data.totalCandidates !== undefined) {
     var nudge = document.createElement('div');
@@ -868,6 +888,8 @@ async function submitBlastForm() {
     toast('Select a sending number before previewing.');
     return;
   }
+  // Disable all action buttons to prevent double-click
+  document.querySelectorAll('.bf-actions button').forEach(function(b) { b.disabled = true; });
   hideBlastForm();
   showLoading();
   var r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, action: 'preview_blast', payload: vals } });
@@ -1037,7 +1059,9 @@ function addMsg(who, text, extra) {
       b.className = 'btn gold';
       b.textContent = '\uD83D\uDE80 ' + extra.confirmButton.label;
       b.onclick = function() {
-        b.disabled = true;
+        // Disable ALL buttons in this choices area to prevent double-send
+        b.parentElement.querySelectorAll('button').forEach(function(btn) { btn.disabled = true; });
+        b.textContent = 'Sending...';
         if (extra.confirmButton.action === 'confirm_send') blastProgressMode = true;
         sendAction(extra.confirmButton.action, {});
       };
