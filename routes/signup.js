@@ -67,10 +67,10 @@ function createSignupRoutes(sysDb) {
       const session = await stripe.checkout.sessions.create({
         customer: customer.id,
         mode: 'subscription',
-        payment_method_types: ['card'],
+        payment_method_collection: 'if_required',
         line_items: [{ price: PRICE_ID, quantity: 1 }],
         subscription_data: {
-          trial_period_days: 7,
+          trial_period_days: 14,
           description: 'JobLink Platform',
         },
         success_url: getBaseUrl(req) + '/api/signup/success?session_id={CHECKOUT_SESSION_ID}',
@@ -162,7 +162,7 @@ function createSignupRoutes(sysDb) {
           '<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">' +
           '<h2 style="color:#6172f7">Welcome to JobLink!</h2>' +
           '<p>Your organization <strong>' + pending.org_name + '</strong> is ready to go.</p>' +
-          '<p>Your 7-day free trial has started. You will be charged $399/mo after the trial ends.</p>' +
+          '<p>Your 14-day free trial has started. You will be charged $399/mo after your 14-day trial ends.</p>' +
           '<p><a href="' + getBaseUrl(req) + '/login.html" style="display:inline-block;background:#6172f7;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Log In</a></p>' +
           '<p style="color:#94a3b8;font-size:14px">Questions? Reply to this email or reach out anytime.</p>' +
           '</div>'
