@@ -80,6 +80,27 @@
         document.getElementById('statusMsg').textContent = 'Unable to load billing information. Please try again or contact support.';
       }
     })();
-  </script>
+  
+    async function subscribe() {
+      try {
+        const btn = document.querySelector('.btn-primary');
+        btn.textContent = 'Redirecting to checkout...';
+        btn.disabled = true;
+        const res = await fetch('/api/billing/create-checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+        } else if (data.redirect) {
+          window.location.href = data.redirect;
+        } else {
+          btn.textContent = 'Subscribe Now — $399/mo';
+          btn.disabled = false;
+          alert('Error: ' + (data.error || 'Unknown error'));
+        }
+      } catch(e) {
+        alert('Error creating checkout: ' + e.message);
+      }
+    }
+    </script>
 </body>
 </html>

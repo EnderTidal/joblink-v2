@@ -170,6 +170,52 @@ app.use(auth.router);
 // Everything below requires a logged-in recruiter/admin
 app.use('/api', auth.requireAuth);
 
+// ---- Billing: create Stripe checkout for expired trials ----
+app.post('/api/billing/create-checkout', async (req, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'not_logged_in' });
+    const { getOrg, updateOrgBilling } = require('./src/system-db');
+    const org = getOrg(sysDb, req.user.org_id);
+    if (!org) return res.status(400).json({ error: 'org_not_found' });
+    if (org.subscription_status === 'active') return res.json({ redirect: '/dashboard.html' });
+
+    const Stripe = require('stripe');
+    const stripe = new Stripe(process.env.STRIPE_SK);
+    const PRICE_ID = process.env.STRIPE_PRICE_ID;
+
+    let customerId = org.stripe_customer_id;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        metadata: { org_id: String(org.id), org_name: org.name },
+      });
+      customerId = customer.id;
+      updateOrgBilling(sysDb, org.id, { stripe_customer_id: customerId });
+    }
+
+    const proto = req.protocol === 'http' && req.get('host').includes('localhost') ? 'http' : 'https';
+    const baseUrl = proto + '://' + req.get('host');
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [{ price: PRICE_ID, quantity: 1 }],
+      subscription_data: { description: 'JobLink Platform' },
+      success_url: baseUrl + '/billing.html?subscribed=1',
+      cancel_url: baseUrl + '/billing.html?cancelled=1',
+      automatic_tax: { enabled: !process.env.STRIPE_SK.includes('_test_') },
+      customer_update: { address: 'auto' },
+      allow_promotion_codes: true,
+    });
+
+    console.log('[billing] Checkout session created for org ' + org.id + ' (' + org.name + ')');
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('[billing-checkout]', err.message);
+    res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+});
+
 // Billing middleware — check subscription status after auth
 app.use('/api', billingMiddleware(sysDb));
 
