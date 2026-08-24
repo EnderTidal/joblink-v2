@@ -56,15 +56,15 @@
 
         if (status === 'canceled') {
           msg.textContent = 'Your subscription has been canceled. To regain access, please contact us to reactivate your account.';
-          actions.innerHTML = '<a class="btn-primary" href="mailto:joshuafriends@gmail.com?subject=Reactivate JobLink - ' + encodeURIComponent(org.name || '') + '">Contact Us to Reactivate</a>';
+          actions.innerHTML = '<button class="btn-primary" onclick="subscribe()">Subscribe Now — $399/mo</button>';
         } else if (status === 'past_due') {
           msg.textContent = 'Your payment is past due. Please update your payment method to avoid losing access.';
-          actions.innerHTML = '<a class="btn-primary" href="mailto:joshuafriends@gmail.com?subject=Payment Update - ' + encodeURIComponent(org.name || '') + '">Contact Us</a>';
+          actions.innerHTML = '<button class="btn-primary" onclick="subscribe()">Update Payment</button>';
         } else if (status === 'trialing') {
           const end = org.trial_end ? new Date(org.trial_end) : null;
           if (end && end < new Date()) {
             msg.textContent = 'Your free trial ended on ' + end.toLocaleDateString() + '. Subscribe to continue using JobLink.';
-            actions.innerHTML = '<a class="btn-primary" href="mailto:joshuafriends@gmail.com?subject=Subscribe - ' + encodeURIComponent(org.name || '') + '">Contact Us to Subscribe</a>';
+            actions.innerHTML = '<button class="btn-primary" onclick="subscribe()">Subscribe Now — $399/mo</button><p style="margin-top:12px;color:var(--muted);font-size:.85rem">14-day trial is over. No data has been lost.</p>';
           } else {
             msg.textContent = 'Your trial is active' + (end ? ' until ' + end.toLocaleDateString() : '') + '.';
             actions.innerHTML = '<a class="btn-primary" href="/dashboard.html">Go to Dashboard</a>';
@@ -74,7 +74,7 @@
           actions.innerHTML = '<a class="btn-primary" href="/dashboard.html">Go to Dashboard</a>';
         } else {
           msg.textContent = 'Unable to determine your subscription status. Please contact support.';
-          actions.innerHTML = '<a class="btn-primary" href="mailto:joshuafriends@gmail.com?subject=Billing Help - JobLink">Contact Support</a>';
+          actions.innerHTML = '<button class="btn-primary" onclick="subscribe()">Subscribe Now — $399/mo</button>';
         }
       } catch(e) {
         document.getElementById('statusMsg').textContent = 'Unable to load billing information. Please try again or contact support.';
