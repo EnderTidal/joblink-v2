@@ -676,7 +676,7 @@ function showBlastForm(data) {
   previewBox.id = 'blastTemplatePreview';
   previewBox.textContent = bodyArea.value
     .replace(/\{first_name\}/g, 'John')
-    .replace(/\{link\}/g, 'https://app.joblinkplatform.com/m/abc123');
+    .replace(/\{link\}/g, 'https://m.whippy.co/xxxxxxxx');
   bodyField.appendChild(previewBox);
 
   // SMS Credit Counter
@@ -800,7 +800,7 @@ function updateTemplatePreview() {
   if (!body || !preview) return;
   var expanded = body.value
     .replace(/\{first_name\}/g, 'John')
-    .replace(/\{link\}/g, 'https://app.joblinkplatform.com/m/abc123');
+    .replace(/\{link\}/g, 'https://m.whippy.co/xxxxxxxx');
   preview.textContent = expanded;
   updateCreditCounter(expanded);
 }
@@ -890,6 +890,9 @@ async function submitBlastForm() {
   }
   // Disable all action buttons to prevent double-click
   document.querySelectorAll('.bf-actions button').forEach(function(b) { b.disabled = true; });
+  window._lastBlastTemplateBody = vals.templateBody;
+  var _counterEl = document.getElementById('smsCreditCounter');
+  window._lastBlastCredits = _counterEl ? _counterEl.textContent : '';
   hideBlastForm();
   showLoading();
   var r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, action: 'preview_blast', payload: vals } });
@@ -1071,24 +1074,33 @@ function addMsg(who, text, extra) {
         safeNote.style.cssText = 'font-size:12px;color:var(--mut);margin:8px 0 0;';
         safeNote.textContent = 'You can safely close this tab after clicking Send — your blast will continue sending in the background.';
         choices.appendChild(safeNote);
-        // Credit summary on confirmation
-        (function() {
-          var previewEl = div.querySelector('.msg-text') || div;
-          var previewText = previewEl ? previewEl.textContent : '';
-          // Estimate expanded length from preview text (server already expanded it)
-          var cCount = previewText.length;
-          if (cCount > 0) {
-            var cCredits = Math.ceil(cCount / 160);
-            var cRecips = (extra.plan && extra.plan.length) ? extra.plan.length : (window._blastContactCount || 0);
-            var cTotal = cCredits * cRecips;
-            var cColor = cCredits === 1 ? 'credit-green' : cCredits === 2 ? 'credit-yellow' : 'credit-red';
-            var creditInfo = document.createElement('div');
-            creditInfo.className = 'sms-credit-counter ' + cColor;
-            creditInfo.style.marginTop = '8px';
-            creditInfo.textContent = cCount + ' chars \u00B7 ' + cCredits + ' credit' + (cCredits !== 1 ? 's' : '') + '/msg \u00B7 ' + cRecips + ' recipients = ' + cTotal + ' total credits';
-            choices.appendChild(creditInfo);
-          }
-        })();
+        // Credit summary — carried from form page
+        if (window._lastBlastCredits) {
+          var creditInfo = document.createElement('div');
+          creditInfo.className = 'sms-credit-counter credit-green';
+          creditInfo.style.marginTop = '8px';
+          creditInfo.textContent = window._lastBlastCredits;
+          choices.appendChild(creditInfo);
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         // Edit button - returns to blast settings form
         var editBtn = document.createElement("button");
         editBtn.className = "btn ghost";
