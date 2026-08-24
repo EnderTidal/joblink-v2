@@ -28,7 +28,7 @@ function createSignupRoutes(sysDb) {
 
   const router = express.Router();
 
-  // ---- POST /api/signup — validate + create Stripe Checkout session ----
+  // ---- POST /api/signup — create org + user directly (no Stripe) ----
   router.post('/api/signup', async (req, res) => {
     try {
       const { org_name, display_name, email, password } = req.body || {};
@@ -50,48 +50,56 @@ function createSignupRoutes(sysDb) {
         return res.status(400).json({ error: 'An account with this email already exists' });
       }
 
-      // Check not already pending — delete old and create fresh
-      const pending = findPendingByEmail(sysDb, email);
-      if (pending) {
-        deletePendingSignup(sysDb, pending.id);
+      // Create org directly
+      const slug = String(org_name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'org-' + Date.now();
+      let org;
+      try {
+        org = createOrg(sysDb, { name: org_name, slug });
+      } catch (e) {
+        org = createOrg(sysDb, { name: org_name, slug: slug + '-' + crypto.randomBytes(3).toString('hex') });
       }
 
-      // Create Stripe customer
-      const customer = await stripe.customers.create({
-        email: String(email),
-        name: String(display_name),
-        metadata: { org_name: String(org_name) },
+      // Set 14-day trial
+      const trialEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+      updateOrgBilling(sysDb, org.id, {
+        subscription_status: 'trialing',
+        trial_end: trialEnd,
       });
 
-      // Create Stripe Checkout session with 7-day trial
-      const session = await stripe.checkout.sessions.create({
-        customer: customer.id,
-        mode: 'subscription',
-        payment_method_collection: 'if_required',
-        line_items: [{ price: PRICE_ID, quantity: 1 }],
-        subscription_data: {
-          trial_period_days: 14,
-          description: 'JobLink Platform',
-        },
-        success_url: getBaseUrl(req) + '/api/signup/success?session_id={CHECKOUT_SESSION_ID}',
-        cancel_url: getBaseUrl(req) + '/signup.html?cancelled=1',
-        automatic_tax: { enabled: !process.env.STRIPE_SK.includes("_test_") },
-        customer_update: { address: 'auto' },
-        allow_promotion_codes: true,
-      });
-
-      // Store pending signup (don't create org until payment confirmed)
+      // Create admin user
       const passwordHash = bcrypt.hashSync(String(password), 10);
-      createPendingSignup(sysDb, {
-        email: String(email),
-        org_name: String(org_name),
-        display_name: String(display_name),
-        password_hash: passwordHash,
-        stripe_customer_id: customer.id,
-        stripe_session_id: session.id,
-      });
+      const username = String(email).split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+      try {
+        sysDb.prepare(
+          'INSERT INTO users (org_id, username, password_hash, role, email, email_verified, display_name) VALUES (?, ?, ?, ?, ?, 1, ?)'
+        ).run(org.id, username, passwordHash, 'admin', String(email), String(display_name));
+      } catch {
+        sysDb.prepare(
+          'INSERT INTO users (org_id, username, password_hash, role, email, email_verified, display_name) VALUES (?, ?, ?, ?, ?, 1, ?)'
+        ).run(org.id, username + crypto.randomBytes(2).toString('hex'), passwordHash, 'admin', String(email), String(display_name));
+      }
 
-      res.json({ url: session.url });
+      // Create tenant DB
+      createTenantDb(org.id);
+
+      // Send welcome email
+      try {
+        const { sendEmail } = require('./auth');
+        await sendEmail(String(email), 'Welcome to JobLink!',
+          '<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">' +
+          '<h2 style="color:#6172f7">Welcome to JobLink!</h2>' +
+          '<p>Your organization <strong>' + String(org_name) + '</strong> is ready to go.</p>' +
+          '<p>Your 14-day free trial has started. No credit card needed.</p>' +
+          '<p><a href="' + getBaseUrl(req) + '/login.html" style="display:inline-block;background:#6172f7;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Log In</a></p>' +
+          '<p style="color:#94a3b8;font-size:14px">Questions? Reply to this email or reach out anytime.</p>' +
+          '</div>'
+        );
+      } catch (e) {
+        console.error('[signup-welcome-email]', e.message);
+      }
+
+      console.log('[signup] New org created: ' + org_name + ' (org ' + org.id + ') - ' + email);
+      res.json({ redirect: '/login.html?signup=success' });
     } catch (err) {
       console.error('[signup]', err.message);
       res.status(500).json({ error: 'Signup failed. Please try again.' });
