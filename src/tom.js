@@ -416,8 +416,17 @@ function createTom(db) {
 
         let recruiterUsername = null;
         if (recruiterId) {
-          const rec = db.prepare('SELECT username FROM users WHERE id = ?').get(recruiterId);
-          if (rec) recruiterUsername = rec.username;
+          // Look up in Whippy users (the dropdown uses Whippy IDs, not local user IDs)
+          try {
+            const wu = JSON.parse(getSetting(db, 'whippy_users') || '[]');
+            const match = wu.find(u => u.id === recruiterId);
+            if (match) recruiterUsername = match.name || match.email;
+          } catch { /* ignore */ }
+          // Fallback to local users
+          if (!recruiterUsername) {
+            const rec = db.prepare('SELECT username FROM users WHERE id = ?').get(recruiterId);
+            if (rec) recruiterUsername = rec.username;
+          }
         }
         s.data.recruiterUsername = recruiterUsername;
 
@@ -468,6 +477,7 @@ function createTom(db) {
 
         const recruiterId = s.data.recruiterId || null;
         const recruiterUsername = s.data.recruiterUsername || null;
+        console.log('[blast] Sending blast: category=' + s.data.category + ' sendable=' + s.data.plan.sendable.length + ' recruiterId=' + recruiterId + ' recruiterName=' + recruiterUsername);
 
         const result = await executeBlast(db, s.data.plan, {
           templateId: s.data.template.id,
