@@ -9,6 +9,10 @@ async function api(path, opts = {}) {
     location.href = '/login.html';
     throw new Error('not logged in');
   }
+  if (res.status === 402 && !location.pathname.endsWith('billing.html')) {
+    location.href = '/billing.html';
+    throw new Error('subscription required');
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || res.statusText);
   return data;

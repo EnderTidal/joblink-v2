@@ -191,10 +191,14 @@ function createAuth(sysDb) {
     const s = getSession(req);
     if (!s) return res.status(401).json({ error: 'not_logged_in' });
     const tenantDb = getTenantDb(s.org_id);
+    const org = getOrg(sysDb, s.org_id);
     res.json({
       username: s.username, role: s.role, email: s.email,
       display_name: s.display_name || '', org_id: s.org_id,
       onboarded: getSetting(tenantDb, 'onboarded') === '1',
+      org_name: org ? org.name : '',
+      subscription_status: org ? org.subscription_status : 'unknown',
+      trial_end: org ? org.trial_end : null,
     });
   });
 
