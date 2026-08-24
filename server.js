@@ -190,14 +190,7 @@ app.get('/dev-dashboard.html', auth.requireAuth, (req, res) => {
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
-// Landing page for bare domain, app redirect for subdomains
-app.get('/', (req, res) => {
-  const host = (req.hostname || '').toLowerCase();
-  if (host === 'joblinkplatform.com' || host === 'www.joblinkplatform.com') {
-    return res.sendFile(path.join(__dirname, 'public', 'landing.html'));
-  }
-  res.redirect('/tom.html');
-});
+app.get('/', (_req, res) => res.redirect('/tom.html'));
 
 app.use((err, _req, res, _next) => {
   console.error('[joblink]', err.stack || err.message);
