@@ -81,10 +81,14 @@ function create(config) {
         const newConvos = allOpen.filter(c => !pre.has(c.id));
         let assigned = 0, closed = 0;
         for (const c of newConvos) {
-          if (recruiterId) {
-            try { await whippyRequest(config, 'PATCH', '/v1/conversations/' + c.id, { assigned_user_id: recruiterId }); assigned++; } catch(e) {}
-          }
-          try { await whippyRequest(config, 'PATCH', '/v1/conversations/' + c.id, { status: 'closed' }); closed++; } catch(e) {}
+          try {
+            // Combine assign + close in a single PATCH to prevent close from wiping assignment
+            const patchBody = { status: 'closed' };
+            if (recruiterId) patchBody.assigned_user_id = recruiterId;
+            await whippyRequest(config, 'PATCH', '/v1/conversations/' + c.id, patchBody);
+            closed++;
+            if (recruiterId) assigned++;
+          } catch(e) { console.error('[whippy] assign+close failed:', c.id, e.message); }
         }
         return { assigned, closed, total: allOpen.length, newOnly: newConvos.length };
       } catch(e) { return { assigned: 0, closed: 0 }; }
@@ -104,12 +108,13 @@ function create(config) {
         const convos = result?.data || [];
         let assigned = 0, closed = 0;
         for (const c of convos) {
-          if (recruiterId) {
-            await whippyRequest(config, 'PATCH', '/v1/conversations/' + c.id, { assigned_user_id: recruiterId });
-            assigned++;
-          }
-          await whippyRequest(config, 'PATCH', '/v1/conversations/' + c.id, { status: 'closed' });
-          closed++;
+          try {
+            const patchBody = { status: 'closed' };
+            if (recruiterId) patchBody.assigned_user_id = recruiterId;
+            await whippyRequest(config, 'PATCH', '/v1/conversations/' + c.id, patchBody);
+            closed++;
+            if (recruiterId) assigned++;
+          } catch(e) { console.error('[whippy] assign+close failed:', c.id, e.message); }
         }
         return { assigned, closed };
       } catch(e) {
