@@ -893,7 +893,7 @@ boot('admin').then((m) => {
   var adminChanAvail = [];
   var adminChanSel = [];
 
-  async function refetchChannels() {
+  window.refetchChannels = async function() {
     var msg = document.getElementById('channels-msg');
     msg.textContent = 'Fetching channels...';
     try {
@@ -928,12 +928,12 @@ boot('admin').then((m) => {
     }
   }
 
-  function cancelChannelPicker() {
+  window.cancelChannelPicker = function() {
     document.getElementById('admin-channel-picker').style.display = 'none';
     document.getElementById('channels-msg').textContent = '';
   }
 
-  async function saveChannelSelection() {
+  window.saveChannelSelection = async function() {
     if (adminChanSel.length === 0) {
       toast('Select at least one channel.');
       return;
@@ -1010,8 +1010,8 @@ boot('admin').then((m) => {
       });
     }
   }
-  function adminChanSelectAll() { adminChanSel = adminChanSel.concat(adminChanAvail); adminChanAvail = []; renderAdminChanPicker(); }
-  function adminChanRemoveAll() { adminChanAvail = adminChanAvail.concat(adminChanSel); adminChanSel = []; renderAdminChanPicker(); }
+  window.adminChanSelectAll = function() { adminChanSel = adminChanSel.concat(adminChanAvail); adminChanAvail = []; renderAdminChanPicker(); }
+  window.adminChanRemoveAll = function() { adminChanAvail = adminChanAvail.concat(adminChanSel); adminChanSel = []; renderAdminChanPicker(); }
 
 });
 </script>
