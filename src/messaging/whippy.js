@@ -68,8 +68,8 @@ function create(config) {
 
     async getOpenConversationIds() {
       try {
-        const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=1000&status=open', null);
-        return (result?.data || []).map(c => c.id);
+        const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=1000', null);
+        return (result?.data || []).filter(c => c.status === 'open').map(c => c.id);
       } catch(e) { return []; }
     },
 
@@ -77,7 +77,7 @@ function create(config) {
       try {
         const pre = preBlastIds || new Set();
         const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=1000&status=open', null);
-        const allOpen = result?.data || [];
+        const allOpen = (result?.data || []).filter(c => c.status === 'open');
         const newConvos = allOpen.filter(c => !pre.has(c.id));
         console.log("[whippy] assignAndClose: total open:", allOpen.length, "preBlast:", pre.size, "new:", newConvos.length, "recruiterId:", recruiterId);
         let assigned = 0, closed = 0;
@@ -107,8 +107,8 @@ function create(config) {
 
     async assignAndCloseConversations(recruiterId) {
       try {
-        const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=100&status=open', null);
-        const convos = result?.data || [];
+        const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=1000', null);
+        const convos = (result?.data || []).filter(c => c.status === 'open');
         let assigned = 0, closed = 0;
         for (const c of convos) {
           try {
@@ -127,7 +127,7 @@ function create(config) {
     async closeOpenConversations() {
       try {
         const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=100', null);
-        const convos = result.data || [];
+        const convos = (result.data || []).filter(c => c.status === 'open');
         let closed = 0;
         for (const c of convos) {
           try {
