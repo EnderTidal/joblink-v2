@@ -17,19 +17,18 @@ const SETTING_KEYS = ['cooldown_hours', 'sms_provider', 'whippy_api_key', 'whipp
 const RESEND_KEY = process.env.RESEND_KEY || '';
 const FEEDBACK_EMAIL = 'support@joblinkplatform.com';
 
-/** Fetch Whippy team members scoped to the org's channel and cache in settings */
+/** Fetch Whippy team members from ALL selected channels (or fallback) and cache in settings */
 async function syncWhippyUsers(db, preview) {
   const apiKey = getSetting(db, 'whippy_api_key');
   if (!apiKey) return { ok: false, error: 'no_api_key' };
-  const channelId = getSetting(db, 'whippy_channel_id');
 
   // Helper: single page fetch
-  function fetchPage(path) {
+  function fetchPage(urlPath) {
     return new Promise((resolve) => {
       const opts = {
         hostname: 'api.whippy.co',
         port: 443,
-        path,
+        path: urlPath,
         method: 'GET',
         headers: { 'X-WHIPPY-KEY': apiKey, 'Content-Type': 'application/json' },
       };
@@ -39,7 +38,7 @@ async function syncWhippyUsers(db, preview) {
         res.on('end', () => {
           try {
             if (res.statusCode < 200 || res.statusCode >= 300) {
-              return resolve({ ok: false, error: `Whippy ${res.statusCode}: ${out}` });
+              return resolve({ ok: false, error: 'Whippy ' + res.statusCode + ': ' + out });
             }
             const parsed = JSON.parse(out);
             const users = parsed.data || parsed.users || [];
@@ -54,17 +53,45 @@ async function syncWhippyUsers(db, preview) {
     });
   }
 
-  // Use channel-scoped endpoint if channel is a valid Whippy UUID, otherwise fall back to /v1/users
+  // Priority 1: Read whippy_channels (JSON array of {id, phone, name})
+  let channelIds = [];
+  const channelsRaw = getSetting(db, 'whippy_channels');
+  if (channelsRaw) {
+    try {
+      const channels = JSON.parse(channelsRaw);
+      if (Array.isArray(channels)) channelIds = channels.map(c => c.id).filter(Boolean);
+    } catch { /* ignore parse errors */ }
+  }
+
+  // Priority 2: Fall back to single whippy_channel_id
+  if (!channelIds.length) {
+    const channelId = getSetting(db, 'whippy_channel_id');
+    const isValidUuid = channelId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelId);
+    if (isValidUuid) channelIds = [channelId];
+  }
+
   const allUsers = [];
-  const isValidUuid = channelId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelId);
-  if (isValidUuid) {
-    // Channel-scoped: single page, typically < 50 users
-    const result = await fetchPage('/v1/channels/' + channelId + '/users?limit=200');
-    if (!result.ok) return result;
-    allUsers.push(...result.users);
-    console.log('[sync] Channel-scoped user sync: ' + allUsers.length + ' users for channel ' + channelId);
+  const seenIds = new Set();
+
+  if (channelIds.length > 0) {
+    // Fetch users from ALL selected channels, deduplicate by user ID
+    for (const chId of channelIds) {
+      const result = await fetchPage('/v1/channels/' + chId + '/users?limit=200');
+      if (!result.ok) {
+        console.log('[sync] Warning: failed to fetch users for channel ' + chId + ': ' + result.error);
+        continue;
+      }
+      for (const u of result.users) {
+        const uid = String(u.id);
+        if (!seenIds.has(uid)) {
+          seenIds.add(uid);
+          allUsers.push(u);
+        }
+      }
+    }
+    console.log('[sync] Multi-channel user sync: ' + allUsers.length + ' unique users from ' + channelIds.length + ' channel(s)');
   } else {
-    // Fallback: paginate /v1/users (capped at 3 pages = 300 users max)
+    // Priority 3: Fallback — paginate /v1/users (capped at 3 pages = 300 users max)
     let page = 1;
     const MAX_PAGES = 3;
     while (page <= MAX_PAGES) {
@@ -414,6 +441,9 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
       if (!n.label) n.label = 'Number ' + (i + 1);
     }
     setSetting(req.db, 'whippy_numbers', JSON.stringify(numbers));
+    // Also save as whippy_channels (JSON array with id, phone, name) for multi-channel user sync
+    const channels = numbers.map(n => ({ id: n.channel_id, phone: n.from_number, name: n.label || '' }));
+    setSetting(req.db, 'whippy_channels', JSON.stringify(channels));
     // Keep backward compat: update primary single-number fields with first entry
     if (numbers.length > 0) {
       setSetting(req.db, 'whippy_from_number', numbers[0].from_number);

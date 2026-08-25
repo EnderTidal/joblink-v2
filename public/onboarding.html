@@ -484,8 +484,14 @@ async function saveObNumbers() {
     return { from_number: ch.phone, channel_id: ch.id, label: ch.name || ('Number ' + (i+1)) };
   });
 
-  // Save via the numbers endpoint
+  // Save via the numbers endpoint (also saves whippy_channels on backend)
   await api('/api/settings/numbers', { method: 'POST', body: { numbers: numbers } });
+
+  // Also explicitly save whippy_channels for multi-channel user sync
+  var channels = obNumSelected.map(function(ch) {
+    return { id: ch.id, phone: ch.phone, name: ch.name || '' };
+  });
+  await api('/api/settings', { method: 'POST', body: { whippy_channels: JSON.stringify(channels) } });
 
   msg.innerHTML = '<span class="ok">\u2713 ' + numbers.length + ' number' + (numbers.length !== 1 ? 's' : '') + ' saved.</span>';
 
