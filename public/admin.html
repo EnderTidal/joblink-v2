@@ -85,56 +85,25 @@
       </div>
     </div>
 
-    <!-- Selected Channels (from whippy_channels) -->
+    <!-- Phone Lines (unified channels + numbers) -->
     <div class="card" style="margin-top:20px">
-      <h3 style="margin:0 0 16px;font-size:17px;font-weight:800">Selected Channels</h3>
-      <p class="mut" style="margin-bottom:12px">These are the Whippy channels selected for user sync and blasts. Re-fetch from Whippy to update.</p>
-      <div id="channels-list" style="margin-bottom:12px"></div>
-      <button class="btn ghost" onclick="refetchChannels()">Re-fetch Channels from Whippy</button>
-      <span id="channels-msg" style="font-size:.88rem;margin-left:10px"></span>
-      <!-- Channel re-selection picker (hidden by default) -->
-      <div id="admin-channel-picker" style="display:none;margin-top:14px">
+      <h3 style="margin:0 0 16px;font-size:17px;font-weight:800">Phone Lines</h3>
+      <p class="mut" style="margin-bottom:12px">Your active phone lines for blasts and user sync. Re-fetch from Whippy to update.</p>
+      <div id="phone-lines-list" style="margin-bottom:12px"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn ghost" onclick="refetchPhoneLines()">Re-fetch from Whippy</button>
+        <span id="phone-lines-msg" style="font-size:.88rem;line-height:2.2"></span>
+      </div>
+      <!-- Phone Lines picker (hidden by default) -->
+      <div id="phone-lines-picker" style="display:none;margin-top:14px">
         <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:14px 16px">
-          <h4 style="margin:0 0 4px;color:var(--blue);font-size:.92rem">Select channels to use</h4>
-          <p class="mut" style="margin:0 0 10px;font-size:.82rem">Click a channel to move it between columns. Save when done.</p>
-          <div class="picker-wrap" id="admin-chan-picker-wrap"></div>
+          <h4 style="margin:0 0 4px;color:var(--blue);font-size:.92rem">Select phone lines to use</h4>
+          <p class="mut" style="margin:0 0 10px;font-size:.82rem">Click a line to move it between columns. Save when done.</p>
+          <div class="picker-wrap" id="phone-lines-picker-wrap"></div>
           <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px">
-            <button class="btn ghost sm" onclick="cancelChannelPicker()">Cancel</button>
-            <button class="btn sm" onclick="saveChannelSelection()">Save Selection</button>
+            <button class="btn ghost sm" onclick="cancelPhoneLinesPicker()">Cancel</button>
+            <button class="btn sm" onclick="savePhoneLines()">Save Selection</button>
           </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Multi-Number Management -->
-    <div class="card" style="margin-top:20px">
-      <h3 style="margin:0 0 16px;font-size:17px;font-weight:800">Sending Numbers</h3>
-      <p class="mut" style="margin-bottom:12px">Your sending numbers are auto-detected from Whippy. Click Re-sync to refresh.</p>
-      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-        <button class="btn" onclick="resyncNumbers()">Re-sync Numbers from Whippy</button>
-        <button class="btn ghost" id="btn-add-number" onclick="showAddNumberForm()">+ Add Manually</button>
-      </div>
-      <span id="resync-msg" style="font-size:.88rem"></span>
-      <div id="numbers-list"></div>
-      <!-- Number picker for re-sync (hidden by default) -->
-      <div id="admin-number-picker" style="display:none;margin-top:14px">
-        <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:14px 16px">
-          <h4 style="margin:0 0 4px;color:var(--blue);font-size:.92rem">Select numbers to use for blasts</h4>
-          <p class="mut" style="margin:0 0 10px;font-size:.82rem">Click a number to move it between columns. Save when done.</p>
-          <div class="picker-wrap" id="admin-num-picker-wrap"></div>
-          <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px">
-            <button class="btn ghost sm" onclick="cancelResync()">Cancel</button>
-            <button class="btn sm" onclick="saveResyncNumbers()">Save Selection</button>
-          </div>
-        </div>
-      </div>
-      <div id="add-number-form" style="display:none;margin-top:16px;padding:14px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border)">
-        <label class="f">Label <input id="new-num-label" placeholder="e.g. Main Office"></label>
-        <label class="f">From Number <input id="new-num-from" placeholder="+1..."></label>
-        <label class="f">Channel ID <input id="new-num-chan" placeholder="Whippy Place ID"></label>
-        <div class="row" style="gap:8px;margin-top:10px">
-          <button class="btn sm" onclick="confirmAddNumber()">Add</button>
-          <button class="btn sm ghost" onclick="cancelAddNumber()">Cancel</button>
         </div>
       </div>
     </div>
@@ -672,347 +641,176 @@ function adminRemoveAll() {
   renderAdminPicker();
 }
 
-// ---- Admin Number Resync ----
-var adminResyncAvail = [];
-var adminResyncSel = [];
+function adminNumRemoveAll() { adminResyncAvail = adminResyncAvail.concat(adminResyncSel); adminResyncSel = []; renderAdminNumPicker(); }
 
-async function resyncNumbers() {
-  var msg = document.getElementById('resync-msg');
-  msg.textContent = 'Fetching numbers from Whippy...';
+var cachedNumbers = [];
+var phoneLinesAvail = [];
+var phoneLinesSel = [];
+
+window.refetchPhoneLines = async function() {
+  var msg = document.getElementById('phone-lines-msg');
+  msg.textContent = 'Fetching from Whippy...';
   try {
     var r = await api('/api/settings/fetch-channels', { method: 'POST' });
     if (!r.ok || !r.channels || r.channels.length === 0) {
-      msg.innerHTML = '<span class="bad">Could not detect numbers. ' + (r.error || 'No channels found.') + '</span>';
+      msg.innerHTML = '<span class="bad">' + (r.error || 'No channels found.') + '</span>';
       return;
     }
-    msg.innerHTML = '<span class="ok">Found ' + r.total + ' number' + (r.total !== 1 ? 's' : '') + ' — select which to use:</span>';
+    msg.innerHTML = '<span class="ok">Found ' + r.total + ' line' + (r.total !== 1 ? 's' : '') + '</span>';
 
-    // Current saved numbers
-    var currentNumbers = cachedNumbers || [];
-    var currentPhones = currentNumbers.map(function(n) { return n.from_number; });
+    // Load currently selected channels
+    var s = await api('/api/settings');
+    var currentChannels = [];
+    if (s.whippy_channels) { try { currentChannels = JSON.parse(s.whippy_channels); } catch {} }
+    var currentIds = currentChannels.map(function(c) { return String(c.id); });
 
-    // Pre-select channels that match current saved numbers
-    adminResyncSel = [];
-    adminResyncAvail = [];
+    // Pre-select lines that are already saved
+    phoneLinesSel = [];
+    phoneLinesAvail = [];
     r.channels.forEach(function(ch) {
-      if (currentPhones.indexOf(ch.phone) !== -1) {
-        adminResyncSel.push(ch);
+      if (currentIds.indexOf(String(ch.id)) !== -1) {
+        phoneLinesSel.push(ch);
       } else {
-        adminResyncAvail.push(ch);
+        phoneLinesAvail.push(ch);
       }
     });
-    // Always start in Available (left) — user opts in
-    adminResyncAvail = r.channels.slice();
-    adminResyncSel = [];
 
-    document.getElementById('admin-number-picker').style.display = '';
-    renderAdminNumPicker();
+    document.getElementById('phone-lines-picker').style.display = '';
+    renderPhoneLinesPicker();
   } catch(e) {
     msg.innerHTML = '<span class="bad">Error: ' + e.message + '</span>';
   }
-}
+};
 
-function cancelResync() {
-  document.getElementById('admin-number-picker').style.display = 'none';
-  document.getElementById('resync-msg').textContent = '';
-}
+window.cancelPhoneLinesPicker = function() {
+  document.getElementById('phone-lines-picker').style.display = 'none';
+  document.getElementById('phone-lines-msg').textContent = '';
+};
 
-async function saveResyncNumbers() {
-  if (adminResyncSel.length === 0) {
-    toast('Select at least one number.');
+window.savePhoneLines = async function() {
+  if (phoneLinesSel.length === 0) {
+    toast('Select at least one phone line.');
     return;
   }
-  var numbers = adminResyncSel.map(function(ch, i) {
+  // Save whippy_channels
+  var channels = phoneLinesSel.map(function(ch) {
+    return { id: ch.id, phone: ch.phone, name: ch.name || '' };
+  });
+  await api('/api/settings', { method: 'POST', body: { whippy_channels: JSON.stringify(channels) } });
+
+  // Also save as whippy_numbers for backward compat with blast form
+  var numbers = phoneLinesSel.map(function(ch, i) {
     return { from_number: ch.phone, channel_id: ch.id, label: ch.name || ('Number ' + (i+1)) };
   });
-  var r = await api('/api/settings/numbers', { method: 'POST', body: { numbers: numbers } });
-  if (r.ok) {
-    toast('Saved ' + numbers.length + ' number' + (numbers.length !== 1 ? 's' : '') + '.');
-    document.getElementById('admin-number-picker').style.display = 'none';
-    document.getElementById('resync-msg').textContent = '';
-    loadNumbers();
-    loadSettings();
-  } else {
-    toast(r.error || 'Failed to save.');
-  }
-}
+  await api('/api/settings/numbers', { method: 'POST', body: { numbers: numbers } });
 
-function renderAdminNumPicker() {
-  var wrap = document.getElementById('admin-num-picker-wrap');
+  // Set primary channel_id and from_number from first selected line
+  var first = phoneLinesSel[0];
+  await api('/api/settings', { method: 'POST', body: {
+    whippy_channel_id: first.id,
+    whippy_from_number: first.phone
+  }});
+
+  toast('Saved ' + channels.length + ' phone line' + (channels.length !== 1 ? 's' : '') + '.');
+  document.getElementById('phone-lines-picker').style.display = 'none';
+  document.getElementById('phone-lines-msg').textContent = '';
+  loadPhoneLines();
+  loadSettings();
+};
+
+window.phoneLinesSelectAll = function() {
+  phoneLinesSel = phoneLinesSel.concat(phoneLinesAvail);
+  phoneLinesAvail = [];
+  renderPhoneLinesPicker();
+};
+window.phoneLinesRemoveAll = function() {
+  phoneLinesAvail = phoneLinesAvail.concat(phoneLinesSel);
+  phoneLinesSel = [];
+  renderPhoneLinesPicker();
+};
+
+function renderPhoneLinesPicker() {
+  var wrap = document.getElementById('phone-lines-picker-wrap');
   wrap.innerHTML =
     '<div class="picker-col available">' +
-      '<div class="picker-header"><h4>Available (' + adminResyncAvail.length + ')</h4>' +
-      '<button onclick="adminNumSelectAll()">Select All \u2192</button></div>' +
-      '<div class="picker-list" id="admin-num-avail-list"></div>' +
+      '<div class="picker-header"><h4>Available (' + phoneLinesAvail.length + ')</h4>' +
+      '<button onclick="phoneLinesSelectAll()">Select All \u2192</button></div>' +
+      '<div class="picker-list" id="pl-avail-list"></div>' +
     '</div>' +
     '<div class="picker-col selected">' +
-      '<div class="picker-header"><button onclick="adminNumRemoveAll()" style="color:#ef4444">\u2190 Remove All</button>' +
-      '<h4>Selected (' + adminResyncSel.length + ')</h4></div>' +
-      '<div class="picker-list" id="admin-num-sel-list"></div>' +
+      '<div class="picker-header"><button onclick="phoneLinesRemoveAll()" style="color:#ef4444">\u2190 Remove All</button>' +
+      '<h4>Selected (' + phoneLinesSel.length + ')</h4></div>' +
+      '<div class="picker-list" id="pl-sel-list"></div>' +
     '</div>';
 
-  var al = document.getElementById('admin-num-avail-list');
-  if (adminResyncAvail.length === 0) {
-    al.innerHTML = '<div class="picker-empty">All numbers selected</div>';
+  var al = document.getElementById('pl-avail-list');
+  if (phoneLinesAvail.length === 0) {
+    al.innerHTML = '<div class="picker-empty">All lines selected</div>';
   } else {
     al.innerHTML = '';
-    adminResyncAvail.forEach(function(ch, idx) {
+    phoneLinesAvail.forEach(function(ch, idx) {
       var item = document.createElement('div');
       item.className = 'picker-item';
-      item.innerHTML = '<div><span class="pi-name">' + esc(ch.emoji || '') + ' ' + esc(ch.phone) + '</span>' +
-        '<br><span class="pi-email">' + esc(ch.name || 'Unnamed') + '</span></div>' +
+      var label = (ch.name ? esc(ch.name) + ' ' : '') + '(' + esc(ch.phone || ch.id) + ')';
+      item.innerHTML = '<div><span class="pi-name">' + label + '</span></div>' +
         '<span class="pi-arrow">\u2192</span>';
       item.addEventListener('click', function() {
-        adminResyncSel.push(adminResyncAvail.splice(idx, 1)[0]);
-        renderAdminNumPicker();
+        phoneLinesSel.push(phoneLinesAvail.splice(idx, 1)[0]);
+        renderPhoneLinesPicker();
       });
       al.appendChild(item);
     });
   }
 
-  var sl = document.getElementById('admin-num-sel-list');
-  if (adminResyncSel.length === 0) {
-    sl.innerHTML = '<div class="picker-empty">Click numbers to select them</div>';
+  var sl = document.getElementById('pl-sel-list');
+  if (phoneLinesSel.length === 0) {
+    sl.innerHTML = '<div class="picker-empty">Click lines to select them</div>';
   } else {
     sl.innerHTML = '';
-    adminResyncSel.forEach(function(ch, idx) {
+    phoneLinesSel.forEach(function(ch, idx) {
       var item = document.createElement('div');
       item.className = 'picker-item';
+      var label = (ch.name ? esc(ch.name) + ' ' : '') + '(' + esc(ch.phone || ch.id) + ')';
       item.innerHTML = '<span class="pi-arrow">\u2190</span>' +
-        '<div><span class="pi-name">' + esc(ch.emoji || '') + ' ' + esc(ch.phone) + '</span>' +
-        '<br><span class="pi-email">' + esc(ch.name || 'Unnamed') + '</span></div>';
+        '<div><span class="pi-name">' + label + '</span></div>';
       item.addEventListener('click', function() {
-        adminResyncAvail.push(adminResyncSel.splice(idx, 1)[0]);
-        renderAdminNumPicker();
+        phoneLinesAvail.push(phoneLinesSel.splice(idx, 1)[0]);
+        renderPhoneLinesPicker();
       });
       sl.appendChild(item);
     });
   }
 }
-function adminNumSelectAll() { adminResyncSel = adminResyncSel.concat(adminResyncAvail); adminResyncAvail = []; renderAdminNumPicker(); }
-function adminNumRemoveAll() { adminResyncAvail = adminResyncAvail.concat(adminResyncSel); adminResyncSel = []; renderAdminNumPicker(); }
 
-var cachedNumbers = [];
-boot('admin').then((m) => {
-  me = m;
-  // ---- Multi-Number Management ----
-  async function loadNumbers() {
-    try {
-      var numbers = await api('/api/settings/numbers');
-      cachedNumbers = numbers || [];
-      var list = document.getElementById('numbers-list');
-      if (!numbers.length) {
-        list.innerHTML = '<p class="mut">No sending numbers configured. Add one below or enter credentials in the settings above.</p>';
-        document.getElementById('btn-add-number').style.display = '';
-        return;
-      }
-      list.innerHTML = numbers.map(function(n, i) {
-        var primary = i === 0 ? ' <span style="color:var(--green);font-weight:600">(Primary)</span>' : '';
-        return '<div style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px;background:var(--surface-2);border-radius:6px;border:1px solid var(--border)">' +
-          '<div style="flex:1">' +
-            '<div style="font-weight:600">' + esc(n.label || 'Number ' + (i+1)) + primary + '</div>' +
-            '<div class="mut" style="font-size:.85rem">' + esc(n.from_number) + ' &middot; Channel: ' + esc(n.channel_id) + '</div>' +
-          '</div>' +
-          '<button class="btn sm ghost" style="color:var(--red);flex-shrink:0" onclick="removeNumber(' + i + ')">Remove</button>' +
-        '</div>';
-      }).join('');
-      document.getElementById('btn-add-number').style.display = numbers.length >= 5 ? 'none' : '';
-    } catch(e) {
-      document.getElementById('numbers-list').innerHTML = '<p class="mut">Error loading numbers.</p>';
-    }
-  }
-  function showAddNumberForm() {
-    document.getElementById('add-number-form').style.display = '';
-    document.getElementById('btn-add-number').style.display = 'none';
-    document.getElementById('new-num-label').value = '';
-    document.getElementById('new-num-from').value = '';
-    document.getElementById('new-num-chan').value = '';
-    document.getElementById('new-num-label').focus();
-  }
-  function cancelAddNumber() {
-    document.getElementById('add-number-form').style.display = 'none';
-    document.getElementById('btn-add-number').style.display = '';
-  }
-  async function confirmAddNumber() {
-    var label = document.getElementById('new-num-label').value.trim() || ('Number ' + (cachedNumbers.length + 1));
-    var from = document.getElementById('new-num-from').value.trim();
-    var chan = document.getElementById('new-num-chan').value.trim();
-    if (!from || !chan) { toast('From number and channel ID are required.'); return; }
-    var updated = cachedNumbers.concat([{ from_number: from, channel_id: chan, label: label }]);
-    var r = await api('/api/settings/numbers', { method: 'POST', body: { numbers: updated } });
-    if (r.ok) {
-      toast('Number added.');
-      cancelAddNumber();
-      loadNumbers();
-      loadSettings(); // refresh primary fields
-    } else {
-      toast(r.error || 'Failed to add number.');
-    }
-  }
-  async function removeNumber(index) {
-    if (!confirm('Remove this sending number?')) return;
-    var updated = cachedNumbers.filter(function(_, i) { return i !== index; });
-    var r = await api('/api/settings/numbers', { method: 'POST', body: { numbers: updated } });
-    if (r.ok) {
-      toast('Number removed.');
-      loadNumbers();
-      loadSettings();
-    } else {
-      toast(r.error || 'Failed to remove number.');
-    }
-  }
-
-  loadSettings(); loadTemplates(); loadUsers(); loadCandidates(); loadFeedback(); loadChangelog(); loadWhippyUsers(); loadNumbers(); loadChannels();
-
-  // ---- Channel Management ----
-  async function loadChannels() {
-    try {
-      var s = await api('/api/settings');
-      var raw = s.whippy_channels;
-      var channels = [];
-      if (raw) { try { channels = JSON.parse(raw); } catch {} }
-      var list = document.getElementById('channels-list');
-      if (!channels.length) {
-        list.innerHTML = '<p class="mut">No channels selected yet. Click "Re-fetch" to detect channels from Whippy.</p>';
-        return;
-      }
-      list.innerHTML = channels.map(function(ch, i) {
-        var primary = i === 0 ? ' <span style="color:var(--green);font-weight:600">(Primary)</span>' : '';
-        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:4px;background:var(--surface-2);border-radius:6px;border:1px solid var(--border)">' +
-          '<div style="flex:1">' +
-            '<span style="font-weight:600">' + esc(ch.name || 'Unnamed') + primary + '</span>' +
-            '<span class="mut" style="margin-left:8px;font-size:.85rem">' + esc(ch.phone || ch.id || '') + '</span>' +
-          '</div>' +
-        '</div>';
-      }).join('');
-    } catch(e) {
-      document.getElementById('channels-list').innerHTML = '<p class="mut">Error loading channels.</p>';
-    }
-  }
-
-  var adminChanAvail = [];
-  var adminChanSel = [];
-
-  window.refetchChannels = async function() {
-    var msg = document.getElementById('channels-msg');
-    msg.textContent = 'Fetching channels...';
-    try {
-      var r = await api('/api/settings/fetch-channels', { method: 'POST' });
-      if (!r.ok || !r.channels || r.channels.length === 0) {
-        msg.innerHTML = '<span class="bad">' + (r.error || 'No channels found.') + '</span>';
-        return;
-      }
-      msg.innerHTML = '<span class="ok">Found ' + r.total + ' channel' + (r.total !== 1 ? 's' : '') + '</span>';
-
-      // Load currently selected channels
-      var s = await api('/api/settings');
-      var currentChannels = [];
-      if (s.whippy_channels) { try { currentChannels = JSON.parse(s.whippy_channels); } catch {} }
-      var currentIds = currentChannels.map(function(c) { return String(c.id); });
-
-      // Pre-select channels that are already saved
-      adminChanSel = [];
-      adminChanAvail = [];
-      r.channels.forEach(function(ch) {
-        if (currentIds.indexOf(String(ch.id)) !== -1) {
-          adminChanSel.push(ch);
-        } else {
-          adminChanAvail.push(ch);
-        }
-      });
-
-      document.getElementById('admin-channel-picker').style.display = '';
-      renderAdminChanPicker();
-    } catch(e) {
-      msg.innerHTML = '<span class="bad">Error: ' + e.message + '</span>';
-    }
-  }
-
-  window.cancelChannelPicker = function() {
-    document.getElementById('admin-channel-picker').style.display = 'none';
-    document.getElementById('channels-msg').textContent = '';
-  }
-
-  window.saveChannelSelection = async function() {
-    if (adminChanSel.length === 0) {
-      toast('Select at least one channel.');
+async function loadPhoneLines() {
+  try {
+    var s = await api('/api/settings');
+    var raw = s.whippy_channels;
+    var channels = [];
+    if (raw) { try { channels = JSON.parse(raw); } catch {} }
+    var list = document.getElementById('phone-lines-list');
+    if (!channels.length) {
+      list.innerHTML = '<p class="mut">No phone lines selected yet. Click "Re-fetch from Whippy" to detect your lines.</p>';
       return;
     }
-    // Save whippy_channels
-    var channels = adminChanSel.map(function(ch) {
-      return { id: ch.id, phone: ch.phone, name: ch.name || '' };
-    });
-    await api('/api/settings', { method: 'POST', body: { whippy_channels: JSON.stringify(channels) } });
-
-    // Also save as whippy_numbers for backward compat
-    var numbers = adminChanSel.map(function(ch, i) {
-      return { from_number: ch.phone, channel_id: ch.id, label: ch.name || ('Number ' + (i+1)) };
-    });
-    await api('/api/settings/numbers', { method: 'POST', body: { numbers: numbers } });
-
-    toast('Saved ' + channels.length + ' channel' + (channels.length !== 1 ? 's' : '') + '. User sync will use all selected channels.');
-    document.getElementById('admin-channel-picker').style.display = 'none';
-    document.getElementById('channels-msg').textContent = '';
-    loadChannels();
-    loadNumbers();
-    loadSettings();
-  }
-
-  function renderAdminChanPicker() {
-    var wrap = document.getElementById('admin-chan-picker-wrap');
-    wrap.innerHTML =
-      '<div class="picker-col available">' +
-        '<div class="picker-header"><h4>Available (' + adminChanAvail.length + ')</h4>' +
-        '<button onclick="adminChanSelectAll()">Select All \u2192</button></div>' +
-        '<div class="picker-list" id="admin-chan-avail-list"></div>' +
-      '</div>' +
-      '<div class="picker-col selected">' +
-        '<div class="picker-header"><button onclick="adminChanRemoveAll()" style="color:#ef4444">\u2190 Remove All</button>' +
-        '<h4>Selected (' + adminChanSel.length + ')</h4></div>' +
-        '<div class="picker-list" id="admin-chan-sel-list"></div>' +
+    list.innerHTML = channels.map(function(ch, i) {
+      var primary = i === 0 ? ' <span style="color:var(--green);font-weight:600">(Primary)</span>' : '';
+      var label = (ch.name ? esc(ch.name) + ' ' : '') + '(' + esc(ch.phone || ch.id || '') + ')';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:4px;background:var(--surface-2);border-radius:6px;border:1px solid var(--border)">' +
+        '<div style="flex:1">' +
+          '<span style="font-weight:600">' + label + primary + '</span>' +
+        '</div>' +
       '</div>';
-
-    var al = document.getElementById('admin-chan-avail-list');
-    if (adminChanAvail.length === 0) {
-      al.innerHTML = '<div class="picker-empty">All channels selected</div>';
-    } else {
-      al.innerHTML = '';
-      adminChanAvail.forEach(function(ch, idx) {
-        var item = document.createElement('div');
-        item.className = 'picker-item';
-        item.innerHTML = '<div><span class="pi-name">' + esc(ch.emoji || '') + ' ' + esc(ch.phone || ch.id) + '</span>' +
-          '<br><span class="pi-email">' + esc(ch.name || 'Unnamed') + '</span></div>' +
-          '<span class="pi-arrow">\u2192</span>';
-        item.addEventListener('click', function() {
-          adminChanSel.push(adminChanAvail.splice(idx, 1)[0]);
-          renderAdminChanPicker();
-        });
-        al.appendChild(item);
-      });
-    }
-
-    var sl = document.getElementById('admin-chan-sel-list');
-    if (adminChanSel.length === 0) {
-      sl.innerHTML = '<div class="picker-empty">Click channels to select them</div>';
-    } else {
-      sl.innerHTML = '';
-      adminChanSel.forEach(function(ch, idx) {
-        var item = document.createElement('div');
-        item.className = 'picker-item';
-        item.innerHTML = '<span class="pi-arrow">\u2190</span>' +
-          '<div><span class="pi-name">' + esc(ch.emoji || '') + ' ' + esc(ch.phone || ch.id) + '</span>' +
-          '<br><span class="pi-email">' + esc(ch.name || 'Unnamed') + '</span></div>';
-        item.addEventListener('click', function() {
-          adminChanAvail.push(adminChanSel.splice(idx, 1)[0]);
-          renderAdminChanPicker();
-        });
-        sl.appendChild(item);
-      });
-    }
+    }).join('');
+  } catch(e) {
+    document.getElementById('phone-lines-list').innerHTML = '<p class="mut">Error loading phone lines.</p>';
   }
-  window.adminChanSelectAll = function() { adminChanSel = adminChanSel.concat(adminChanAvail); adminChanAvail = []; renderAdminChanPicker(); }
-  window.adminChanRemoveAll = function() { adminChanAvail = adminChanAvail.concat(adminChanSel); adminChanSel = []; renderAdminChanPicker(); }
+}
 
+boot('admin').then(function(m) {
+  me = m;
+  loadSettings(); loadTemplates(); loadUsers(); loadCandidates(); loadFeedback(); loadChangelog(); loadWhippyUsers(); loadPhoneLines();
 });
+
 </script>
 </body></html>
