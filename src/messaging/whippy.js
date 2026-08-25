@@ -96,6 +96,9 @@ function create(config) {
         return { assigned, closed, total: allOpen.length, newOnly: newConvos.length };
       } catch(e) { return { assigned: 0, closed: 0 }; }
     },
+    async _patchConversation(conversationId, body) {
+      return whippyRequest(config, 'PATCH', '/v1/conversations/' + conversationId, body);
+    },
     async assignConversation(conversationId, userId) {
       try {
         await whippyRequest(config, 'PATCH', '/v1/conversations/' + conversationId, { assigned_user_id: userId });
