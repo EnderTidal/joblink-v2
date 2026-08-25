@@ -17,18 +17,19 @@ const SETTING_KEYS = ['cooldown_hours', 'sms_provider', 'whippy_api_key', 'whipp
 const RESEND_KEY = process.env.RESEND_KEY || '';
 const FEEDBACK_EMAIL = 'support@joblinkplatform.com';
 
-/** Fetch ALL Whippy team members (paginated) and cache in settings */
+/** Fetch Whippy team members scoped to the org's channel and cache in settings */
 async function syncWhippyUsers(db, preview) {
   const apiKey = getSetting(db, 'whippy_api_key');
   if (!apiKey) return { ok: false, error: 'no_api_key' };
+  const channelId = getSetting(db, 'whippy_channel_id');
 
   // Helper: single page fetch
-  function fetchPage(page) {
+  function fetchPage(path) {
     return new Promise((resolve) => {
       const opts = {
         hostname: 'api.whippy.co',
         port: 443,
-        path: '/v1/users?page=' + page + '&limit=100',
+        path,
         method: 'GET',
         headers: { 'X-WHIPPY-KEY': apiKey, 'Content-Type': 'application/json' },
       };
@@ -53,18 +54,27 @@ async function syncWhippyUsers(db, preview) {
     });
   }
 
-  // Paginate through all pages
+  // Use channel-scoped endpoint if channel is configured, otherwise fall back to /v1/users
   const allUsers = [];
-  let page = 1;
-  const MAX_PAGES = 50; // safety cap
-  while (page <= MAX_PAGES) {
-    const result = await fetchPage(page);
+  if (channelId) {
+    // Channel-scoped: single page, typically < 50 users
+    const result = await fetchPage('/v1/channels/' + channelId + '/users?limit=200');
     if (!result.ok) return result;
-    if (!result.users.length) break;
     allUsers.push(...result.users);
-    // If we got fewer than the limit, we're on the last page
-    if (result.users.length < 100) break;
-    page++;
+    console.log('[sync] Channel-scoped user sync: ' + allUsers.length + ' users for channel ' + channelId);
+  } else {
+    // Fallback: paginate /v1/users (capped at 3 pages = 300 users max)
+    let page = 1;
+    const MAX_PAGES = 3;
+    while (page <= MAX_PAGES) {
+      const result = await fetchPage('/v1/users?page=' + page + '&limit=100');
+      if (!result.ok) return result;
+      if (!result.users.length) break;
+      allUsers.push(...result.users);
+      if (result.users.length < 100) break;
+      page++;
+    }
+    console.log('[sync] Fallback user sync (no channel): ' + allUsers.length + ' users');
   }
 
   const mapped = allUsers.map((u) => ({
