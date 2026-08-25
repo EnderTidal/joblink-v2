@@ -91,18 +91,8 @@ async function syncWhippyUsers(db, preview) {
     }
     console.log('[sync] Multi-channel user sync: ' + allUsers.length + ' unique users from ' + channelIds.length + ' channel(s)');
   } else {
-    // Priority 3: Fallback — paginate /v1/users (capped at 3 pages = 300 users max)
-    let page = 1;
-    const MAX_PAGES = 3;
-    while (page <= MAX_PAGES) {
-      const result = await fetchPage('/v1/users?page=' + page + '&limit=100');
-      if (!result.ok) return result;
-      if (!result.users.length) break;
-      allUsers.push(...result.users);
-      if (result.users.length < 100) break;
-      page++;
-    }
-    console.log('[sync] Fallback user sync (no channel): ' + allUsers.length + ' users');
+    // No channels configured — require channel setup first
+    return { ok: false, error: 'No channels configured. Set up your Whippy channels in Admin settings first.' };
   }
 
   const mapped = allUsers.map((u) => ({
