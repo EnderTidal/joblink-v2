@@ -79,13 +79,16 @@ function create(config) {
         const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=1000&status=open', null);
         const allOpen = result?.data || [];
         const newConvos = allOpen.filter(c => !pre.has(c.id));
+        console.log("[whippy] assignAndClose: total open:", allOpen.length, "preBlast:", pre.size, "new:", newConvos.length, "recruiterId:", recruiterId);
         let assigned = 0, closed = 0;
         for (const c of newConvos) {
           try {
-            // Combine assign + close in a single PATCH to prevent close from wiping assignment
+            // Combine assign + close in a single PATCH
             const patchBody = { status: 'closed' };
-            if (recruiterId) patchBody.assigned_user_id = recruiterId;
-            await whippyRequest(config, 'PATCH', '/v1/conversations/' + c.id, patchBody);
+            if (recruiterId) patchBody.assigned_user_id = Number(recruiterId);
+            console.log('[whippy] PATCH /v1/conversations/' + c.id, JSON.stringify(patchBody));
+            const patchResult = await whippyRequest(config, 'PATCH', '/v1/conversations/' + c.id, patchBody);
+            console.log('[whippy] PATCH result:', JSON.stringify({ id: patchResult?.data?.id || patchResult?.id, assigned: patchResult?.data?.assigned_user_id || patchResult?.assigned_user_id, status: patchResult?.data?.status || patchResult?.status }));
             closed++;
             if (recruiterId) assigned++;
           } catch(e) { console.error('[whippy] assign+close failed:', c.id, e.message); }
