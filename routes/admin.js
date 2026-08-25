@@ -54,9 +54,10 @@ async function syncWhippyUsers(db, preview) {
     });
   }
 
-  // Use channel-scoped endpoint if channel is configured, otherwise fall back to /v1/users
+  // Use channel-scoped endpoint if channel is a valid Whippy UUID, otherwise fall back to /v1/users
   const allUsers = [];
-  if (channelId) {
+  const isValidUuid = channelId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelId);
+  if (isValidUuid) {
     // Channel-scoped: single page, typically < 50 users
     const result = await fetchPage('/v1/channels/' + channelId + '/users?limit=200');
     if (!result.ok) return result;
