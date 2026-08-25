@@ -104,7 +104,8 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
   // Extension point (PORTING_FROM_V1): close the conversation threads the blast opened
   let conversationsClosed = 0;
   if (typeof provider.assignAndCloseNewConversations === 'function') {
-    try { const r = await provider.assignAndCloseNewConversations(recruiterId || null, preBlastConvoIds); conversationsClosed = r.closed || 0; } catch { /* best-effort */ }
+    console.log('[blast] Calling assignAndCloseNewConversations with recruiterId:', recruiterId, 'preBlastConvoIds count:', preBlastConvoIds.size);
+    try { const r = await provider.assignAndCloseNewConversations(recruiterId || null, preBlastConvoIds); console.log('[blast] assignAndClose result:', JSON.stringify(r)); conversationsClosed = r.closed || 0; } catch(e) { console.error('[blast] assignAndClose ERROR:', e.message); }
   } else if (typeof provider.closeOpenConversations === 'function') {
     try { conversationsClosed = (await provider.closeOpenConversations()).closed || 0; } catch { /* best-effort */ }
   }
