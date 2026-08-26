@@ -243,7 +243,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => {
   const host = req.hostname || '';
   if (host === 'joblinkplatform.com' || host === 'www.joblinkplatform.com') {
-    return res.redirect('/signup.html');
+    return res.sendFile(require('path').join(__dirname, 'public', 'index.html'));
   }
   res.redirect('/login.html');
 });
