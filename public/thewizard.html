@@ -148,6 +148,25 @@
     transition:border-color .15s, background .15s; text-align:left; }
   .help-topics button:hover { border-color:var(--brand); background:var(--brand-soft); }
 
+
+  /* Paste Mode tab bar */
+  .jo-mode-tabs { display:flex; gap:0; margin-bottom:16px; border-bottom:2px solid var(--border); }
+  .jo-mode-tabs button { padding:10px 20px; border:none; background:none; color:var(--text-muted); font-size:.9rem; font-weight:600;
+    cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; transition:color .15s, border-color .15s; }
+  .jo-mode-tabs button:hover { color:var(--text); }
+  .jo-mode-tabs button.active { color:var(--brand); border-bottom-color:var(--brand); }
+
+  /* Paste panel */
+  #paste-panel { display:none; }
+  #paste-panel.active { display:block; }
+  #paste-panel textarea { width:100%; min-height:220px; resize:vertical; background:var(--surface-2); border:1px solid var(--border);
+    color:var(--text); padding:12px 14px; border-radius:8px; font-size:.9rem; font-family:inherit; line-height:1.5; box-sizing:border-box; }
+  #paste-panel textarea:focus { border-color:var(--brand); outline:none; }
+  #paste-panel textarea::placeholder { color:var(--text-subtle); }
+  #paste-panel .paste-hint { color:var(--text-muted); font-size:.82rem; margin-bottom:10px; line-height:1.4; }
+  #paste-panel .paste-actions { display:flex; gap:10px; margin-top:12px; align-items:center; }
+  #paste-panel .paste-example { color:var(--text-subtle); font-size:.78rem; margin-top:10px; line-height:1.4; font-style:italic; }
+
   /* Tom light mode */
 
 </style></head>
@@ -162,6 +181,7 @@
   </div>
   <div class="card">
     <div id="jo-form-panel"></div>
+    <div id="paste-panel"></div>
     <div id="blast-form-panel"></div>
     <div id="contact-form-panel"></div>
     <div id="chat"><div class="hint">Pick a button above to start. One task per conversation &mdash; switching tasks starts a fresh one.</div></div>
@@ -362,6 +382,7 @@ function md(s) {
 // ---- Full-width JO Form ----
 function showJOForm(draft, warnings) {
   joFormActive = true;
+  hideJOModeTabs();
   var panel = document.getElementById('jo-form-panel');
   panel.className = 'active';
   panel.innerHTML = '';
@@ -1395,6 +1416,7 @@ function handleReply(r) {
 async function startPath(path) {
   currentPath = path;
   hideJOForm();
+  hideJOModeTabs();
   if (blastFormActive) hideBlastForm();
   var cfp = document.getElementById("contact-form-panel"); if (cfp && cfp.classList.contains("active")) hideContactForm();
   document.querySelectorAll('.paths button').forEach(function(b) {
@@ -1406,6 +1428,10 @@ async function startPath(path) {
   showLoading();
   var r = await api('/api/tom/start', { method: 'POST', body: { path: path } });
   hideLoading();
+  if (path === 'job_order') {
+    session = r.sessionId;
+    showJOModeTabs('talk');
+  }
   handleReply(r);
 }
 
@@ -1504,6 +1530,133 @@ document.getElementById('fileinput').addEventListener('change', async function(e
   uploadFile(file);
   e.target.value = '';
 });
+
+
+// ---- Paste Mode ----
+var pasteMode = false;
+
+function showJOModeTabs(defaultTab) {
+  var existing = document.getElementById('jo-mode-tabs');
+  if (existing) existing.remove();
+  var tabs = document.createElement('div');
+  tabs.className = 'jo-mode-tabs';
+  tabs.id = 'jo-mode-tabs';
+  var talkBtn = document.createElement('button');
+  talkBtn.textContent = 'Talk to Tom';
+  talkBtn.id = 'tab-talk';
+  talkBtn.addEventListener('click', function() { switchJOMode('talk'); });
+  var pasteBtn = document.createElement('button');
+  pasteBtn.textContent = 'Paste Job Posting';
+  pasteBtn.id = 'tab-paste';
+  pasteBtn.addEventListener('click', function() { switchJOMode('paste'); });
+  tabs.appendChild(talkBtn);
+  tabs.appendChild(pasteBtn);
+  var card = document.querySelector('.card');
+  card.parentNode.insertBefore(tabs, card);
+  switchJOMode(defaultTab || 'talk');
+}
+
+function hideJOModeTabs() {
+  var tabs = document.getElementById('jo-mode-tabs');
+  if (tabs) tabs.remove();
+  hidePastePanel();
+  pasteMode = false;
+}
+
+function switchJOMode(mode) {
+  var talkBtn = document.getElementById('tab-talk');
+  var pasteBtn = document.getElementById('tab-paste');
+  if (!talkBtn || !pasteBtn) return;
+  if (mode === 'paste') {
+    pasteMode = true;
+    talkBtn.classList.remove('active');
+    pasteBtn.classList.add('active');
+    document.getElementById('chat').style.display = 'none';
+    document.getElementById('composer').style.display = 'none';
+    showPastePanel();
+  } else {
+    pasteMode = false;
+    talkBtn.classList.add('active');
+    pasteBtn.classList.remove('active');
+    hidePastePanel();
+    document.getElementById('chat').style.display = 'flex';
+  }
+}
+
+function showPastePanel() {
+  var panel = document.getElementById('paste-panel');
+  panel.className = 'active';
+  panel.innerHTML = '';
+
+  var hint = document.createElement('div');
+  hint.className = 'paste-hint';
+  hint.textContent = 'Paste a job posting from any source \u2014 Express microsite, email, ATS, or any format. The AI will extract all fields automatically.';
+  panel.appendChild(hint);
+
+  var ta = document.createElement('textarea');
+  ta.id = 'paste-textarea';
+  ta.placeholder = 'Paste the full job posting text here...';
+  panel.appendChild(ta);
+
+  var example = document.createElement('div');
+  example.className = 'paste-example';
+  example.textContent = 'Works with any format: Express job cards, Indeed listings, ATS exports, plain text descriptions, or raw email text.';
+  panel.appendChild(example);
+
+  var actions = document.createElement('div');
+  actions.className = 'paste-actions';
+
+  var parseBtn = document.createElement('button');
+  parseBtn.className = 'btn';
+  parseBtn.textContent = 'Parse Job Posting';
+  parseBtn.addEventListener('click', function() { submitPastedText(); });
+
+  var blankBtn = document.createElement('button');
+  blankBtn.className = 'btn ghost';
+  blankBtn.textContent = 'Start with Blank Form';
+  blankBtn.addEventListener('click', function() {
+    hidePastePanel();
+    hideJOModeTabs();
+    sendAction('blank_form', {});
+  });
+
+  actions.appendChild(parseBtn);
+  actions.appendChild(blankBtn);
+  panel.appendChild(actions);
+
+  setTimeout(function() { ta.focus(); }, 50);
+}
+
+function hidePastePanel() {
+  var panel = document.getElementById('paste-panel');
+  panel.className = '';
+  panel.innerHTML = '';
+}
+
+async function submitPastedText() {
+  var ta = document.getElementById('paste-textarea');
+  if (!ta) return;
+  var text = ta.value.trim();
+  if (!text) { toast('Paste a job posting first.'); return; }
+  if (text.length < 20) { toast('That seems too short \u2014 paste the full job posting.'); return; }
+
+  if (!session) {
+    showLoading();
+    var startR = await api('/api/tom/start', { method: 'POST', body: { path: 'job_order' } });
+    session = startR.sessionId;
+    currentPath = 'job_order';
+    hideLoading();
+  }
+
+  hidePastePanel();
+  hideJOModeTabs();
+
+  addMsg('me', 'Pasted job posting (' + text.length + ' chars)');
+  showLoading();
+  var r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, text: text } });
+  hideLoading();
+  handleReply(r);
+}
 
 boot('tom').then(function() {
   var p = new URLSearchParams(location.search).get('path');
