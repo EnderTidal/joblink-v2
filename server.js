@@ -240,7 +240,13 @@ app.get('/dev-dashboard.html', auth.requireAuth, (req, res) => {
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
-app.get('/', (_req, res) => res.redirect('/tom.html'));
+app.get('/', (req, res) => {
+  const host = req.hostname || '';
+  if (host === 'joblinkplatform.com' || host === 'www.joblinkplatform.com') {
+    return res.redirect('/signup.html');
+  }
+  res.redirect('/login.html');
+});
 
 app.use((err, _req, res, _next) => {
   console.error('[joblink]', err.stack || err.message);
