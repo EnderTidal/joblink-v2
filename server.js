@@ -18,6 +18,7 @@ const { createDevRoutes } = require("./routes/dev");
 const { createAdminRoutes } = require('./routes/admin');
 const { createPublicRoutes } = require('./routes/public');
 const { createSignupRoutes, createStripeWebhook } = require('./routes/signup');
+const { createQboRoutes } = require("./routes/qbo");
 const { billingMiddleware } = require('./middleware/billing');
 const { createWebhookRoutes } = require('./routes/webhooks');
 
@@ -167,6 +168,8 @@ app.use(createPublicRoutes(sysDb));
 
 // Signup routes — public, no auth required
 app.use(createSignupRoutes(sysDb));
+// QuickBooks OAuth — public endpoints (no auth)
+app.use(createQboRoutes());
 
 // Login + session (uses system DB)
 app.use(auth.router);
