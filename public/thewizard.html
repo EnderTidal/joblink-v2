@@ -149,12 +149,25 @@
   .help-topics button:hover { border-color:var(--brand); background:var(--brand-soft); }
 
 
-  /* Paste Mode tab bar */
-  .jo-mode-tabs { display:flex; gap:0; margin-bottom:16px; border-bottom:2px solid var(--border); }
-  .jo-mode-tabs button { padding:10px 20px; border:none; background:none; color:var(--text-muted); font-size:.9rem; font-weight:600;
-    cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; transition:color .15s, border-color .15s; }
-  .jo-mode-tabs button:hover { color:var(--text); }
-  .jo-mode-tabs button.active { color:var(--brand); border-bottom-color:var(--brand); }
+  /* Unified JO entry panel */
+  #jo-entry-panel { display:none; }
+  #jo-entry-panel.active { display:block; }
+  .jo-entry-title { font-size:1.05rem; font-weight:700; margin-bottom:14px; }
+  .jo-entry-options { display:flex; flex-direction:column; gap:16px; }
+  .jo-entry-option { background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:16px 18px; }
+  .jo-entry-option-label { font-size:.9rem; font-weight:600; color:var(--text); margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+  .jo-entry-option-label .icon { font-size:1.1rem; }
+  .jo-entry-paste textarea { width:100%; min-height:160px; resize:vertical; background:var(--surface); border:1px solid var(--border);
+    color:var(--text); padding:10px 12px; border-radius:8px; font-size:.88rem; font-family:inherit; line-height:1.5; box-sizing:border-box; margin-bottom:8px; }
+  .jo-entry-paste textarea:focus { border-color:var(--brand); outline:none; }
+  .jo-entry-paste textarea::placeholder { color:var(--text-subtle); }
+  .jo-entry-paste .paste-hint { color:var(--text-muted); font-size:.78rem; margin-bottom:8px; line-height:1.3; }
+  .jo-entry-upload-btn { width:100%; padding:12px; font-size:.92rem; cursor:pointer; }
+  .jo-entry-upload-hint { color:var(--text-muted); font-size:.78rem; margin-top:6px; }
+  .jo-entry-blank { display:inline-block; color:var(--brand); cursor:pointer; font-size:.88rem; text-decoration:underline; font-weight:500; }
+  .jo-entry-blank:hover { color:var(--brand-strong); }
+  .jo-entry-divider { display:flex; align-items:center; gap:12px; color:var(--text-muted); font-size:.78rem; }
+  .jo-entry-divider::before, .jo-entry-divider::after { content:''; flex:1; height:1px; background:var(--border); }
 
   /* Paste panel */
   #paste-panel { display:none; }
@@ -182,6 +195,7 @@
   <div class="card">
     <div id="jo-form-panel"></div>
     <div id="paste-panel"></div>
+    <div id="jo-entry-panel"></div>
     <div id="blast-form-panel"></div>
     <div id="contact-form-panel"></div>
     <div id="chat"><div class="hint">Pick a button above to start. One task per conversation &mdash; switching tasks starts a fresh one.</div></div>
@@ -1430,7 +1444,7 @@ async function startPath(path) {
   hideLoading();
   if (path === 'job_order') {
     session = r.sessionId;
-    showJOModeTabs('talk');
+    showJOEntryPanel();
   }
   handleReply(r);
 }
@@ -1532,113 +1546,127 @@ document.getElementById('fileinput').addEventListener('change', async function(e
 });
 
 
-// ---- Paste Mode ----
+// ---- Unified JO Entry Panel ----
 var pasteMode = false;
 
-function showJOModeTabs(defaultTab) {
-  var existing = document.getElementById('jo-mode-tabs');
-  if (existing) existing.remove();
-  var tabs = document.createElement('div');
-  tabs.className = 'jo-mode-tabs';
-  tabs.id = 'jo-mode-tabs';
-  var talkBtn = document.createElement('button');
-  talkBtn.textContent = 'Talk to Tom';
-  talkBtn.id = 'tab-talk';
-  talkBtn.addEventListener('click', function() { switchJOMode('talk'); });
-  var pasteBtn = document.createElement('button');
-  pasteBtn.textContent = 'Paste Job Posting';
-  pasteBtn.id = 'tab-paste';
-  pasteBtn.addEventListener('click', function() { switchJOMode('paste'); });
-  tabs.appendChild(talkBtn);
-  tabs.appendChild(pasteBtn);
-  var card = document.querySelector('.card');
-  card.parentNode.insertBefore(tabs, card);
-  switchJOMode(defaultTab || 'talk');
-}
-
-function hideJOModeTabs() {
-  var tabs = document.getElementById('jo-mode-tabs');
-  if (tabs) tabs.remove();
-  hidePastePanel();
-  pasteMode = false;
-}
-
-function switchJOMode(mode) {
-  var talkBtn = document.getElementById('tab-talk');
-  var pasteBtn = document.getElementById('tab-paste');
-  if (!talkBtn || !pasteBtn) return;
-  if (mode === 'paste') {
-    pasteMode = true;
-    talkBtn.classList.remove('active');
-    pasteBtn.classList.add('active');
-    document.getElementById('chat').style.display = 'none';
-    document.getElementById('composer').style.display = 'none';
-    showPastePanel();
-  } else {
-    pasteMode = false;
-    talkBtn.classList.add('active');
-    pasteBtn.classList.remove('active');
-    hidePastePanel();
-    document.getElementById('chat').style.display = 'flex';
-  }
-}
-
-function showPastePanel() {
-  var panel = document.getElementById('paste-panel');
+function showJOEntryPanel() {
+  var panel = document.getElementById('jo-entry-panel');
   panel.className = 'active';
   panel.innerHTML = '';
+  document.getElementById('chat').style.display = 'none';
+  document.getElementById('composer').style.display = 'none';
 
-  var hint = document.createElement('div');
-  hint.className = 'paste-hint';
-  hint.textContent = 'Paste a job posting from any source \u2014 Express microsite, email, ATS, or any format. The AI will extract all fields automatically.';
-  panel.appendChild(hint);
+  var title = document.createElement('div');
+  title.className = 'jo-entry-title';
+  title.textContent = 'How would you like to create this job order?';
+  panel.appendChild(title);
 
+  var options = document.createElement('div');
+  options.className = 'jo-entry-options';
+
+  // --- Option 1: Paste job posting (prominent, center) ---
+  var pasteOpt = document.createElement('div');
+  pasteOpt.className = 'jo-entry-option jo-entry-paste';
+  var pasteLabel = document.createElement('div');
+  pasteLabel.className = 'jo-entry-option-label';
+  pasteLabel.innerHTML = '<span class="icon">📋</span> Paste a job posting';
+  pasteOpt.appendChild(pasteLabel);
+  var pasteHint = document.createElement('div');
+  pasteHint.className = 'paste-hint';
+  pasteHint.textContent = 'Paste from any source — Express microsite, email, ATS, Indeed, or plain text. AI extracts all fields automatically.';
+  pasteOpt.appendChild(pasteHint);
   var ta = document.createElement('textarea');
   ta.id = 'paste-textarea';
   ta.placeholder = 'Paste the full job posting text here...';
-  panel.appendChild(ta);
-
-  var example = document.createElement('div');
-  example.className = 'paste-example';
-  example.textContent = 'Works with any format: Express job cards, Indeed listings, ATS exports, plain text descriptions, or raw email text.';
-  panel.appendChild(example);
-
-  var actions = document.createElement('div');
-  actions.className = 'paste-actions';
-
+  pasteOpt.appendChild(ta);
   var parseBtn = document.createElement('button');
   parseBtn.className = 'btn';
+  parseBtn.style.cssText = 'width:100%;padding:10px;';
   parseBtn.textContent = 'Parse Job Posting';
   parseBtn.addEventListener('click', function() { submitPastedText(); });
+  pasteOpt.appendChild(parseBtn);
+  options.appendChild(pasteOpt);
 
-  var blankBtn = document.createElement('button');
-  blankBtn.className = 'btn ghost';
-  blankBtn.textContent = 'Start with Blank Form';
-  blankBtn.addEventListener('click', function() {
-    hidePastePanel();
-    hideJOModeTabs();
+  // --- Divider ---
+  var div1 = document.createElement('div');
+  div1.className = 'jo-entry-divider';
+  div1.textContent = 'or';
+  options.appendChild(div1);
+
+  // --- Option 2: Upload file ---
+  var uploadOpt = document.createElement('div');
+  uploadOpt.className = 'jo-entry-option';
+  var uploadLabel = document.createElement('div');
+  uploadLabel.className = 'jo-entry-option-label';
+  uploadLabel.innerHTML = '<span class="icon">📁</span> Upload a file';
+  uploadOpt.appendChild(uploadLabel);
+  var uploadBtn = document.createElement('button');
+  uploadBtn.className = 'btn ghost jo-entry-upload-btn';
+  uploadBtn.textContent = 'Choose .docx or .txt file';
+  var joFileInput = document.createElement('input');
+  joFileInput.type = 'file';
+  joFileInput.accept = '.docx,.doc,.txt';
+  joFileInput.style.display = 'none';
+  joFileInput.addEventListener('change', function(e) {
+    var f = e.target.files[0];
+    if (!f) return;
+    hideJOEntryPanel();
+    uploadFile(f);
+    e.target.value = '';
+  });
+  uploadBtn.addEventListener('click', function() { joFileInput.click(); });
+  uploadOpt.appendChild(uploadBtn);
+  uploadOpt.appendChild(joFileInput);
+  var uploadHint = document.createElement('div');
+  uploadHint.className = 'jo-entry-upload-hint';
+  uploadHint.textContent = 'Or drag and drop a file anywhere on this page.';
+  uploadOpt.appendChild(uploadHint);
+  options.appendChild(uploadOpt);
+
+  // --- Divider ---
+  var div2 = document.createElement('div');
+  div2.className = 'jo-entry-divider';
+  div2.textContent = 'or';
+  options.appendChild(div2);
+
+  // --- Option 3: Blank form ---
+  var blankOpt = document.createElement('div');
+  blankOpt.style.textAlign = 'center';
+  var blankLink = document.createElement('a');
+  blankLink.className = 'jo-entry-blank';
+  blankLink.textContent = 'Start with a blank form';
+  blankLink.addEventListener('click', function(e) {
+    e.preventDefault();
+    hideJOEntryPanel();
     sendAction('blank_form', {});
   });
+  blankOpt.appendChild(blankLink);
+  options.appendChild(blankOpt);
 
-  actions.appendChild(parseBtn);
-  actions.appendChild(blankBtn);
-  panel.appendChild(actions);
-
+  panel.appendChild(options);
   setTimeout(function() { ta.focus(); }, 50);
 }
 
-function hidePastePanel() {
-  var panel = document.getElementById('paste-panel');
+function hideJOEntryPanel() {
+  var panel = document.getElementById('jo-entry-panel');
   panel.className = '';
   panel.innerHTML = '';
+  document.getElementById('chat').style.display = 'flex';
 }
+
+// Legacy aliases so existing code calling hideJOModeTabs still works
+function showJOModeTabs() { showJOEntryPanel(); }
+function hideJOModeTabs() { hideJOEntryPanel(); }
+
+function showPastePanel() { /* no-op, handled by entry panel */ }
+function hidePastePanel() { /* no-op, handled by entry panel */ }
 
 async function submitPastedText() {
   var ta = document.getElementById('paste-textarea');
   if (!ta) return;
   var text = ta.value.trim();
   if (!text) { toast('Paste a job posting first.'); return; }
-  if (text.length < 20) { toast('That seems too short \u2014 paste the full job posting.'); return; }
+  if (text.length < 20) { toast('That seems too short — paste the full job posting.'); return; }
 
   if (!session) {
     showLoading();
@@ -1648,8 +1676,7 @@ async function submitPastedText() {
     hideLoading();
   }
 
-  hidePastePanel();
-  hideJOModeTabs();
+  hideJOEntryPanel();
 
   addMsg('me', 'Pasted job posting (' + text.length + ' chars)');
   showLoading();
