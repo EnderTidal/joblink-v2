@@ -1564,36 +1564,7 @@ function showJOEntryPanel() {
   var options = document.createElement('div');
   options.className = 'jo-entry-options';
 
-  // --- Option 1: Paste job posting (prominent, center) ---
-  var pasteOpt = document.createElement('div');
-  pasteOpt.className = 'jo-entry-option jo-entry-paste';
-  var pasteLabel = document.createElement('div');
-  pasteLabel.className = 'jo-entry-option-label';
-  pasteLabel.innerHTML = '<span class="icon">📋</span> Paste a job posting';
-  pasteOpt.appendChild(pasteLabel);
-  var pasteHint = document.createElement('div');
-  pasteHint.className = 'paste-hint';
-  pasteHint.textContent = 'Paste from any source — Express microsite, email, ATS, Indeed, or plain text. AI extracts all fields automatically.';
-  pasteOpt.appendChild(pasteHint);
-  var ta = document.createElement('textarea');
-  ta.id = 'paste-textarea';
-  ta.placeholder = 'Paste the full job posting text here...';
-  pasteOpt.appendChild(ta);
-  var parseBtn = document.createElement('button');
-  parseBtn.className = 'btn';
-  parseBtn.style.cssText = 'width:100%;padding:10px;';
-  parseBtn.textContent = 'Parse Job Posting';
-  parseBtn.addEventListener('click', function() { submitPastedText(); });
-  pasteOpt.appendChild(parseBtn);
-  options.appendChild(pasteOpt);
-
-  // --- Divider ---
-  var div1 = document.createElement('div');
-  div1.className = 'jo-entry-divider';
-  div1.textContent = 'or';
-  options.appendChild(div1);
-
-  // --- Option 2: Upload file ---
+  // --- Option 1: Upload file (most preferred) ---
   var uploadOpt = document.createElement('div');
   uploadOpt.className = 'jo-entry-option';
   var uploadLabel = document.createElement('div');
@@ -1622,6 +1593,35 @@ function showJOEntryPanel() {
   uploadHint.textContent = 'Or drag and drop a file anywhere on this page.';
   uploadOpt.appendChild(uploadHint);
   options.appendChild(uploadOpt);
+
+  // --- Divider ---
+  var div1 = document.createElement('div');
+  div1.className = 'jo-entry-divider';
+  div1.textContent = 'or';
+  options.appendChild(div1);
+
+  // --- Option 2: Paste job posting ---
+  var pasteOpt = document.createElement('div');
+  pasteOpt.className = 'jo-entry-option jo-entry-paste';
+  var pasteLabel = document.createElement('div');
+  pasteLabel.className = 'jo-entry-option-label';
+  pasteLabel.innerHTML = '<span class="icon">📋</span> Paste a job posting';
+  pasteOpt.appendChild(pasteLabel);
+  var pasteHint = document.createElement('div');
+  pasteHint.className = 'paste-hint';
+  pasteHint.textContent = 'Paste from any source — Express microsite, email, ATS, Indeed, or plain text. AI extracts all fields automatically.';
+  pasteOpt.appendChild(pasteHint);
+  var ta = document.createElement('textarea');
+  ta.id = 'paste-textarea';
+  ta.placeholder = 'Paste the full job posting text here...';
+  pasteOpt.appendChild(ta);
+  var parseBtn = document.createElement('button');
+  parseBtn.className = 'btn';
+  parseBtn.style.cssText = 'width:100%;padding:10px;';
+  parseBtn.textContent = 'Parse Job Posting';
+  parseBtn.addEventListener('click', function() { submitPastedText(); });
+  pasteOpt.appendChild(parseBtn);
+  options.appendChild(pasteOpt);
 
   // --- Divider ---
   var div2 = document.createElement('div');
