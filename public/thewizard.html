@@ -108,8 +108,8 @@
   .drop-overlay-sub { font-size:14px; color:var(--text-subtle); margin-top:6px; }
 
   /* Blank form link */
-  .blank-form-link { display:inline-block; margin-top:8px; color:var(--brand); cursor:pointer; font-size:.85rem; text-decoration:underline; }
-  .blank-form-link:hover { color:var(--brand-strong); }
+  .blank-form-link { display:inline-block; margin-top:8px; color:var(--brand); cursor:pointer; font-size:.9rem; text-decoration:none; font-weight:600; background:transparent; border:1.5px solid var(--brand); border-radius:8px; padding:10px 20px; transition:background .15s,color .15s; width:100%; }
+  .blank-form-link:hover { background:var(--brand); color:#fff; border-color:var(--brand); }
 
   /* Save template modal */
   .modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6);
@@ -164,8 +164,8 @@
   .jo-entry-paste .paste-hint { color:var(--text-muted); font-size:.78rem; margin-bottom:8px; line-height:1.3; }
   .jo-entry-upload-btn { width:100%; padding:12px; font-size:.92rem; cursor:pointer; }
   .jo-entry-upload-hint { color:var(--text-muted); font-size:.78rem; margin-top:6px; }
-  .jo-entry-blank { display:inline-block; color:var(--brand); cursor:pointer; font-size:.88rem; text-decoration:underline; font-weight:500; }
-  .jo-entry-blank:hover { color:var(--brand-strong); }
+  .jo-entry-blank { display:inline-block; color:var(--brand); cursor:pointer; font-size:.9rem; text-decoration:none; font-weight:600; background:transparent; border:1.5px solid var(--brand); border-radius:8px; padding:10px 20px; transition:background .15s,color .15s; }
+  .jo-entry-blank:hover { background:var(--brand); color:#fff; border-color:var(--brand); }
   .jo-entry-divider { display:flex; align-items:center; gap:12px; color:var(--text-muted); font-size:.78rem; }
   .jo-entry-divider::before, .jo-entry-divider::after { content:''; flex:1; height:1px; background:var(--border); }
 
@@ -1179,7 +1179,7 @@ function addMsg(who, text, extra) {
       uploadWrap.appendChild(joUploadBtn);
       uploadWrap.appendChild(joFileInput);
 
-      var link = document.createElement('a');
+      var link = document.createElement('button');
       link.className = 'blank-form-link';
       link.textContent = 'Or start with a blank form';
       link.addEventListener('click', function(e) {
@@ -1632,7 +1632,7 @@ function showJOEntryPanel() {
   // --- Option 3: Blank form ---
   var blankOpt = document.createElement('div');
   blankOpt.style.textAlign = 'center';
-  var blankLink = document.createElement('a');
+  var blankLink = document.createElement('button');
   blankLink.className = 'jo-entry-blank';
   blankLink.textContent = 'Start with a blank form';
   blankLink.addEventListener('click', function(e) {
