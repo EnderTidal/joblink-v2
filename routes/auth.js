@@ -322,7 +322,12 @@ function createAuth(sysDb) {
   });
 
   // ---- Magic Link Verify ----
-  router.get('/api/magic-login/verify', (req, res) => {
+  router.get("/api/magic-login/verify", (req, res) => {
+    // Block bots (Telegram preview, etc.) from consuming the token
+    const ua = (req.headers["user-agent"] || "").toLowerCase();
+    if (ua.includes("bot") || ua.includes("crawler") || ua.includes("preview")) {
+      return res.status(200).send("<html><body>JobLink Login</body></html>");
+    }
     const { token } = req.query;
     if (!token) return res.status(400).send('Invalid link');
     const user = findUserByMagicToken(sysDb, token);

@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ROI Calculator | JobLink Platform</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0e1a;
+    --bg-card: #111827;
+    --bg-card-hover: #1a2236;
+    --purple: #3B3FE0;
+    --purple-light: #5558F5;
+    --gold: #FFB400;
+    --green: #10B981;
+    --green-dark: #059669;
+    --red: #EF4444;
+    --text: #F9FAFB;
+    --text-dim: #9CA3AF;
+    --border: #1F2937;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Subtle animated bg */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at 20% 50%, rgba(59,63,224,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(255,180,0,0.05) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(16,185,129,0.05) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* HEADER */
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .header .badge {
+    display: inline-block;
+    background: rgba(59,63,224,0.15);
+    color: var(--purple-light);
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    border: 1px solid rgba(59,63,224,0.25);
+  }
+  .header h1 {
+    font-size: clamp(28px, 5vw, 44px);
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 12px;
+  }
+  .header h1 span { color: var(--gold); }
+  .header p {
+    font-size: 17px;
+    color: var(--text-dim);
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+
+  /* INPUTS SECTION */
+  .inputs-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px;
+    margin-bottom: 32px;
+  }
+  .inputs-section h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 28px;
+    color: var(--text);
+  }
+  .input-group {
+    margin-bottom: 28px;
+  }
+  .input-group:last-child { margin-bottom: 0; }
+  .input-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+  }
+  .input-label span {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .input-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--gold);
+    min-width: 80px;
+    text-align: right;
+    transition: color 0.2s;
+  }
+
+  /* Custom slider */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+    position: relative;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    background: var(--purple);
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid var(--text);
+    box-shadow: 0 0 12px rgba(59,63,224,0.5);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+    box-shadow: 0 0 20px rgba(59,63,224,0.7);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    background: var(--purple);
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid var(--text);
+    box-shadow: 0 0 12px rgba(59,63,224,0.5);
+  }
+  .slider-marks {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-dim);
+    opacity: 0.6;
+  }
+
+  /* OUTPUT CARDS */
+  .outputs-section {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .outputs-section .output-card:nth-child(4),
+  .outputs-section .output-card:nth-child(5) {
+    grid-column: span 1;
+  }
+  /* Center the last two cards under the three */
+  .outputs-row-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+    max-width: 66%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .output-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+    transition: transform 0.25s, border-color 0.3s, box-shadow 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .output-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 16px 16px 0 0;
+  }
+  .output-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  }
+  .output-card .icon {
+    font-size: 28px;
+    margin-bottom: 8px;
+  }
+  .output-card .label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .output-card .value {
+    font-size: clamp(28px, 4vw, 36px);
+    font-weight: 900;
+    line-height: 1.1;
+    margin-bottom: 4px;
+    transition: color 0.3s;
+  }
+  .output-card .detail {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.4;
+  }
+
+  /* Card color accents */
+  .card-time::before { background: var(--purple); }
+  .card-time .value { color: var(--purple-light); }
+  .card-time:hover { border-color: rgba(59,63,224,0.4); }
+
+  .card-response::before { background: var(--gold); }
+  .card-response .value { color: var(--gold); }
+  .card-response:hover { border-color: rgba(255,180,0,0.4); }
+
+  .card-revenue::before { background: var(--green); }
+  .card-revenue .value { color: var(--green); }
+  .card-revenue:hover { border-color: rgba(16,185,129,0.4); }
+
+  .card-roi::before { background: linear-gradient(90deg, var(--purple), var(--gold)); }
+  .card-roi .value { color: var(--gold); }
+  .card-roi:hover { border-color: rgba(255,180,0,0.4); }
+
+  .card-payback::before { background: var(--green); }
+  .card-payback .value { color: var(--green); }
+  .card-payback:hover { border-color: rgba(16,185,129,0.4); }
+
+  /* ROI card special glow */
+  .card-roi {
+    background: linear-gradient(135deg, rgba(59,63,224,0.08), rgba(255,180,0,0.06));
+  }
+
+  /* COMPARISON BAR */
+  .comparison-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px;
+    margin-bottom: 32px;
+  }
+  .comparison-section h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  .comparison-row {
+    margin-bottom: 20px;
+  }
+  .comparison-row:last-child { margin-bottom: 0; }
+  .comparison-label {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .bar-container {
+    height: 32px;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    gap: 2px;
+  }
+  .bar-old {
+    background: rgba(239,68,68,0.25);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 8px 0 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--red);
+    transition: width 0.6s ease;
+  }
+  .bar-new {
+    background: rgba(16,185,129,0.2);
+    border: 1px solid rgba(16,185,129,0.3);
+    border-radius: 0 8px 8px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--green);
+    transition: width 0.6s ease;
+    flex: 1;
+  }
+
+  /* PROOF SECTION */
+  .proof-section {
+    background: linear-gradient(135deg, rgba(59,63,224,0.06), rgba(255,180,0,0.04));
+    border: 1px solid rgba(59,63,224,0.2);
+    border-radius: 16px;
+    padding: 32px;
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .proof-section .proof-badge {
+    display: inline-block;
+    background: rgba(16,185,129,0.12);
+    color: var(--green);
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    border: 1px solid rgba(16,185,129,0.2);
+  }
+  .proof-section h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .proof-section p {
+    font-size: 15px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    max-width: 600px;
+    margin: 0 auto 20px;
+  }
+  .proof-stats {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    flex-wrap: wrap;
+  }
+  .proof-stat {
+    text-align: center;
+  }
+  .proof-stat .num {
+    font-size: 32px;
+    font-weight: 900;
+    color: var(--gold);
+  }
+  .proof-stat .desc {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  /* CTA */
+  .cta-section {
+    text-align: center;
+    padding: 40px 0 0;
+  }
+  .cta-btn {
+    display: inline-block;
+    background: var(--purple);
+    color: white;
+    font-size: 18px;
+    font-weight: 700;
+    padding: 16px 40px;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+    box-shadow: 0 4px 20px rgba(59,63,224,0.4);
+  }
+  .cta-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(59,63,224,0.6);
+    background: var(--purple-light);
+  }
+  .cta-sub {
+    margin-top: 12px;
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+
+  /* Back link */
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 14px;
+    margin-bottom: 24px;
+    transition: color 0.2s;
+  }
+  .back-link:hover { color: var(--text); }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .container { padding: 24px 16px 60px; }
+    .inputs-section { padding: 24px 20px; }
+    .outputs-section { grid-template-columns: 1fr 1fr; }
+    .outputs-row-2 { max-width: 100%; }
+    .output-card { padding: 18px 14px; }
+    .comparison-section { padding: 24px 20px; }
+    .proof-stats { gap: 24px; }
+  }
+  @media (max-width: 420px) {
+    .outputs-section { grid-template-columns: 1fr; }
+    .outputs-row-2 { grid-template-columns: 1fr; max-width: 100%; }
+  }
+
+  /* Animate-in */
+  .fade-in {
+    opacity: 0;
+    transform: translateY(16px);
+    animation: fadeUp 0.5s ease forwards;
+  }
+  @keyframes fadeUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Pulse on big ROI — uses box-shadow only, won't override fade-in */
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(255,180,0,0.15); }
+    50% { box-shadow: 0 0 40px rgba(255,180,0,0.3); }
+  }
+  .roi-hot {
+    box-shadow: 0 0 20px rgba(255,180,0,0.15);
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  /* When both fade-in and roi-hot are present, chain both animations */
+  .fade-in.roi-hot {
+    animation: fadeUp 0.5s ease forwards, pulse-glow 2s ease-in-out 0.6s infinite;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <a href="/" class="back-link">&larr; Back to JobLink</a>
+
+  <div class="header fade-in">
+    <div class="badge">ROI CALCULATOR</div>
+    <h1>See How Much <span>JobLink</span> Saves Your Office</h1>
+    <p>Adjust the sliders to match your staffing office. Watch your ROI calculate in real time.</p>
+  </div>
+
+  <!-- INPUTS -->
+  <div class="inputs-section fade-in">
+    <h2>Your Office Numbers</h2>
+
+    <div class="input-group">
+      <div class="input-label">
+        <span>Candidates in your database</span>
+        <div class="input-value" id="val-candidates">2,000</div>
+      </div>
+      <input type="range" id="candidates" min="500" max="10000" step="100" value="2000">
+      <div class="slider-marks"><span>500</span><span>5,000</span><span>10,000</span></div>
+    </div>
+
+    <div class="input-group">
+      <div class="input-label">
+        <span>Job orders filled per week</span>
+        <div class="input-value" id="val-orders">5</div>
+      </div>
+      <input type="range" id="orders" min="2" max="20" step="1" value="5">
+      <div class="slider-marks"><span>2</span><span>10</span><span>20</span></div>
+    </div>
+
+    <div class="input-group">
+      <div class="input-label">
+        <span>Hours per day on phone calls</span>
+        <div class="input-value" id="val-hours">2.0 hrs</div>
+      </div>
+      <input type="range" id="hours" min="0.5" max="5" step="0.5" value="2">
+      <div class="slider-marks"><span>0.5 hrs</span><span>2.5 hrs</span><span>5 hrs</span></div>
+    </div>
+
+    <div class="input-group">
+      <div class="input-label">
+        <span>Average profit per placement</span>
+        <div class="input-value" id="val-fee">$800</div>
+      </div>
+      <input type="range" id="fee" min="200" max="5000" step="50" value="800">
+      <div class="slider-marks"><span>$200</span><span>$2,500</span><span>$5,000</span></div>
+    </div>
+  </div>
+
+  <!-- OUTPUTS ROW 1 -->
+  <div class="outputs-section">
+    <div class="output-card card-time fade-in" style="animation-delay:0s">
+      <div class="icon">&#9201;</div>
+      <div class="label">Time Saved</div>
+      <div class="value" id="out-time">35.2</div>
+      <div class="detail">hours / month</div>
+    </div>
+    <div class="output-card card-response fade-in" style="animation-delay:0.08s">
+      <div class="icon">&#128172;</div>
+      <div class="label">Interested Candidates</div>
+      <div class="value" id="out-response">186</div>
+      <div class="detail">per blast at 9.3% response</div>
+    </div>
+    <div class="output-card card-revenue fade-in" style="animation-delay:0.16s">
+      <div class="icon">&#128176;</div>
+      <div class="label">Additional Revenue</div>
+      <div class="value" id="out-revenue">$14,880</div>
+      <div class="detail">per month</div>
+    </div>
+  </div>
+  <!-- OUTPUTS ROW 2 -->
+  <div class="outputs-row-2">
+    <div class="output-card card-roi fade-in" id="roi-card" style="animation-delay:0.24s">
+      <div class="icon">&#128200;</div>
+      <div class="label">Return on Investment</div>
+      <div class="value" id="out-roi">37:1</div>
+      <div class="detail">on $399/month</div>
+    </div>
+    <div class="output-card card-payback fade-in" style="animation-delay:0.32s">
+      <div class="icon">&#9989;</div>
+      <div class="label">Pays for Itself</div>
+      <div class="value" id="out-payback">1</div>
+      <div class="detail">placement(s) to break even</div>
+    </div>
+  </div>
+
+  <!-- COMPARISON -->
+  <div class="comparison-section fade-in">
+    <h3>The Old Way vs. JobLink</h3>
+    <div class="comparison-row">
+      <div class="comparison-label">
+        <span>Monthly phone hours</span>
+        <span><span id="cmp-phone-old">44</span> hrs &rarr; <span id="cmp-phone-new" style="color:var(--green);">8.8</span> hrs</span>
+      </div>
+      <div class="bar-container">
+        <div class="bar-old" id="bar-phone-old" style="width:80%;">Old way</div>
+        <div class="bar-new">JobLink</div>
+      </div>
+    </div>
+    <div class="comparison-row">
+      <div class="comparison-label">
+        <span>Candidates reached per blast</span>
+        <span><span id="cmp-reach-old">15</span> &rarr; <span id="cmp-reach-new" style="color:var(--green);">2,000</span></span>
+      </div>
+      <div class="bar-container">
+        <div class="bar-old" id="bar-reach-old" style="width:10%;">Calls</div>
+        <div class="bar-new">Texts</div>
+      </div>
+    </div>
+    <div class="comparison-row">
+      <div class="comparison-label">
+        <span>Response rate</span>
+        <span><span id="cmp-rate-old">2-5%</span> &rarr; <span id="cmp-rate-new" style="color:var(--green);">9.3%</span></span>
+      </div>
+      <div class="bar-container">
+        <div class="bar-old" id="bar-rate-old" style="width:30%;">Cold calls</div>
+        <div class="bar-new">Smart texts</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROOF -->
+  <div class="proof-section fade-in">
+    <div class="proof-badge">REAL DATA</div>
+    <h3>Based on live Express Employment offices using JobLink</h3>
+    <p>These aren't projections &mdash; they're results from actual staffing offices running JobLink blasts to their candidate databases.</p>
+    <div class="proof-stats">
+      <div class="proof-stat">
+        <div class="num">1,400</div>
+        <div class="desc">texts sent</div>
+      </div>
+      <div class="proof-stat">
+        <div class="num">130</div>
+        <div class="desc">interested responses</div>
+      </div>
+      <div class="proof-stat">
+        <div class="num">9.3%</div>
+        <div class="desc">response rate</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VALUE STACK -->
+  <div class="proof-section fade-in" style="margin-top:48px">
+    <div class="proof-badge" style="background:var(--gold);color:#0a0e1a">THE OFFER</div>
+    <h3>Everything You Need. Nothing You Don't.</h3>
+    <div style="max-width:640px;margin:24px auto 0;text-align:left">
+      <div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #222">
+        <span style="color:#e5e7eb">&#10003; Unlimited SMS blasts to your entire candidate list</span>
+        <span style="color:var(--gold);font-weight:700;white-space:nowrap">$2,500/mo</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #222">
+        <span style="color:#e5e7eb">&#10003; The Wizard — AI job order parsing + blast management</span>
+        <span style="color:var(--gold);font-weight:700;white-space:nowrap">$1,500/mo</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #222">
+        <span style="color:#e5e7eb">&#10003; Magic Links — permanent self-service candidate pages</span>
+        <span style="color:var(--gold);font-weight:700;white-space:nowrap">$800/mo</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #222">
+        <span style="color:#e5e7eb">&#10003; Blast Guard — cooldown protection for your list</span>
+        <span style="color:var(--gold);font-weight:700;white-space:nowrap">$500/mo</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #222">
+        <span style="color:#e5e7eb">&#10003; Real-time pipeline dashboard</span>
+        <span style="color:var(--gold);font-weight:700;white-space:nowrap">$400/mo</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #222">
+        <span style="color:#e5e7eb">&#10003; Unlimited recruiters — no per-seat fees, ever</span>
+        <span style="color:var(--gold);font-weight:700;white-space:nowrap">$600/mo</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #222">
+        <span style="color:#e5e7eb">&#10003; Self-service signup — no implementation or training</span>
+        <span style="color:var(--gold);font-weight:700;white-space:nowrap">$2,000</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #222">
+        <span style="color:#e5e7eb">&#10003; Multiple SMS provider support</span>
+        <span style="color:var(--gold);font-weight:700;white-space:nowrap">$300/mo</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:20px 0;margin-top:8px">
+        <span style="color:#9ca3af;font-size:18px;font-weight:700">TOTAL VALUE</span>
+        <span style="color:#9ca3af;font-size:18px;font-weight:700;text-decoration:line-through">$8,600/mo</span>
+      </div>
+      <div style="text-align:center;margin-top:16px">
+        <div style="font-size:14px;color:#9ca3af;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Your price</div>
+        <div style="font-size:64px;font-weight:900;color:var(--green);line-height:1">$399<span style="font-size:24px;color:#9ca3af;font-weight:600">/mo</span></div>
+        <div style="margin-top:12px;color:var(--gold);font-size:16px;font-weight:600">Pays for itself with just ONE placement.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-section fade-in">
+    <a href="https://app.joblinkplatform.com/signup.html" class="cta-btn">Start your free trial &rarr;</a>
+    <div class="cta-sub">14-day free trial &bull; No contract &bull; Cancel anytime in the app</div>
+  </div>
+</div>
+
+<script>
+  // Elements
+  const sliders = {
+    candidates: document.getElementById('candidates'),
+    orders: document.getElementById('orders'),
+    hours: document.getElementById('hours'),
+    fee: document.getElementById('fee'),
+  };
+  const vals = {
+    candidates: document.getElementById('val-candidates'),
+    orders: document.getElementById('val-orders'),
+    hours: document.getElementById('val-hours'),
+    fee: document.getElementById('val-fee'),
+  };
+  const outs = {
+    time: document.getElementById('out-time'),
+    response: document.getElementById('out-response'),
+    revenue: document.getElementById('out-revenue'),
+    roi: document.getElementById('out-roi'),
+    payback: document.getElementById('out-payback'),
+  };
+  const cmps = {
+    phoneOld: document.getElementById('cmp-phone-old'),
+    phoneNew: document.getElementById('cmp-phone-new'),
+    reachNew: document.getElementById('cmp-reach-new'),
+    barPhoneOld: document.getElementById('bar-phone-old'),
+    barReachOld: document.getElementById('bar-reach-old'),
+  };
+  const roiCard = document.getElementById('roi-card');
+
+  const PRICE = 399;
+  const RESPONSE_RATE = 0.093;
+  const CONVERSION_RATE = 0.05;
+  const PHONE_REDUCTION = 0.8;
+  const WORKDAYS = 22;
+
+  // Animated counter state
+  const currentDisplay = { time: 0, response: 0, revenue: 0, roi: 0, payback: 0 };
+  let animFrame = null;
+
+  function fmt(n) { return n.toLocaleString('en-US'); }
+  function fmtMoney(n) { return '$' + n.toLocaleString('en-US', { maximumFractionDigits: 0 }); }
+
+  function updateSliderFill(slider) {
+    const pct = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
+    slider.style.background = `linear-gradient(to right, var(--purple) 0%, var(--purple) ${pct}%, var(--border) ${pct}%, var(--border) 100%)`;
+  }
+
+  function calculate() {
+    const candidates = +sliders.candidates.value;
+    const orders = +sliders.orders.value;
+    const hours = +sliders.hours.value;
+    const fee = +sliders.fee.value;
+
+    // Update input displays
+    vals.candidates.textContent = fmt(candidates);
+    vals.orders.textContent = fmt(orders);
+    vals.hours.textContent = hours.toFixed(1) + ' hrs';
+    vals.fee.textContent = fmtMoney(fee);
+
+    // Calculations
+    const timeSaved = hours * PHONE_REDUCTION * WORKDAYS;
+    const interestedPerBlast = candidates * RESPONSE_RATE;
+    const monthlyBlasts = orders * 4;
+    const additionalPlacements = interestedPerBlast * monthlyBlasts * CONVERSION_RATE;
+    const revenue = additionalPlacements * fee;
+    const roi = revenue / PRICE;
+    const payback = Math.ceil(PRICE / fee);
+
+    // Animate to targets
+    animateTo('time', timeSaved);
+    animateTo('response', Math.round(interestedPerBlast));
+    animateTo('revenue', Math.round(revenue));
+    animateTo('roi', roi);
+    animateTo('payback', payback);
+
+    // Comparison bars
+    const totalPhone = hours * WORKDAYS;
+    const remainPhone = totalPhone * (1 - PHONE_REDUCTION);
+    cmps.phoneOld.textContent = totalPhone.toFixed(0);
+    cmps.phoneNew.textContent = remainPhone.toFixed(1);
+    cmps.reachNew.textContent = fmt(candidates);
+
+    const phonePct = Math.min(95, Math.max(15, (totalPhone / (totalPhone + 5)) * 100));
+    cmps.barPhoneOld.style.width = phonePct + '%';
+
+    // ROI card glow
+    if (roi >= 10) {
+      roiCard.classList.add('roi-hot');
+    } else {
+      roiCard.classList.remove('roi-hot');
+    }
+
+    // Update slider fills
+    Object.values(sliders).forEach(updateSliderFill);
+  }
+
+  // Smooth number animation
+  function animateTo(key, target) {
+    const el = outs[key];
+    const start = currentDisplay[key];
+    const diff = target - start;
+    if (Math.abs(diff) < 0.5) {
+      currentDisplay[key] = target;
+      renderValue(key, target);
+      return;
+    }
+    const steps = 20;
+    let step = 0;
+    function tick() {
+      step++;
+      const progress = step / steps;
+      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      const current = start + diff * eased;
+      currentDisplay[key] = current;
+      renderValue(key, current);
+      if (step < steps) requestAnimationFrame(tick);
+      else { currentDisplay[key] = target; renderValue(key, target); }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function renderValue(key, val) {
+    const el = outs[key];
+    switch(key) {
+      case 'time':
+        el.textContent = val.toFixed(1);
+        break;
+      case 'response':
+        el.textContent = fmt(Math.round(val));
+        break;
+      case 'revenue':
+        el.textContent = fmtMoney(val);
+        break;
+      case 'roi':
+        el.textContent = val.toFixed(1) + ':1';
+        break;
+      case 'payback':
+        el.textContent = Math.round(val);
+        break;
+    }
+  }
+
+  // Bind sliders
+  Object.values(sliders).forEach(s => {
+    s.addEventListener('input', calculate);
+    updateSliderFill(s);
+  });
+
+  // Initial calc
+  calculate();
+</script>
+
+</body>
+</html>
