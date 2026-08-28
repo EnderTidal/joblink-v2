@@ -134,7 +134,7 @@ function sortContacts(contacts, sortBy) {
   return sorted;
 }
 
-function createTom(db) {
+function createTom(db, _orgId) {
   const sessions = new Map();
 
   function newSession(path, user, displayName) {
@@ -170,7 +170,7 @@ function createTom(db) {
       let docText = text || '';
       if (file) docText = await extractText(file.buffer, file.originalname);
       if (!docText.trim()) return reply(s, 'Drop a .docx or .txt file with the job details, or use the blank form below.', { showBlankFormLink: true });
-      const parsed = await parseJobOrderText(docText);
+      const parsed = await parseJobOrderText(docText, _orgId);
       if (!parsed.fields) return reply(s, 'That document looks empty \u2014 try again?', { showBlankFormLink: true });
       s.data.draft = parsed.fields;
       s.state = 'review';
