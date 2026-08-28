@@ -78,9 +78,23 @@ function createQboRoutes() {
   });
 
   // 2. OAuth callback — exchange code for tokens
+  const usedCodes = new Set();
+
   router.get("/api/qbo-callback", async (req, res) => {
     try {
+      // Block bots/crawlers from replaying the callback
+      const ua = (req.headers["user-agent"] || "").toLowerCase();
+      if (ua.includes("bot") || ua.includes("crawler") || ua.includes("preview")) {
+        return res.status(200).send("<html><body>QuickBooks Connected!</body></html>");
+      }
+
       const { code, state, realmId, error } = req.query;
+
+      // Prevent double-exchange of the same auth code
+      if (code && usedCodes.has(code)) {
+        return res.status(200).send("<html><body style=\"text-align:center;padding-top:40vh;font-family:sans-serif\"><h2 style=\"color:green\">✔ QuickBooks Connected!</h2><p>You can close this tab.</p></body></html>");
+      }
+      if (code) usedCodes.add(code);
       if (error) return res.status(400).send("Authorization denied: " + error);
       if (!code) return res.status(400).send("Missing authorization code");
       if (pendingState && state !== pendingState) {
