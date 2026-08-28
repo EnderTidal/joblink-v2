@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KWF Finances — Super Admin</title>
+<script>(function(){if(localStorage.getItem("joblink_light_mode")==="true"){document.documentElement.classList.add("light-mode")}})();</script>
+<link rel="stylesheet" href="/app.css?v=5">
+<style>
+  .fin-hero { padding:30px 40px 0; max-width:1400px; margin:0 auto; }
+  .fin-hero h1 { font-size:27px; font-weight:800; letter-spacing:-.02em; margin:0 0 4px; }
+  .fin-hero p { color:var(--text-muted); font-size:14px; margin:0 0 24px; }
+  .fin-hero .nav-back { font-size:13px; color:var(--brand); text-decoration:none; font-weight:600; }
+  .fin-hero .nav-back:hover { text-decoration:underline; }
+  main.page { padding-top:16px; }
+
+  .grid.metrics { grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); margin-bottom:24px; }
+  .metric-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; }
+  .metric-card .label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-subtle); margin-bottom:6px; }
+  .metric-card .value { font-size:28px; font-weight:800; letter-spacing:-.02em; }
+  .metric-card .sub { font-size:12px; color:var(--text-muted); margin-top:4px; }
+  .metric-card .value.green { color:var(--green); }
+  .metric-card .value.red { color:var(--red); }
+  .metric-card .value.blue { color:var(--blue); }
+  .metric-card .value.amber { color:var(--amber); }
+
+  .section-title { font-size:16px; font-weight:800; letter-spacing:-.01em; margin:0 0 14px; display:flex; align-items:center; gap:10px; }
+
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:16px; }
+
+  .pnl-table { width:100%; border-collapse:collapse; }
+  .pnl-table th { text-align:left; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-subtle); padding:8px 12px; border-bottom:1px solid var(--border); }
+  .pnl-table td { padding:8px 12px; font-size:14px; border-bottom:1px solid var(--border-light, var(--border)); }
+  .pnl-table td.amount { text-align:right; font-weight:600; font-variant-numeric:tabular-nums; }
+  .pnl-table tr.section-header td { font-weight:800; font-size:13px; text-transform:uppercase; letter-spacing:.03em; color:var(--text-subtle); background:var(--surface-2, var(--surface)); padding-top:14px; }
+  .pnl-table tr.total-row td { font-weight:800; border-top:2px solid var(--border); }
+  .pnl-table tr.total-row td.amount { font-size:16px; }
+  .pnl-table tr.net-income td { font-weight:800; font-size:16px; border-top:3px double var(--border); }
+  .pnl-table tr.net-income td.amount.positive { color:var(--green); }
+  .pnl-table tr.net-income td.amount.negative { color:var(--red); }
+
+  .cogs-table { width:100%; }
+  .cogs-table td { font-size:13.5px; padding:8px 12px; }
+  .cogs-table td.amount { text-align:right; font-weight:700; font-variant-numeric:tabular-nums; }
+
+  .inv-table { width:100%; }
+  .inv-table td { font-size:13.5px; }
+  .status-pill { display:inline-block; padding:3px 10px; border-radius:99px; font-size:11.5px; font-weight:700; }
+  .status-pill.paid { background:var(--green-soft); color:var(--green); }
+  .status-pill.open { background:var(--blue-soft); color:var(--blue); }
+  .status-pill.overdue { background:var(--red-soft); color:var(--red); }
+
+  .qbo-status { display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:16px; }
+  .qbo-dot { width:8px; height:8px; border-radius:50%; }
+  .qbo-dot.ok { background:var(--green); }
+  .qbo-dot.err { background:var(--red); }
+
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:900px) { .two-col { grid-template-columns:1fr; } }
+
+  .cogs-month-selector { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .cogs-month-selector input { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 12px; font-size:14px; color:var(--text); font-weight:600; }
+  .btn { padding:8px 18px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; border:1px solid transparent; }
+  .btn-primary { background:var(--brand); color:white; }
+  .btn-primary:hover { opacity:0.9; }
+  .btn-outline { background:transparent; border:1px solid var(--border); color:var(--text); }
+  .btn-outline:hover { background:var(--surface-2); }
+  .btn-danger { background:var(--red-soft); color:var(--red); }
+
+  .empty-msg { padding:20px; text-align:center; color:var(--text-subtle); font-size:13.5px; }
+  #toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--surface); border:1px solid var(--border); padding:10px 20px; border-radius:10px; font-size:13px; font-weight:600; opacity:0; transition:opacity .2s; pointer-events:none; z-index:1000; }
+  #toast.show { opacity:1; }
+</style>
+</head>
+<body>
+<div class="fin-hero">
+  <a href="/dev-dashboard.html" class="nav-back">&larr; Back to Dashboard</a>
+  <h1>KWF Finances</h1>
+  <p>Kingdom Workforce — QuickBooks Online integration</p>
+  <div class="qbo-status" id="qboStatus">Checking QBO connection...</div>
+</div>
+
+<main class="page" style="max-width:1400px;margin:0 auto;padding:0 40px 40px;">
+
+  <!-- Top metrics -->
+  <div class="grid metrics" id="topMetrics">
+    <div class="metric-card"><div class="label">Revenue (MTD)</div><div class="value green" id="mRevenue">--</div><div class="sub" id="mRevenueSub"></div></div>
+    <div class="metric-card"><div class="label">COGS (MTD)</div><div class="value red" id="mCogs">--</div><div class="sub" id="mCogsSub"></div></div>
+    <div class="metric-card"><div class="label">Gross Profit</div><div class="value blue" id="mGross">--</div><div class="sub" id="mGrossSub"></div></div>
+    <div class="metric-card"><div class="label">Net Income</div><div class="value" id="mNet">--</div><div class="sub" id="mNetSub"></div></div>
+    <div class="metric-card"><div class="label">Expenses (MTD)</div><div class="value amber" id="mExpenses">--</div><div class="sub" id="mExpensesSub"></div></div>
+  </div>
+
+  <!-- P&L Report -->
+  <div class="card">
+    <div class="section-title">Profit & Loss — Current Month</div>
+    <table class="pnl-table" id="pnlTable">
+      <tbody id="pnlBody">
+        <tr><td colspan="2" class="empty-msg">Loading P&L report...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="two-col">
+    <!-- COGS Calculator -->
+    <div class="card">
+      <div class="section-title">COGS Calculator</div>
+      <div class="cogs-month-selector">
+        <input type="month" id="cogsMonth" />
+        <button class="btn btn-primary" onclick="loadCogs()">Calculate</button>
+        <button class="btn btn-outline" id="invoiceBtn" onclick="createInvoice()" style="display:none">Create Invoice</button>
+      </div>
+      <div id="cogsResult"></div>
+    </div>
+
+    <!-- Invoices -->
+    <div class="card">
+      <div class="section-title">Recent Invoices</div>
+      <div id="invoicesPanel"><div class="empty-msg">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- Chart of Accounts -->
+  <div class="card">
+    <div class="section-title">Chart of Accounts</div>
+    <div id="accountsPanel"><div class="empty-msg">Loading...</div></div>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<script>
+var BASE = '/dev/api/qbo';
+
+async function api(url, opts) {
+  var r = await fetch(url, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts || {}));
+  if (!r.ok) throw new Error((await r.json()).error || r.statusText);
+  return r.json();
+}
+
+function $(id) { return document.getElementById(id); }
+function money(n) { return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+// Init
+var today = new Date();
+$('cogsMonth').value = today.toISOString().slice(0, 7);
+
+async function init() {
+  await loadQboHealth();
+  loadPnl();
+  loadInvoices();
+  loadAccounts();
+  loadCogs();
+}
+
+async function loadQboHealth() {
+  try {
+    var h = await api(BASE + '/health');
+    $('qboStatus').innerHTML = '<span class="qbo-dot ok"></span> Connected to <strong>' + h.company + '</strong> &mdash; token expires ' + new Date(h.token_expires).toLocaleString();
+  } catch (e) {
+    $('qboStatus').innerHTML = '<span class="qbo-dot err"></span> QBO disconnected: ' + e.message;
+  }
+}
+
+async function loadPnl() {
+  try {
+    var p = await api(BASE + '/pnl');
+    $('mRevenue').textContent = money(p.income.total);
+    $('mCogs').textContent = money(p.cogs.total);
+    $('mGross').textContent = money(p.grossProfit);
+    $('mNet').textContent = (p.netIncome >= 0 ? '' : '-') + money(p.netIncome);
+    $('mNet').className = 'value ' + (p.netIncome >= 0 ? 'green' : 'red');
+    $('mExpenses').textContent = money(p.expenses.total);
+    $('mRevenueSub').textContent = p.period;
+    $('mCogsSub').textContent = p.income.total > 0 ? Math.round((p.cogs.total / p.income.total) * 100) + '% of revenue' : '';
+    $('mGrossSub').textContent = p.income.total > 0 ? Math.round((p.grossProfit / p.income.total) * 100) + '% margin' : '';
+
+    // Build P&L table
+    var html = '';
+    // Income section
+    html += '<tr class="section-header"><td colspan="2">Revenue</td></tr>';
+    p.income.items.forEach(function(i) {
+      html += '<tr><td>' + i.name + '</td><td class="amount">' + money(i.amount) + '</td></tr>';
+    });
+    html += '<tr class="total-row"><td>Total Revenue</td><td class="amount">' + money(p.income.total) + '</td></tr>';
+
+    // COGS section
+    html += '<tr class="section-header"><td colspan="2">Cost of Goods Sold</td></tr>';
+    p.cogs.items.forEach(function(i) {
+      html += '<tr><td>' + i.name + '</td><td class="amount">' + money(i.amount) + '</td></tr>';
+    });
+    html += '<tr class="total-row"><td>Total COGS</td><td class="amount">' + money(p.cogs.total) + '</td></tr>';
+
+    // Gross profit
+    html += '<tr class="total-row"><td>Gross Profit</td><td class="amount" style="color:var(--blue)">' + money(p.grossProfit) + '</td></tr>';
+
+    // Expenses
+    html += '<tr class="section-header"><td colspan="2">Expenses</td></tr>';
+    p.expenses.items.forEach(function(i) {
+      html += '<tr><td>' + i.name + '</td><td class="amount">' + money(i.amount) + '</td></tr>';
+    });
+    html += '<tr class="total-row"><td>Total Expenses</td><td class="amount">' + money(p.expenses.total) + '</td></tr>';
+
+    // Net income
+    var netClass = p.netIncome >= 0 ? 'positive' : 'negative';
+    html += '<tr class="net-income"><td>Net Income</td><td class="amount ' + netClass + '">' + (p.netIncome >= 0 ? '' : '-') + money(p.netIncome) + '</td></tr>';
+
+    $('pnlBody').innerHTML = html;
+  } catch (e) {
+    $('pnlBody').innerHTML = '<tr><td colspan="2" class="empty-msg">P&L not available: ' + e.message + '</td></tr>';
+    console.error('pnl', e);
+  }
+}
+
+var lastCogs = null;
+async function loadCogs() {
+  var month = $('cogsMonth').value;
+  if (!month) return;
+  $('cogsResult').innerHTML = '<div class="empty-msg">Calculating...</div>';
+  try {
+    var c = await api(BASE + '/cogs/' + month);
+    lastCogs = c;
+    var html = '<table class="cogs-table"><thead><tr><th>Item</th><th style="text-align:right">Amount</th></tr></thead><tbody>';
+    html += '<tr><td>ResumeLine — Retell voice (' + c.cogs.resumeline.calls + ' calls)</td><td class="amount">' + money(c.cogs.resumeline.retell_cost) + '</td></tr>';
+    if (c.cogs.joblink.ai_cost > 0) {
+      html += '<tr><td>JobLink — AI usage (Tom)</td><td class="amount">' + money(c.cogs.joblink.ai_cost) + '</td></tr>';
+    } else {
+      html += '<tr><td style="color:var(--text-subtle)">JobLink — AI usage (not metered yet)</td><td class="amount" style="color:var(--text-subtle)">$0.00</td></tr>';
+    }
+    html += '<tr style="font-weight:800;border-top:2px solid var(--border)"><td>Total COGS</td><td class="amount">' + money(c.cogs.total) + '</td></tr>';
+    html += '</tbody></table>';
+    html += '<div style="margin-top:12px;font-size:12px;color:var(--text-muted)">Invoice: ' + c.doc_number + ' &middot; Due: ' + c.due_date + ' &middot; To: ' + c.cogs.org_name + '</div>';
+    $('cogsResult').innerHTML = html;
+    $('invoiceBtn').style.display = c.cogs.total > 0 ? 'inline-block' : 'none';
+  } catch (e) {
+    $('cogsResult').innerHTML = '<div class="empty-msg">Error: ' + e.message + '</div>';
+  }
+}
+
+async function createInvoice() {
+  if (!lastCogs) return;
+  if (!confirm('Create QBO invoice for ' + lastCogs.doc_number + ' ($' + lastCogs.cogs.total.toFixed(2) + ') and email Matt?')) return;
+  try {
+    var r = await api(BASE + '/cogs/' + lastCogs.cogs.month + '/invoice', {
+      method: 'POST',
+      body: JSON.stringify({ customerId: 2, sendEmail: true }),
+    });
+    toast('Invoice created! #' + r.doc_number + ' — $' + r.total.toFixed(2) + (r.emailed ? ' (emailed to Matt)' : ''));
+    loadInvoices();
+  } catch (e) {
+    toast('Error: ' + e.message);
+  }
+}
+
+async function loadInvoices() {
+  try {
+    var invs = await api(BASE + '/invoices');
+    if (!invs.length) {
+      $('invoicesPanel').innerHTML = '<div class="empty-msg">No invoices yet</div>';
+      return;
+    }
+    var html = '<table class="inv-table"><thead><tr><th>Invoice #</th><th>Date</th><th>Total</th><th>Status</th></tr></thead><tbody>';
+    invs.forEach(function(inv) {
+      html += '<tr>' +
+        '<td style="font-weight:700">' + (inv.docNumber || inv.id) + '</td>' +
+        '<td style="color:var(--text-muted)">' + inv.date + '</td>' +
+        '<td style="font-weight:600;font-variant-numeric:tabular-nums">' + money(inv.total) + '</td>' +
+        '<td><span class="status-pill ' + inv.status + '">' + inv.status + '</span></td>' +
+      '</tr>';
+    });
+    html += '</tbody></table>';
+    $('invoicesPanel').innerHTML = html;
+  } catch (e) {
+    $('invoicesPanel').innerHTML = '<div class="empty-msg">Error: ' + e.message + '</div>';
+  }
+}
+
+async function loadAccounts() {
+  try {
+    var accts = await api(BASE + '/accounts');
+    if (!accts.length) {
+      $('accountsPanel').innerHTML = '<div class="empty-msg">No accounts found</div>';
+      return;
+    }
+    // Group by type
+    var groups = {};
+    accts.forEach(function(a) {
+      if (!groups[a.type]) groups[a.type] = [];
+      groups[a.type].push(a);
+    });
+
+    var html = '<table class="cogs-table"><thead><tr><th>Account</th><th>Type</th><th style="text-align:right">Balance</th></tr></thead><tbody>';
+    Object.keys(groups).sort().forEach(function(type) {
+      html += '<tr class="section-header"><td colspan="3" style="font-weight:800;font-size:12px;text-transform:uppercase;color:var(--text-subtle);padding-top:12px">' + type + '</td></tr>';
+      groups[type].forEach(function(a) {
+        html += '<tr><td>' + a.name + '</td><td style="color:var(--text-muted);font-size:12px">' + (a.subType || '') + '</td><td class="amount">' + money(a.balance || 0) + '</td></tr>';
+      });
+    });
+    html += '</tbody></table>';
+    $('accountsPanel').innerHTML = html;
+  } catch (e) {
+    $('accountsPanel').innerHTML = '<div class="empty-msg">Error: ' + e.message + '</div>';
+  }
+}
+
+function toast(msg) {
+  var t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 3000);
+}
+
+init();
+</script>
+</body></html>

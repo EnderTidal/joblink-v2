@@ -242,6 +242,11 @@ app.get('/dev-dashboard.html', auth.requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'private', 'dev-dashboard.html'));
 });
 
+app.get('/finances.html', auth.requireAuth, (req, res) => {
+  if (!req.user || req.user.org_id !== 1) return res.status(403).send('Forbidden');
+  res.sendFile(path.join(__dirname, 'private', 'finances.html'));
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => {
   const host = req.hostname || '';
