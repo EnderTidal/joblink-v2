@@ -18,7 +18,7 @@ const HEADER_ALIASES = {
   first: ['first name', 'firstname', 'first', 'fname', 'formal first name', 'formal first', 'given name'],
   last: ['last name', 'lastname', 'last', 'lname', 'surname', 'formal last name', 'formal last', 'family name'],
   name: ['name', 'full name', 'fullname', 'contact', 'contact name', 'candidate', 'candidate name'],
-  phone: ['phone', 'phone number', 'phone#', 'cell', 'cell phone', 'mobile', 'mobile phone', 'mobile number', 'cell number', 'number', 'text number', 'telephone', 'home phone', 'work phone'],
+  phone: ['phone', 'phone number', 'phone#', 'cell', 'cell phone', 'cellphone', 'mobile', 'mobile phone', 'mobilephone', 'mobile number', 'cell number', 'number', 'text number', 'text', 'telephone', 'home phone', 'homephone', 'work phone', 'workphone'],
   lastContacted: ['last contacted', 'last contact', 'lastcontacted', 'last contact date', 'date last contacted'],
 };
 
