@@ -13,7 +13,7 @@ const tomCache = new Map();
 
 function getTom(db, orgId) {
   if (tomCache.has(orgId)) return tomCache.get(orgId);
-  const tom = createTom(db);
+  const tom = createTom(db, orgId);
   tomCache.set(orgId, tom);
   return tom;
 }

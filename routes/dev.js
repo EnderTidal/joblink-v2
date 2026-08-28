@@ -444,6 +444,31 @@ function createDevRoutes(sysDb, auth) {
 
   // ======= QBO FINANCIAL ROUTES =======
 
+  // ---- AI Usage Metering ----
+  router.get('/api/qbo/ai-usage/:month', async (req, res) => {
+    try {
+      const { getAllOrgUsage } = require('../lib/ai-metering');
+      const usage = getAllOrgUsage(req.params.month);
+      const totalCost = usage.reduce((sum, u) => sum + u.estimatedCost, 0);
+      const totalCalls = usage.reduce((sum, u) => sum + u.totalCalls, 0);
+      res.json({ month: req.params.month, orgs: usage, totalCost, totalCalls });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.get('/api/qbo/ai-usage/:month/:orgId', async (req, res) => {
+    try {
+      const { getUsageSummary } = require('../lib/ai-metering');
+      const usage = getUsageSummary(parseInt(req.params.orgId), req.params.month);
+      res.json({ month: req.params.month, orgId: parseInt(req.params.orgId), ...usage });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+
+
   // ---- Stripe Activity ----
   router.get('/api/qbo/stripe', async (_req, res) => {
     try {

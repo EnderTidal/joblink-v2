@@ -1,3 +1,4 @@
+const { logUsage } = require('../../lib/ai-metering');
 // AI-assisted parsing: uploaded document text → Job Order fields.
 // Hybrid Vigor in practice: the AI's job here is narrow — fill a fixed
 // template. It does not freelance outside that.
@@ -107,14 +108,24 @@ async function parseWithClaude(text) {
   };
   const warnings = [];
   if (!fields.category) warnings.push('category could not be determined — recruiter must pick one');
+  // Log usage for metering (orgId passed via _meteringOrgId on the function)
+  if (parseWithClaude._meteringOrgId) {
+    const model = process.env.JOBLINK_PARSE_MODEL || 'claude-haiku-4-5';
+    logUsage(parseWithClaude._meteringOrgId, {
+      model,
+      operation: 'parse_job_order',
+      inputTokens: msg.usage?.input_tokens || 0,
+      outputTokens: msg.usage?.output_tokens || 0,
+    });
+  }
   return { fields, engine: 'claude', warnings };
 }
 
-async function parseJobOrderText(text) {
+async function parseJobOrderText(text, orgId) {
   const clean = String(text || '').replace(/\r\n/g, '\n').trim();
   if (!clean) return { fields: null, engine: 'none', warnings: ['empty document'] };
   if (process.env.ANTHROPIC_API_KEY) {
-    try { return await parseWithClaude(clean); }
+    try { parseWithClaude._meteringOrgId = orgId || null; return await parseWithClaude(clean); }
     catch (err) {
       const fallback = parseDeterministic(clean);
       fallback.warnings.push(`AI parse failed (${err.message}); used deterministic fallback`);
