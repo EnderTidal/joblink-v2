@@ -10,6 +10,7 @@
     font-size:.95rem; font-weight:600; color:var(--text); transition:border-color .15s, background .15s; }
   .paths button:hover { border-color:var(--brand); }
   .paths button.on { border-color:var(--brand); background:var(--brand-soft); }
+  .paths.wizard-active { display:none; }
   #chat { display:flex; flex-direction:column; gap:10px; min-height:300px; }
   .msg { max-width:78%; padding:12px 15px; border-radius:14px; white-space:pre-wrap; font-size:.94rem; line-height:1.45; }
   .msg.tom { background:var(--surface-2); border:1px solid var(--border); align-self:flex-start; border-bottom-left-radius:4px; }
@@ -182,6 +183,36 @@
 
   /* Tom light mode */
 
+
+  /* Column mapping panel */
+  #column-map-panel { display:none; }
+  #column-map-panel.active { display:block; }
+  .cm-title { font-size:1.05rem; font-weight:700; margin-bottom:4px; }
+  .cm-hint { color:var(--text-muted); font-size:13px; margin-bottom:16px; }
+  .cm-table { width:100%; border-collapse:collapse; margin-bottom:16px; }
+  .cm-table th { text-align:left; padding:8px 10px; font-size:.82rem; color:var(--text-muted); font-weight:600; border-bottom:1px solid var(--border); }
+  .cm-table td { padding:6px 10px; border-bottom:1px solid var(--border); font-size:.88rem; }
+  .cm-table .cm-header-name { font-weight:600; color:var(--text); }
+  .cm-table .cm-sample { color:var(--text-muted); font-size:.82rem; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cm-table select { background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:6px 8px; border-radius:6px; font-size:.85rem; font-family:inherit; min-width:140px; }
+  .cm-table select:focus { border-color:var(--brand); outline:none; }
+  .cm-actions { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
+
+  /* Step indicator */
+  .step-indicator { font-size:.82rem; color:var(--text-muted); margin-bottom:12px; font-weight:500; }
+  .step-indicator strong { color:var(--brand); }
+  .back-btn { background:none; border:none; color:var(--brand); cursor:pointer; font-size:.88rem; font-weight:500; padding:0; margin-bottom:8px; display:inline-flex; align-items:center; gap:4px; }
+  .back-btn:hover { text-decoration:underline; }
+
+  /* Exclusion upload panel */
+  #exclusion-panel { display:none; }
+  #exclusion-panel.active { display:block; }
+  .ex-title { font-size:1.05rem; font-weight:700; margin-bottom:4px; }
+  .ex-stat { font-size:.88rem; color:var(--text-muted); margin-bottom:16px; }
+  .ex-stat strong { color:var(--text); }
+  .ex-hint { color:var(--text-muted); font-size:13px; margin-bottom:16px; }
+  .ex-actions { display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+  .ex-result { background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-top:12px; font-size:.9rem; }
 </style></head>
 <body>
 <main class="page">
@@ -198,6 +229,8 @@
     <div id="jo-entry-panel"></div>
     <div id="blast-form-panel"></div>
     <div id="contact-form-panel"></div>
+    <div id="column-map-panel"></div>
+    <div id="exclusion-panel"></div>
     <div id="chat"><div class="hint">Pick a button above to start. One task per conversation &mdash; switching tasks starts a fresh one.</div></div>
     <div id="composer" style="display:none">
       <button class="btn ghost" id="attach" title="Upload a file">&#x1F4CE;</button>
@@ -540,6 +573,263 @@ async function submitJOForm(action) {
 }
 
 // ---- Full-width Blast Settings Form ----
+
+// ---- Column Mapping Panel ----
+var columnMapData = null;
+
+function showColumnMapPanel(data) {
+  columnMapData = data;
+  var panel = document.getElementById('column-map-panel');
+  panel.className = 'active';
+  panel.innerHTML = '';
+  document.getElementById('chat').style.display = 'none';
+  document.getElementById('jo-form-panel').className = '';
+  document.getElementById('blast-form-panel').className = '';
+  document.getElementById('contact-form-panel').className = '';
+  document.getElementById('exclusion-panel').className = '';
+  document.getElementById('composer').style.display = 'none';
+
+  var cmStep = document.createElement('div');
+  cmStep.className = 'step-indicator';
+  cmStep.innerHTML = 'Step <strong>2</strong> of 4: Map Columns';
+  panel.appendChild(cmStep);
+
+  var cmBackBtn = document.createElement('button');
+  cmBackBtn.className = 'back-btn';
+  cmBackBtn.innerHTML = '\u2190 Back';
+  cmBackBtn.addEventListener('click', function() {
+    hideColumnMapPanel();
+    sendAction('back_to_upload', {});
+  });
+  panel.appendChild(cmBackBtn);
+
+  var title = document.createElement('div');
+  title.className = 'cm-title';
+  title.textContent = 'Map Your Columns';
+  panel.appendChild(title);
+
+  var hint = document.createElement('div');
+  hint.className = 'cm-hint';
+  hint.textContent = 'We detected ' + data.headers.length + ' columns. Assign each column to the right field, or set to Skip.';
+  panel.appendChild(hint);
+
+  var table = document.createElement('table');
+  table.className = 'cm-table';
+
+  // Header row
+  var thead = document.createElement('thead');
+  var headRow = document.createElement('tr');
+  ['Column Header', 'Sample Data', 'Map To'].forEach(function(t) {
+    var th = document.createElement('th');
+    th.textContent = t;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  var tbody = document.createElement('tbody');
+  var fieldOptions = [
+    { value: 'skip', label: 'Skip' },
+    { value: 'first', label: 'First Name' },
+    { value: 'last', label: 'Last Name' },
+    { value: 'name_fl', label: 'Name (First Last)' },
+    { value: 'name_lf', label: 'Name (Last, First)' },
+    { value: 'phone', label: 'Phone' },
+    { value: 'lastContacted', label: 'Last Contacted' },
+  ];
+
+  data.headers.forEach(function(header, i) {
+    var tr = document.createElement('tr');
+
+    // Column header name
+    var tdName = document.createElement('td');
+    tdName.className = 'cm-header-name';
+    tdName.textContent = header || '(empty)';
+    tr.appendChild(tdName);
+
+    // Sample data from first few rows
+    var tdSample = document.createElement('td');
+    tdSample.className = 'cm-sample';
+    var samples = (data.sampleRows || []).map(function(row) { return String(row[i] || ''); }).filter(Boolean);
+    tdSample.textContent = samples.slice(0, 3).join(', ') || '—';
+    tdSample.title = samples.join('\n');
+    tr.appendChild(tdSample);
+
+    // Dropdown
+    var tdSelect = document.createElement('td');
+    var sel = document.createElement('select');
+    sel.dataset.colIndex = i;
+    sel.className = 'cm-select';
+    fieldOptions.forEach(function(opt) {
+      var o = document.createElement('option');
+      o.value = opt.value;
+      o.textContent = opt.label;
+      sel.appendChild(o);
+    });
+    // Auto-suggest from server
+    var suggested = data.suggestedMap && data.suggestedMap[String(i)];
+    if (suggested) {
+      sel.value = suggested;
+    }
+    tdSelect.appendChild(sel);
+    tr.appendChild(tdSelect);
+
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  panel.appendChild(table);
+
+  // Actions
+  var actions = document.createElement('div');
+  actions.className = 'cm-actions';
+
+  var confirmBtn = document.createElement('button');
+  confirmBtn.className = 'btn';
+  confirmBtn.textContent = 'Confirm Mapping';
+  confirmBtn.addEventListener('click', function() {
+    var selects = panel.querySelectorAll('.cm-select');
+    var columnMap = {};
+    var hasPhone = false;
+    selects.forEach(function(sel) {
+      var idx = sel.dataset.colIndex;
+      var val = sel.value;
+      columnMap[idx] = val;
+      if (val === 'phone') hasPhone = true;
+    });
+    if (!hasPhone) {
+      toast('You must map at least one column to Phone.');
+      return;
+    }
+    hideColumnMapPanel();
+    sendAction('confirm_column_map', { columnMap: columnMap });
+  });
+
+  var startOverBtn = document.createElement('button');
+  startOverBtn.className = 'btn ghost';
+  startOverBtn.textContent = 'Start Over';
+  startOverBtn.addEventListener('click', function() {
+    hideColumnMapPanel();
+    sendAction('start_over', {});
+  });
+
+  actions.appendChild(confirmBtn);
+  actions.appendChild(startOverBtn);
+  panel.appendChild(actions);
+}
+
+function hideColumnMapPanel() {
+  var panel = document.getElementById('column-map-panel');
+  panel.className = '';
+  panel.innerHTML = '';
+  document.getElementById('chat').style.display = 'flex';
+}
+
+// ---- Exclusion Upload Panel ----
+function showExclusionPanel(data) {
+  var panel = document.getElementById('exclusion-panel');
+  panel.className = 'active';
+  panel.innerHTML = '';
+  document.getElementById('chat').style.display = 'none';
+  document.getElementById('jo-form-panel').className = '';
+  document.getElementById('blast-form-panel').className = '';
+  document.getElementById('contact-form-panel').className = '';
+  document.getElementById('column-map-panel').className = '';
+  document.getElementById('composer').style.display = 'none';
+
+  var exStep = document.createElement('div');
+  exStep.className = 'step-indicator';
+  exStep.innerHTML = 'Step <strong>3</strong> of 4: Exclusion List';
+  panel.appendChild(exStep);
+
+  var exBackBtn = document.createElement('button');
+  exBackBtn.className = 'back-btn';
+  exBackBtn.innerHTML = '\u2190 Back';
+  exBackBtn.addEventListener('click', function() {
+    hideExclusionPanel();
+    sendAction('back_to_column_map', {});
+  });
+  panel.appendChild(exBackBtn);
+
+  var title = document.createElement('div');
+  title.className = 'ex-title';
+  title.textContent = 'Exclusion List (Optional)';
+  panel.appendChild(title);
+
+  var stat = document.createElement('div');
+  stat.className = 'ex-stat';
+  stat.innerHTML = '<strong>' + data.contactCount + ' contacts</strong> parsed successfully' +
+    (data.invalidCount ? ' (' + data.invalidCount + ' bad phone ' + (data.invalidCount === 1 ? 'number' : 'numbers') + ' excluded)' : '') + '.';
+  panel.appendChild(stat);
+
+  var hint = document.createElement('div');
+  hint.className = 'ex-hint';
+  hint.textContent = 'Upload a second file with contacts to EXCLUDE from this blast. Any matching phone numbers will be removed before sending.';
+  panel.appendChild(hint);
+
+  // Upload button
+  var uploadBtn = document.createElement('button');
+  uploadBtn.className = 'btn';
+  uploadBtn.style.cssText = 'width:100%;padding:16px;font-size:15px;margin-bottom:8px;';
+  uploadBtn.textContent = 'Upload Exclusion List (.csv or .xlsx)';
+  var uploadInput = document.createElement('input');
+  uploadInput.type = 'file';
+  uploadInput.accept = '.csv,.xlsx,.xls';
+  uploadInput.style.display = 'none';
+  uploadInput.addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    hideExclusionPanel();
+    // Upload exclusion file through tom upload endpoint
+    addMsg('me', 'Exclusion list: ' + file.name);
+    showLoading();
+    var fd = new FormData();
+    fd.append('sessionId', session);
+    fd.append('file', file);
+    fetch('/api/tom/upload', { method: 'POST', body: fd }).then(function(res) {
+      return res.json();
+    }).then(function(r) {
+      hideLoading();
+      handleReply(r);
+    });
+    e.target.value = '';
+  });
+  uploadBtn.addEventListener('click', function() { uploadInput.click(); });
+  panel.appendChild(uploadBtn);
+  panel.appendChild(uploadInput);
+
+  // Actions
+  var actions = document.createElement('div');
+  actions.className = 'ex-actions';
+
+  var skipBtn = document.createElement('button');
+  skipBtn.className = 'btn ghost';
+  skipBtn.style.cssText = 'width:100%;padding:14px;font-size:14px;';
+  skipBtn.textContent = 'Skip — No Exclusions';
+  skipBtn.addEventListener('click', function() {
+    hideExclusionPanel();
+    sendAction('skip_exclusion', {});
+  });
+
+  var startOverBtn = document.createElement('button');
+  startOverBtn.className = 'btn ghost';
+  startOverBtn.textContent = 'Start Over';
+  startOverBtn.addEventListener('click', function() {
+    hideExclusionPanel();
+    sendAction('start_over', {});
+  });
+
+  actions.appendChild(skipBtn);
+  actions.appendChild(startOverBtn);
+  panel.appendChild(actions);
+}
+
+function hideExclusionPanel() {
+  var panel = document.getElementById('exclusion-panel');
+  panel.className = '';
+  panel.innerHTML = '';
+  document.getElementById('chat').style.display = 'flex';
+}
+
 function showBlastForm(data) {
   blastFormActive = true;
   blastFormData = data;
@@ -549,6 +839,22 @@ function showBlastForm(data) {
   document.getElementById('chat').style.display = 'none';
   document.getElementById('jo-form-panel').className = '';
   document.getElementById('composer').style.display = 'none';
+  document.getElementById('column-map-panel').className = '';
+  document.getElementById('exclusion-panel').className = '';
+
+  var bfStep = document.createElement('div');
+  bfStep.className = 'step-indicator';
+  bfStep.innerHTML = 'Step <strong>4</strong> of 4: Blast Settings';
+  panel.appendChild(bfStep);
+
+  var bfBackBtn = document.createElement('button');
+  bfBackBtn.className = 'back-btn';
+  bfBackBtn.innerHTML = '\u2190 Back';
+  bfBackBtn.addEventListener('click', function() {
+    hideBlastForm();
+    sendAction('back_to_exclusion', {});
+  });
+  panel.appendChild(bfBackBtn);
 
   var title = document.createElement('div');
   title.className = 'bf-title';
@@ -559,13 +865,26 @@ function showBlastForm(data) {
   var stat = document.createElement('div');
   stat.className = 'bf-stat';
   var statParts = ['<strong>' + data.contactCount + ' contacts parsed</strong>'];
-  if (data.invalidCount) statParts.push('(' + data.invalidCount + ' bad phone numbers excluded)');
+  if (data.excludedCount) statParts.push('(' + data.excludedCount + ' excluded from exclusion list)');
+  if (data.invalidCount) statParts.push('(' + data.invalidCount + ' bad phone ' + (data.invalidCount === 1 ? 'number' : 'numbers') + ' excluded)');
   if (data.importCounts) {
     var ic = data.importCounts;
     statParts.push('\u2014 ' + (ic.created || 0) + ' new, ' + (ic.updated || 0) + ' updated, ' + (ic.unchanged || 0) + ' unchanged');
   }
   stat.innerHTML = statParts.join(' ');
   panel.appendChild(stat);
+
+  // Exclusion results
+  if (data.exclusionFileName || data.excludedCount > 0 || data.exclusionTotal > 0) {
+    var exclStat = document.createElement('div');
+    exclStat.className = 'bf-stat';
+    if (data.exclusionFileName) {
+      exclStat.innerHTML = '\ud83d\udcdd Exclusion list: <strong>' + esc(data.exclusionFileName) + '</strong> (' + (data.exclusionTotal || 0) + ' ' + ((data.exclusionTotal || 0) === 1 ? 'number' : 'numbers') + ', ' + (data.excludedCount || 0) + ' ' + ((data.excludedCount || 0) === 1 ? 'contact' : 'contacts') + ' removed)';
+    } else {
+      exclStat.innerHTML = '\ud83d\udcdd No exclusion list applied';
+    }
+    panel.appendChild(exclStat);
+  }
 
   // Show estimated sendable count (after cooldown/DNC filtering)
   if (data.estimatedSendable !== undefined) {
@@ -787,7 +1106,7 @@ function showBlastForm(data) {
   var recField = document.createElement('div');
   recField.className = 'bf-field';
   var recLabel = document.createElement('label');
-  recLabel.textContent = 'Assign to Whippy User';
+  recLabel.textContent = 'Assign to Team Member';
   recField.appendChild(recLabel);
   var recSel = document.createElement('select');
   recSel.id = 'blastRecruiter';
@@ -871,6 +1190,8 @@ function hideBlastForm() {
   blastFormActive = false;
   // blastFormData preserved for Edit button
   var panel = document.getElementById('blast-form-panel');
+  document.getElementById('column-map-panel').className = '';
+  document.getElementById('exclusion-panel').className = '';
   panel.className = '';
   panel.innerHTML = '';
   document.getElementById('chat').style.display = 'flex';
@@ -932,6 +1253,11 @@ async function submitBlastForm() {
   showLoading();
   var r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, action: 'preview_blast', payload: vals } });
   hideLoading();
+  if (r.showColumnMap && r.keepForm) {
+    showColumnMapPanel(columnMapData || r);
+    if (r.text) toast(r.text);
+    return;
+  }
   if (r.showBlastForm && r.keepForm) {
     showBlastForm(blastFormData || r);
     if (r.text) toast(r.text);
@@ -1221,6 +1547,11 @@ function showContactForm() {
   document.getElementById('blast-form-panel').className = '';
   document.getElementById('composer').style.display = 'none';
 
+  var cfStep = document.createElement('div');
+  cfStep.className = 'step-indicator';
+  cfStep.innerHTML = 'Step <strong>1</strong> of 4: Upload Contacts';
+  panel.appendChild(cfStep);
+
   var title = document.createElement('div');
   title.className = 'cf-title';
   title.textContent = 'Add Contacts';
@@ -1383,6 +1714,11 @@ function handleReply(r) {
   if (r.error) { addMsg('tom', r.text || r.error); return; }
   session = r.sessionId;
 
+  // Show task cards again when conversation ends
+  if (r.state === 'ask_another' || r.state === 'ended') {
+    document.getElementById('paths').classList.remove('wizard-active');
+  }
+
   // JO form
   if (r.showForm && r.draft) {
     showJOForm(r.draft, r.warnings || []);
@@ -1392,6 +1728,18 @@ function handleReply(r) {
   // Contact form for blast path
   if (r.path === 'blast' && r.state === 'await_contacts') {
     showContactForm();
+    return;
+  }
+
+  // Column mapping panel
+  if (r.showColumnMap && !r.keepForm) {
+    showColumnMapPanel(r);
+    return;
+  }
+
+  // Exclusion upload panel
+  if (r.showExclusionUpload) {
+    showExclusionPanel(r);
     return;
   }
 
@@ -1437,6 +1785,7 @@ async function startPath(path) {
     b.classList.toggle('on', b.dataset.path === path);
   });
   document.getElementById('chat').innerHTML = '';
+  document.getElementById('paths').classList.add('wizard-active');
   document.getElementById('composer').style.display = 'none';
   document.getElementById('input').placeholder = 'Type here\u2026';
   showLoading();

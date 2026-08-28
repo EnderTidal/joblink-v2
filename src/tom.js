@@ -22,7 +22,7 @@
 //   - Form submits all settings at once for preview, then gold confirm button sends
 
 const crypto = require('node:crypto');
-const { parseContactRows, parseContactFile, upsertCandidates, selectByLastContacted } = require('./importing');
+const { parseContactRows, parseContactFile, parseContactFileWithMap, parseExclusionFile, parseHeadersOnly, upsertCandidates, selectByLastContacted } = require('./importing');
 const { normalizePhone } = require('./phone');
 const { splitName } = require('./names');
 const { planBlast, executeBlast, listBlasts, renderMessage, CATEGORIES } = require('./blast');
@@ -134,7 +134,7 @@ function sortContacts(contacts, sortBy) {
   return sorted;
 }
 
-function createTom(db, _orgId) {
+function createTom(db) {
   const sessions = new Map();
 
   function newSession(path, user, displayName) {
@@ -170,7 +170,7 @@ function createTom(db, _orgId) {
       let docText = text || '';
       if (file) docText = await extractText(file.buffer, file.originalname);
       if (!docText.trim()) return reply(s, 'Drop a .docx or .txt file with the job details, or use the blank form below.', { showBlankFormLink: true });
-      const parsed = await parseJobOrderText(docText, _orgId);
+      const parsed = await parseJobOrderText(docText);
       if (!parsed.fields) return reply(s, 'That document looks empty \u2014 try again?', { showBlankFormLink: true });
       s.data.draft = parsed.fields;
       s.state = 'review';
@@ -291,58 +291,223 @@ function createTom(db, _orgId) {
 
   async function handleBlast(s, { text, action, payload, file, user, reqHost, reqProto, orgSlug }) {
     if (s.state === 'await_contacts') {
-      let parsed;
-      if (file) parsed = parseContactFile(file.buffer, file.originalname);
-      else if (String(text || '').trim()) parsed = parseManualContacts(text);
-      else return reply(s, 'Upload a contact list or type contacts to get started.');
-      if (!parsed.contacts.length) {
-        return reply(s, `I couldn't find any valid phone numbers in that${parsed.invalid.length ? ` (${parsed.invalid.length} rows had unusable numbers)` : ''}. Try again?`);
+      // Manual text entry: skip column mapping, go straight to blast form
+      if (!file && String(text || '').trim()) {
+        const parsed = parseManualContacts(text);
+        if (!parsed.contacts.length) {
+          return reply(s, `I couldn't find any valid phone numbers in that${parsed.invalid.length ? ` (${parsed.invalid.length} rows had unusable numbers)` : ''}. Try again?`);
+        }
+        const counts = upsertCandidates(db, parsed.contacts);
+        s.data.contacts = parsed.contacts;
+        s.data.invalidCount = parsed.invalid.length;
+        s.data.importCounts = counts;
+        s.data.hasLastContacted = parsed.contacts.some(c => c.lastContacted);
+        s.state = 'blast_form';
+        const _totalPool = db.prepare('SELECT COUNT(*) AS n FROM candidates').get().n;
+        const cooldownHrs = getCooldownHours(db);
+        const cooldownCutoff = new Date(Date.now() - cooldownHrs * 3600000).toISOString();
+        const parsedPhones = parsed.contacts.map(c => c.phone);
+        let inCooldown = 0, inDnc = 0;
+        const checkStmt = db.prepare('SELECT last_blast, do_not_contact FROM candidates WHERE phone = ?');
+        for (const p of parsedPhones) {
+          const row = checkStmt.get(p);
+          if (!row) continue;
+          if (row.do_not_contact) { inDnc++; continue; }
+          if (row.last_blast && row.last_blast > cooldownCutoff) { inCooldown++; }
+        }
+        const estimatedSendable = parsed.contacts.length - inCooldown - inDnc;
+        const formData = loadBlastFormData(null);
+        return reply(s, '', {
+          showBlastForm: true,
+          contactCount: parsed.contacts.length,
+          estimatedSendable,
+          estimatedCooldown: inCooldown,
+          estimatedDnc: inDnc,
+          totalCandidates: _totalPool,
+          invalidCount: parsed.invalid.length,
+          importCounts: counts,
+          hasLastContacted: parsed.contacts.some(c => c.lastContacted),
+          excludedCount: s.data.excludedCount || 0,
+          exclusionTotal: s.data.exclusionTotal || 0,
+          exclusionFileName: s.data.exclusionFileName || null,
+          categories: CATEGORIES,
+          sortOptions: SORT_OPTIONS,
+          templates: formData.templates.map(t => ({ id: t.id, name: t.name, body: t.body, category: t.category || '', is_default: !!t.is_default })),
+          defaultTemplateId: formData.defaultTemplate ? formData.defaultTemplate.id : null,
+          whippyUsers: formData.whippyUsers,
+          localUsers: formData.localUsers.map(u => ({ id: u.id, username: u.username, role: u.role })),
+          whippyNumbers: formData.whippyNumbers,
+        });
       }
-      const counts = upsertCandidates(db, parsed.contacts);
-      s.data.contacts = parsed.contacts;
-      s.data.invalidCount = parsed.invalid.length;
-      s.data.importCounts = counts;
-      const hasLC = parsed.contacts.some((c) => c.lastContacted);
-      s.data.hasLastContacted = hasLC;
-
-      const formData = loadBlastFormData(null);
-
-      s.state = 'blast_form';
-      const _totalPool = db.prepare('SELECT COUNT(*) AS n FROM candidates').get().n;
-      // Pre-guard: count how many of the parsed contacts are in cooldown or DNC
-      const cooldownHrs = getCooldownHours(db);
-      const cooldownCutoff = new Date(Date.now() - cooldownHrs * 3600000).toISOString();
-      const parsedPhones = parsed.contacts.map(c => c.phone);
-      let inCooldown = 0, inDnc = 0;
-      const checkStmt = db.prepare('SELECT last_blast, do_not_contact FROM candidates WHERE phone = ?');
-      for (const p of parsedPhones) {
-        const row = checkStmt.get(p);
-        if (!row) continue;
-        if (row.do_not_contact) { inDnc++; continue; }
-        if (row.last_blast && row.last_blast > cooldownCutoff) { inCooldown++; }
+      // File upload: show column mapping step
+      if (file) {
+        const headerPreview = parseHeadersOnly(file.buffer, file.originalname);
+        if (!headerPreview.headers.length) {
+          return reply(s, 'Could not read any headers from that file. Try a different file?');
+        }
+        s.data.fileBuffer = file.buffer.toString('base64');
+        s.data.fileName = file.originalname;
+        s.state = 'await_column_map';
+        return reply(s, '', {
+          showColumnMap: true,
+          headers: headerPreview.headers,
+          sampleRows: headerPreview.sampleRows,
+          suggestedMap: headerPreview.suggestedMap,
+        });
       }
-      const estimatedSendable = parsed.contacts.length - inCooldown - inDnc;
-      return reply(s, '', {
-        showBlastForm: true,
-        contactCount: parsed.contacts.length,
-        estimatedSendable: estimatedSendable,
-        estimatedCooldown: inCooldown,
-        estimatedDnc: inDnc,
-        totalCandidates: _totalPool,
-        invalidCount: parsed.invalid.length,
-        importCounts: counts,
-        hasLastContacted: hasLC,
-        categories: CATEGORIES,
-        sortOptions: SORT_OPTIONS,
-        templates: formData.templates.map(t => ({ id: t.id, name: t.name, body: t.body, category: t.category || '', is_default: !!t.is_default })),
-        defaultTemplateId: formData.defaultTemplate ? formData.defaultTemplate.id : null,
-        whippyUsers: formData.whippyUsers,
-        localUsers: formData.localUsers.map(u => ({ id: u.id, username: u.username, role: u.role })),
-        whippyNumbers: formData.whippyNumbers,
-      });
+      return reply(s, 'Upload a contact list or type contacts to get started.');
+    }
+
+    // ---------- state: await_column_map ----------
+    if (s.state === 'await_column_map') {
+      if (action === 'back_to_upload') {
+        s.data = {};
+        return startBlast(s);
+      }
+      if (action === 'start_over') {
+        s.data = {};
+        return startBlast(s);
+      }
+      if (action === 'confirm_column_map') {
+        const columnMap = payload && payload.columnMap;
+        if (!columnMap) return reply(s, 'Please confirm your column mapping.', { showColumnMap: true, keepForm: true });
+        const hasPhone = Object.values(columnMap).some(v => v === 'phone');
+        if (!hasPhone) return reply(s, 'You must map at least one column to Phone.', { showColumnMap: true, keepForm: true });
+        const buf = Buffer.from(s.data.fileBuffer, 'base64');
+        const parsed = parseContactFileWithMap(buf, columnMap, s.data.fileName);
+        if (!parsed.contacts.length) {
+          return reply(s, 'No valid contacts found with that mapping. Try adjusting your column assignments.', { showColumnMap: true, keepForm: true });
+        }
+        const counts = upsertCandidates(db, parsed.contacts);
+        s.data.contacts = parsed.contacts;
+        s.data.invalidCount = parsed.invalid.length;
+        s.data.importCounts = counts;
+        s.data.hasLastContacted = parsed.contacts.some(c => c.lastContacted);
+        // Move to exclusion list step
+        s.state = 'await_exclusion';
+        return reply(s, '', {
+          showExclusionUpload: true,
+          contactCount: parsed.contacts.length,
+          invalidCount: parsed.invalid.length,
+        });
+      }
+      return reply(s, 'Please confirm your column mapping or start over.');
+    }
+
+    // ---------- state: await_exclusion ----------
+    if (s.state === 'await_exclusion') {
+      if (action === 'back_to_column_map') {
+        s.state = 'await_column_map';
+        const buf = Buffer.from(s.data.fileBuffer, 'base64');
+        const headerPreview = parseHeadersOnly(buf, s.data.fileName);
+        return reply(s, '', {
+          showColumnMap: true,
+          headers: headerPreview.headers,
+          sampleRows: headerPreview.sampleRows,
+          suggestedMap: headerPreview.suggestedMap,
+        });
+      }
+      if (action === 'start_over') {
+        s.data = {};
+        return startBlast(s);
+      }
+      if (action === 'skip_exclusion') {
+        s.data.exclusionPhones = [];
+        s.state = 'blast_form';
+        const _totalPool = db.prepare('SELECT COUNT(*) AS n FROM candidates').get().n;
+        const cooldownHrs = getCooldownHours(db);
+        const cooldownCutoff = new Date(Date.now() - cooldownHrs * 3600000).toISOString();
+        const parsedPhones = s.data.contacts.map(c => c.phone);
+        let inCooldown = 0, inDnc = 0;
+        const checkStmt = db.prepare('SELECT last_blast, do_not_contact FROM candidates WHERE phone = ?');
+        for (const p of parsedPhones) {
+          const row = checkStmt.get(p);
+          if (!row) continue;
+          if (row.do_not_contact) { inDnc++; continue; }
+          if (row.last_blast && row.last_blast > cooldownCutoff) { inCooldown++; }
+        }
+        const estimatedSendable = s.data.contacts.length - inCooldown - inDnc;
+        const formData = loadBlastFormData(null);
+        return reply(s, '', {
+          showBlastForm: true,
+          contactCount: s.data.contacts.length,
+          estimatedSendable,
+          estimatedCooldown: inCooldown,
+          estimatedDnc: inDnc,
+          totalCandidates: _totalPool,
+          invalidCount: s.data.invalidCount || 0,
+          importCounts: s.data.importCounts || {},
+          hasLastContacted: s.data.hasLastContacted || false,
+          excludedCount: s.data.excludedCount || 0,
+          exclusionTotal: s.data.exclusionTotal || 0,
+          exclusionFileName: s.data.exclusionFileName || null,
+          categories: CATEGORIES,
+          sortOptions: SORT_OPTIONS,
+          templates: formData.templates.map(t => ({ id: t.id, name: t.name, body: t.body, category: t.category || '', is_default: !!t.is_default })),
+          defaultTemplateId: formData.defaultTemplate ? formData.defaultTemplate.id : null,
+          whippyUsers: formData.whippyUsers,
+          localUsers: formData.localUsers.map(u => ({ id: u.id, username: u.username, role: u.role })),
+          whippyNumbers: formData.whippyNumbers,
+        });
+      }
+      if (file) {
+        const excResult = parseExclusionFile(file.buffer, file.originalname);
+        s.data.exclusionPhones = excResult.phones;
+        const exclSet = new Set(excResult.phones);
+        const originalCount = s.data.contacts.length;
+        s.data.contacts = s.data.contacts.filter(c => !exclSet.has(c.phone));
+        s.data.excludedCount = originalCount - s.data.contacts.length;
+        s.data.exclusionTotal = excResult.count;
+        s.data.exclusionFileName = file.originalname;
+        s.state = 'blast_form';
+        const _totalPool = db.prepare('SELECT COUNT(*) AS n FROM candidates').get().n;
+        const cooldownHrs = getCooldownHours(db);
+        const cooldownCutoff = new Date(Date.now() - cooldownHrs * 3600000).toISOString();
+        const parsedPhones = s.data.contacts.map(c => c.phone);
+        let inCooldown = 0, inDnc = 0;
+        const checkStmt = db.prepare('SELECT last_blast, do_not_contact FROM candidates WHERE phone = ?');
+        for (const p of parsedPhones) {
+          const row = checkStmt.get(p);
+          if (!row) continue;
+          if (row.do_not_contact) { inDnc++; continue; }
+          if (row.last_blast && row.last_blast > cooldownCutoff) { inCooldown++; }
+        }
+        const estimatedSendable = s.data.contacts.length - inCooldown - inDnc;
+        const formData = loadBlastFormData(null);
+        return reply(s, '', {
+          showBlastForm: true,
+          contactCount: s.data.contacts.length,
+          estimatedSendable,
+          estimatedCooldown: inCooldown,
+          estimatedDnc: inDnc,
+          totalCandidates: _totalPool,
+          invalidCount: s.data.invalidCount || 0,
+          importCounts: s.data.importCounts || {},
+          hasLastContacted: s.data.hasLastContacted || false,
+          excludedCount: s.data.excludedCount || 0,
+          exclusionTotal: s.data.exclusionTotal || 0,
+          exclusionFileName: s.data.exclusionFileName || null,
+          categories: CATEGORIES,
+          sortOptions: SORT_OPTIONS,
+          templates: formData.templates.map(t => ({ id: t.id, name: t.name, body: t.body, category: t.category || '', is_default: !!t.is_default })),
+          defaultTemplateId: formData.defaultTemplate ? formData.defaultTemplate.id : null,
+          whippyUsers: formData.whippyUsers,
+          localUsers: formData.localUsers.map(u => ({ id: u.id, username: u.username, role: u.role })),
+          whippyNumbers: formData.whippyNumbers,
+        });
+      }
+      return reply(s, 'Upload an exclusion list or click Skip to continue.');
     }
 
     if (s.state === 'blast_form') {
+      if (action === 'back_to_exclusion') {
+        s.state = 'await_exclusion';
+        return reply(s, '', {
+          showExclusionUpload: true,
+          contactCount: s.data.contacts.length,
+          invalidCount: s.data.invalidCount || 0,
+        });
+      }
       if (action === 'start_over') {
         s.data = {};
         return startBlast(s);
