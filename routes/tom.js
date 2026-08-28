@@ -4,6 +4,7 @@
 const express = require('express');
 const multer = require('multer');
 const { createTom } = require('../src/tom');
+const { parseHeadersOnly } = require('../src/importing');
 const { getOrg } = require('../src/system-db');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -13,7 +14,7 @@ const tomCache = new Map();
 
 function getTom(db, orgId) {
   if (tomCache.has(orgId)) return tomCache.get(orgId);
-  const tom = createTom(db, orgId);
+  const tom = createTom(db);
   tomCache.set(orgId, tom);
   return tom;
 }
@@ -45,6 +46,17 @@ function createTomRoutes(sysDb) {
       if (!req.file) return res.status(400).json({ error: 'no_file' });
       res.json(await tom.message(sessionId, { file: req.file, user: req.user?.username }));
     } catch (err) { next(err); }
+  });
+
+  // Preview headers from uploaded file (for column mapping UI)
+  router.post('/api/tom/preview-headers', upload.single('file'), (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'no_file' });
+      const result = parseHeadersOnly(req.file.buffer, req.file.originalname);
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: 'parse_error', message: err.message });
+    }
   });
 
   return router;
