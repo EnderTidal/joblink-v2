@@ -235,7 +235,7 @@ function parseHeadersOnly(buffer, filename = '') {
     }
   });
 
-  return { headers, sampleRows, suggestedMap };
+  return { headers, sampleRows, suggestedMap, totalRows: Math.max(0, rows.length - 1) };
 }
 
 /**

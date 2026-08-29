@@ -353,6 +353,7 @@ function createTom(db) {
           headers: headerPreview.headers,
           sampleRows: headerPreview.sampleRows,
           suggestedMap: headerPreview.suggestedMap,
+          totalRows: headerPreview.totalRows,
         });
       }
       return reply(s, 'Upload a contact list or type contacts to get started.');
@@ -367,6 +368,61 @@ function createTom(db) {
       if (action === 'start_over') {
         s.data = {};
         return startBlast(s);
+      }
+      if (action === 'confirm_auto') {
+        // Auto-detect accepted: parse + skip exclusion → straight to blast settings
+        const columnMap = payload && payload.columnMap;
+        if (!columnMap) return reply(s, 'Please confirm your column mapping.', { showColumnMap: true, keepForm: true });
+        const hasPhone = Object.values(columnMap).some(v => v === 'phone');
+        if (!hasPhone) return reply(s, 'You must map at least one column to Phone.', { showColumnMap: true, keepForm: true });
+        const buf = Buffer.from(s.data.fileBuffer, 'base64');
+        const parsed = parseContactFileWithMap(buf, columnMap, s.data.fileName);
+        if (!parsed.contacts.length) {
+          return reply(s, 'No valid contacts found with that mapping. Try adjusting your column assignments.', { showColumnMap: true, keepForm: true });
+        }
+        const counts = upsertCandidates(db, parsed.contacts);
+        s.data.contacts = parsed.contacts;
+        s.data.invalidCount = parsed.invalid.length;
+        s.data.importCounts = counts;
+        s.data.hasLastContacted = parsed.contacts.some(c => c.lastContacted);
+        s.data.exclusionPhones = [];
+        // Skip exclusion — go straight to blast form
+        s.state = 'blast_form';
+        const _totalPool = db.prepare('SELECT COUNT(*) AS n FROM candidates').get().n;
+        const cooldownHrs = getCooldownHours(db);
+        const cooldownCutoff = new Date(Date.now() - cooldownHrs * 3600000).toISOString();
+        const parsedPhones = s.data.contacts.map(c => c.phone);
+        let inCooldown = 0, inDnc = 0;
+        const checkStmt = db.prepare('SELECT last_blast, do_not_contact FROM candidates WHERE phone = ?');
+        for (const p of parsedPhones) {
+          const row = checkStmt.get(p);
+          if (!row) continue;
+          if (row.do_not_contact) { inDnc++; continue; }
+          if (row.last_blast && row.last_blast > cooldownCutoff) { inCooldown++; }
+        }
+        const estimatedSendable = s.data.contacts.length - inCooldown - inDnc;
+        const formData = loadBlastFormData(null);
+        return reply(s, '', {
+          showBlastForm: true,
+          contactCount: s.data.contacts.length,
+          estimatedSendable,
+          estimatedCooldown: inCooldown,
+          estimatedDnc: inDnc,
+          totalCandidates: _totalPool,
+          invalidCount: s.data.invalidCount || 0,
+          importCounts: s.data.importCounts || {},
+          hasLastContacted: s.data.hasLastContacted || false,
+          excludedCount: 0,
+          exclusionTotal: 0,
+          exclusionFileName: null,
+          categories: CATEGORIES,
+          sortOptions: SORT_OPTIONS,
+          templates: formData.templates.map(t => ({ id: t.id, name: t.name, body: t.body, category: t.category || '', is_default: !!t.is_default })),
+          defaultTemplateId: formData.defaultTemplate ? formData.defaultTemplate.id : null,
+          whippyUsers: formData.whippyUsers,
+          localUsers: formData.localUsers.map(u => ({ id: u.id, username: u.username, role: u.role })),
+          whippyNumbers: formData.whippyNumbers,
+        });
       }
       if (action === 'confirm_column_map') {
         const columnMap = payload && payload.columnMap;
@@ -405,6 +461,7 @@ function createTom(db) {
           headers: headerPreview.headers,
           sampleRows: headerPreview.sampleRows,
           suggestedMap: headerPreview.suggestedMap,
+          totalRows: headerPreview.totalRows,
         });
       }
       if (action === 'start_over') {
