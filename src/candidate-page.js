@@ -136,7 +136,7 @@ function setLang(lang) {
   if (lang === 'en') { _restoreEN(); return; }
   // Translate header
   var hh = document.querySelector('header h1');
-  if (hh) { var n = hh.textContent.match(/Hi (.+)!/); hh.textContent = n ? '\u00a1Hola ' + n[1] + '! \u{1F44B}' : '\u00a1Hola! \u{1F44B}'; }
+  if (hh) { var n = hh.textContent.match(/Hi (.+)!/); hh.textContent = (n && n[1] !== 'there') ? '\u00a1Hola ' + n[1] + '! \u{1F44B}' : '\u00a1Hola! \u{1F44B}'; }
   var hp = document.querySelector('header p');
   if (hp) hp.textContent = 'Estos trabajos est\u00e1n disponibles ahora \u2014 toca cualquiera que te interese.';
   // Translate filter
@@ -351,7 +351,7 @@ function setLang(lang) {
   if (lang === 'en') { _restoreEN(); return; }
   // Translate header
   var hh = document.querySelector('header h1');
-  if (hh) { var n = hh.textContent.match(/Hi (.+)!/); hh.textContent = n ? '\u00a1Hola ' + n[1] + '! \u{1F44B}' : '\u00a1Hola! \u{1F44B}'; }
+  if (hh) { var n = hh.textContent.match(/Hi (.+)!/); hh.textContent = (n && n[1] !== 'there') ? '\u00a1Hola ' + n[1] + '! \u{1F44B}' : '\u00a1Hola! \u{1F44B}'; }
   var hp = document.querySelector('header p');
   if (hp) hp.textContent = 'Estos trabajos est\u00e1n disponibles ahora \u2014 toca cualquiera que te interese.';
   // Translate filter
