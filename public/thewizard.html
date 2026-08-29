@@ -712,6 +712,28 @@ function showColumnMapPanel(data) {
     sendAction('start_over', {});
   });
 
+  var skipBtn = document.createElement("button");
+  skipBtn.className = "btn";
+  skipBtn.style.background = "var(--green, #22c55e)";
+  skipBtn.textContent = "Looks good — skip to blast";
+  skipBtn.addEventListener("click", function() {
+    var selects = panel.querySelectorAll(".cm-select");
+    var columnMap = {};
+    var hasPhone = false;
+    selects.forEach(function(sel) {
+      var idx = sel.dataset.colIndex;
+      var val = sel.value;
+      columnMap[idx] = val;
+      if (val === "phone") hasPhone = true;
+    });
+    if (!hasPhone) {
+      toast("You must map at least one column to Phone.");
+      return;
+    }
+    hideColumnMapPanel();
+    sendAction("confirm_and_skip", { columnMap: columnMap });
+  });
+  actions.appendChild(skipBtn);
   actions.appendChild(confirmBtn);
   actions.appendChild(startOverBtn);
   panel.appendChild(actions);
