@@ -67,7 +67,7 @@ function renderCandidatePage(db, candidate, orgName) {
   :root { --brand:#3d4ee6; --blue:#2563eb; --green:#10863f; --amber:#b26a06; --surface:#ffffff; --surface-2:#f6f8fc; --border:#e5e9f2; --text:#0f1728; --text-muted:#59617a; --radius:14px; --radius-sm:10px; --shadow-sm:0 1px 2px rgba(16,24,40,.05); }
   * { box-sizing:border-box; margin:0; }
   body { font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif; background:#eef1f8; color:var(--text); padding-bottom:40px; }
-  header { background:var(--brand); color:#fff; padding:20px 16px; text-align:center; }
+  header { background:var(--brand); color:#fff; padding:20px 16px; text-align:center; position:relative; }
   header h1 { font-size:1.25rem; }
   header p { opacity:.9; font-size:.9rem; margin-top:4px; }
   main { max-width:560px; margin:0 auto; padding:16px; }
@@ -84,17 +84,91 @@ function renderCandidatePage(db, candidate, orgName) {
   .interest.done { background:var(--green); color:#fff; }
   .empty { text-align:center; padding:40px 18px; }
   .cat { text-align:center; font-size:.85rem; color:var(--text-muted); margin:4px 0 12px; }
+  header { position:relative; }
+  .lang-pill { position:absolute; right:16px; top:50%; transform:translateY(-50%); display:flex; border-radius:99px; overflow:hidden; border:1.5px solid rgba(255,255,255,0.5); }
+  .lang-pill button { padding:4px 10px; border:none; font-size:11px; font-weight:700; cursor:pointer; background:transparent; color:rgba(255,255,255,0.7); }
+  .lang-pill button.active { background:rgba(255,255,255,0.25); color:#fff; }
+  .translating { opacity:0.5; pointer-events:none; transition:opacity .2s; }
 </style></head>
 <body>
 <header>
   <h1>Hi ${esc(candidate.first_name || 'there')}! \u{1F44B}</h1>
   <p>These jobs are open right now \u2014 tap any you'd like to be considered for.</p>
+  <div class="lang-pill"><button id="langEN" class="active" onclick="setLang('en')">EN</button><button id="langES" onclick="setLang('es')">ES</button></div>
 </header>
 <main>
   ${category ? `<div class="cat">${esc(category)} positions</div>` : ''}
   ${jobs.length ? jobCards : empty}
 </main>
 <script>
+var _cache = {};
+var _orig = {};
+var _lang = 'en';
+
+function _hashJobs() {
+  var ids = [];
+  document.querySelectorAll('.card:not(.empty)').forEach(function(c) { if (c.id) ids.push(c.id); });
+  return ids.join(',');
+}
+
+function _captureOrig() {
+  if (Object.keys(_orig).length) return;
+  _orig._headerP = document.querySelector('header p') ? document.querySelector('header p').textContent : '';
+  document.querySelectorAll('.card:not(.empty)').forEach(function(card) {
+    if (!card.id) return;
+    var o = { title: '', reqs: [], btn: '' };
+    var h2 = card.querySelector('h2'); if (h2) o.title = h2.textContent;
+    card.querySelectorAll('.req').forEach(function(el) { o.reqs.push(el.innerHTML); });
+    var btn = card.querySelector('.interest'); if (btn) o.btn = btn.textContent.trim();
+    _orig[card.id] = o;
+  });
+}
+
+function setLang(lang) {
+  _lang = lang;
+  document.getElementById('langEN').classList.toggle('active', lang === 'en');
+  document.getElementById('langES').classList.toggle('active', lang === 'es');
+  _captureOrig();
+  if (lang === 'en') { _restoreEN(); return; }
+  var key = _hashJobs();
+  if (_cache[key]) { _applyES(_cache[key]); return; }
+  document.querySelector('main').classList.add('translating');
+  var jobs = [];
+  document.querySelectorAll('.card:not(.empty)').forEach(function(card) {
+    if (!card.id) return;
+    var t = []; card.querySelectorAll('.req').forEach(function(el) { t.push(el.textContent); });
+    jobs.push({ id: card.id, title: card.querySelector('h2') ? card.querySelector('h2').textContent : '', texts: t });
+  });
+  fetch('/api/translate-es', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobs: jobs, header: _orig._headerP }) })
+    .then(function(r) { return r.json(); })
+    .then(function(data) { document.querySelector('main').classList.remove('translating'); if (data.translations) { _cache[key] = data; _applyES(data); } })
+    .catch(function() { document.querySelector('main').classList.remove('translating'); setLang('en'); });
+}
+
+function _applyES(data) {
+  var hp = document.querySelector('header p'); if (hp && data.header) hp.textContent = data.header;
+  (data.translations || []).forEach(function(t) {
+    var card = document.getElementById(t.id); if (!card) return;
+    var h2 = card.querySelector('h2'); if (h2) h2.textContent = t.title;
+    var reqs = card.querySelectorAll('.req');
+    (t.texts || []).forEach(function(txt, i) { if (reqs[i]) reqs[i].innerHTML = txt; });
+    var btn = card.querySelector('.interest'); if (btn && !btn.classList.contains('done')) btn.textContent = 'Me Interesa \u270b';
+  });
+}
+
+function _restoreEN() {
+  var hp = document.querySelector('header p'); if (hp) hp.textContent = _orig._headerP;
+  Object.keys(_orig).forEach(function(id) {
+    if (id === '_headerP') return;
+    var card = document.getElementById(id); if (!card) return;
+    var o = _orig[id];
+    var h2 = card.querySelector('h2'); if (h2) h2.textContent = o.title;
+    var reqs = card.querySelectorAll('.req');
+    o.reqs.forEach(function(html, i) { if (reqs[i]) reqs[i].innerHTML = html; });
+    var btn = card.querySelector('.interest'); if (btn && !btn.classList.contains('done')) btn.textContent = o.btn || "I'm Interested \u270b";
+  });
+}
+_captureOrig();
 document.querySelectorAll('.interest').forEach(function (btn) {
   btn.addEventListener('click', function () {
     var isDone = btn.classList.contains('done');
@@ -144,7 +218,7 @@ function renderPreviewPage(db, preSelectedCategory) {
   :root { --brand:#3d4ee6; --blue:#2563eb; --green:#10863f; --amber:#b26a06; --surface:#ffffff; --surface-2:#f6f8fc; --border:#e5e9f2; --text:#0f1728; --text-muted:#59617a; --radius:14px; --radius-sm:10px; --shadow-sm:0 1px 2px rgba(16,24,40,.05); }
   * { box-sizing:border-box; margin:0; }
   body { font-family:"Plus Jakarta Sans",system-ui,-apple-system,sans-serif; background:#eef1f8; color:var(--text); padding-bottom:40px; }
-  header { background:var(--brand); color:#fff; padding:20px 16px; text-align:center; }
+  header { background:var(--brand); color:#fff; padding:20px 16px; text-align:center; position:relative; }
   header h1 { font-size:1.25rem; }
   header p { opacity:.9; font-size:.9rem; margin-top:4px; }
   .preview-bar { background:#ffb500; color:var(--text); text-align:center; padding:8px; font-weight:700; font-size:.88rem; }
@@ -165,12 +239,18 @@ function renderPreviewPage(db, preSelectedCategory) {
   .interest.done { background:var(--green); }
   .empty { text-align:center; padding:40px 18px; }
   .count-badge { font-size:.82rem; color:var(--text-muted); text-align:center; margin-bottom:10px; }
+  header { position:relative; }
+  .lang-pill { position:absolute; right:16px; top:50%; transform:translateY(-50%); display:flex; border-radius:99px; overflow:hidden; border:1.5px solid rgba(255,255,255,0.5); }
+  .lang-pill button { padding:4px 10px; border:none; font-size:11px; font-weight:700; cursor:pointer; background:transparent; color:rgba(255,255,255,0.7); }
+  .lang-pill button.active { background:rgba(255,255,255,0.25); color:#fff; }
+  .translating { opacity:0.5; pointer-events:none; transition:opacity .2s; }
 </style></head>
 <body>
 <div class="preview-bar">PREVIEW MODE \u2014 This is what candidates see</div>
 <header>
   <h1>Hi there! \u{1F44B}</h1>
   <p>These jobs are open right now \u2014 tap any you'd like to be considered for.</p>
+  <div class="lang-pill"><button id="langEN" class="active" onclick="setLang('en')">EN</button><button id="langES" onclick="setLang('es')">ES</button></div>
 </header>
 <main>
   <div class="filter-bar">
@@ -184,6 +264,74 @@ function renderPreviewPage(db, preSelectedCategory) {
   ${jobs.length ? jobCards : empty}
 </main>
 <script>
+var _cache = {};
+var _orig = {};
+var _lang = 'en';
+
+function _hashJobs() {
+  var ids = [];
+  document.querySelectorAll('.card:not(.empty)').forEach(function(c) { if (c.id) ids.push(c.id); });
+  return ids.join(',');
+}
+
+function _captureOrig() {
+  if (Object.keys(_orig).length) return;
+  _orig._headerP = document.querySelector('header p') ? document.querySelector('header p').textContent : '';
+  document.querySelectorAll('.card:not(.empty)').forEach(function(card) {
+    if (!card.id) return;
+    var o = { title: '', reqs: [], btn: '' };
+    var h2 = card.querySelector('h2'); if (h2) o.title = h2.textContent;
+    card.querySelectorAll('.req').forEach(function(el) { o.reqs.push(el.innerHTML); });
+    var btn = card.querySelector('.interest'); if (btn) o.btn = btn.textContent.trim();
+    _orig[card.id] = o;
+  });
+}
+
+function setLang(lang) {
+  _lang = lang;
+  document.getElementById('langEN').classList.toggle('active', lang === 'en');
+  document.getElementById('langES').classList.toggle('active', lang === 'es');
+  _captureOrig();
+  if (lang === 'en') { _restoreEN(); return; }
+  var key = _hashJobs();
+  if (_cache[key]) { _applyES(_cache[key]); return; }
+  document.querySelector('main').classList.add('translating');
+  var jobs = [];
+  document.querySelectorAll('.card:not(.empty)').forEach(function(card) {
+    if (!card.id) return;
+    var t = []; card.querySelectorAll('.req').forEach(function(el) { t.push(el.textContent); });
+    jobs.push({ id: card.id, title: card.querySelector('h2') ? card.querySelector('h2').textContent : '', texts: t });
+  });
+  fetch('/api/translate-es', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobs: jobs, header: _orig._headerP }) })
+    .then(function(r) { return r.json(); })
+    .then(function(data) { document.querySelector('main').classList.remove('translating'); if (data.translations) { _cache[key] = data; _applyES(data); } })
+    .catch(function() { document.querySelector('main').classList.remove('translating'); setLang('en'); });
+}
+
+function _applyES(data) {
+  var hp = document.querySelector('header p'); if (hp && data.header) hp.textContent = data.header;
+  (data.translations || []).forEach(function(t) {
+    var card = document.getElementById(t.id); if (!card) return;
+    var h2 = card.querySelector('h2'); if (h2) h2.textContent = t.title;
+    var reqs = card.querySelectorAll('.req');
+    (t.texts || []).forEach(function(txt, i) { if (reqs[i]) reqs[i].innerHTML = txt; });
+    var btn = card.querySelector('.interest'); if (btn && !btn.classList.contains('done')) btn.textContent = 'Me Interesa \u270b';
+  });
+}
+
+function _restoreEN() {
+  var hp = document.querySelector('header p'); if (hp) hp.textContent = _orig._headerP;
+  Object.keys(_orig).forEach(function(id) {
+    if (id === '_headerP') return;
+    var card = document.getElementById(id); if (!card) return;
+    var o = _orig[id];
+    var h2 = card.querySelector('h2'); if (h2) h2.textContent = o.title;
+    var reqs = card.querySelectorAll('.req');
+    o.reqs.forEach(function(html, i) { if (reqs[i]) reqs[i].innerHTML = html; });
+    var btn = card.querySelector('.interest'); if (btn && !btn.classList.contains('done')) btn.textContent = o.btn || "I'm Interested \u270b";
+  });
+}
+_captureOrig();
 function filterCards() {
   var sel = document.getElementById("categoryFilter").value;
   var cards = document.querySelectorAll(".job-card");
