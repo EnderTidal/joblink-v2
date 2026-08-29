@@ -85,8 +85,9 @@ function renderCandidatePage(db, candidate, orgName) {
   .empty { text-align:center; padding:40px 18px; }
   .cat { text-align:center; font-size:.85rem; color:var(--text-muted); margin:4px 0 12px; }
   header { position:relative; }
-  .lang-pill { position:absolute; right:12px; top:50%; transform:translateY(-50%); display:flex; border-radius:99px; overflow:hidden; border:2px solid rgba(255,255,255,0.7); background:rgba(0,0,0,0.2); backdrop-filter:blur(8px); }
-  .lang-pill button { padding:8px 14px; border:none; font-size:14px; font-weight:700; cursor:pointer; background:transparent; color:rgba(255,255,255,0.8); transition:background .15s; }
+  .lang-row { text-align:center; padding:10px 0 2px; }
+  .lang-pill { display:inline-flex; border-radius:99px; overflow:hidden; border:2px solid rgba(255,255,255,0.7); background:rgba(0,0,0,0.2); backdrop-filter:blur(8px); }
+  .lang-pill button { padding:8px 16px; border:none; font-size:14px; font-weight:700; cursor:pointer; background:transparent; color:rgba(255,255,255,0.8); transition:background .15s; }
   .lang-pill button.active { background:rgba(255,255,255,0.35); color:#fff; }
   .translating { opacity:0.5; pointer-events:none; transition:opacity .2s; }
 </style></head>
@@ -94,7 +95,7 @@ function renderCandidatePage(db, candidate, orgName) {
 <header>
   <h1>Hi ${esc(candidate.first_name || 'there')}! \u{1F44B}</h1>
   <p>These jobs are open right now \u2014 tap any you'd like to be considered for.</p>
-  <div class="lang-pill"><button id="langEN" class="active" onclick="setLang('en')">EN</button><button id="langES" onclick="setLang('es')">ES</button></div>
+  <div class="lang-row"><div class="lang-pill"><button id="langEN" class="active" onclick="setLang('en')">EN</button><button id="langES" onclick="setLang('es')">ES</button></div></div>
 </header>
 <main>
   ${category ? `<div class="cat">${esc(category)} positions</div>` : ''}
@@ -244,8 +245,9 @@ function renderPreviewPage(db, preSelectedCategory) {
   .empty { text-align:center; padding:40px 18px; }
   .count-badge { font-size:.82rem; color:var(--text-muted); text-align:center; margin-bottom:10px; }
   header { position:relative; }
-  .lang-pill { position:absolute; right:12px; top:50%; transform:translateY(-50%); display:flex; border-radius:99px; overflow:hidden; border:2px solid rgba(255,255,255,0.7); background:rgba(0,0,0,0.2); backdrop-filter:blur(8px); }
-  .lang-pill button { padding:8px 14px; border:none; font-size:14px; font-weight:700; cursor:pointer; background:transparent; color:rgba(255,255,255,0.8); transition:background .15s; }
+  .lang-row { text-align:center; padding:10px 0 2px; }
+  .lang-pill { display:inline-flex; border-radius:99px; overflow:hidden; border:2px solid rgba(255,255,255,0.7); background:rgba(0,0,0,0.2); backdrop-filter:blur(8px); }
+  .lang-pill button { padding:8px 16px; border:none; font-size:14px; font-weight:700; cursor:pointer; background:transparent; color:rgba(255,255,255,0.8); transition:background .15s; }
   .lang-pill button.active { background:rgba(255,255,255,0.35); color:#fff; }
   .translating { opacity:0.5; pointer-events:none; transition:opacity .2s; }
 </style></head>
@@ -254,7 +256,7 @@ function renderPreviewPage(db, preSelectedCategory) {
 <header>
   <h1>Hi there! \u{1F44B}</h1>
   <p>These jobs are open right now \u2014 tap any you'd like to be considered for.</p>
-  <div class="lang-pill"><button id="langEN" class="active" onclick="setLang('en')">EN</button><button id="langES" onclick="setLang('es')">ES</button></div>
+  <div class="lang-row"><div class="lang-pill"><button id="langEN" class="active" onclick="setLang('en')">EN</button><button id="langES" onclick="setLang('es')">ES</button></div></div>
 </header>
 <main>
   <div class="filter-bar">
