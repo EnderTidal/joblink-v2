@@ -18,14 +18,9 @@
   .paths.wizard-active { display:none; }
   @media(max-width:600px) { .paths { grid-template-columns:1fr; } .paths button { padding:16px 16px 16px 20px; } }
   #chat { display:flex; flex-direction:column; gap:10px; min-height:120px; }
-  /* Hide chat when any wizard panel is active — prevents flash between transitions */
-  #contact-form-panel.active ~ #chat,
-  #column-map-panel.active ~ #chat,
-  #exclusion-panel.active ~ #chat,
-  #blast-form-panel.active ~ #chat,
-  #jo-form-panel.active ~ #chat,
-  #jo-entry-panel.active ~ #chat,
-  #paste-panel.active ~ #chat { display:none !important; }
+  /* Hide chat entirely when wizard flow is active (blast, JO, review) — only show for help */
+  .card.hide-chat #chat,
+  .card.hide-chat #composer { display:none !important; }
   .msg { max-width:78%; padding:12px 15px; border-radius:14px; white-space:pre-wrap; font-size:.94rem; line-height:1.45; }
   .msg.tom { background:var(--surface-2); border:1px solid var(--border); align-self:flex-start; border-bottom-left-radius:4px; }
   .msg.me { background:var(--brand); color:#fff; align-self:flex-end; border-bottom-right-radius:4px; }
@@ -2064,6 +2059,7 @@ function handleReply(r) {
   // Show task cards again when conversation ends
   if (r.state === 'ask_another' || r.state === 'ended') {
     document.getElementById('paths').classList.remove('wizard-active');
+    document.querySelector('.card').classList.remove('hide-chat');
   }
 
   // JO form
@@ -2124,6 +2120,12 @@ function handleReply(r) {
 
 async function startPath(path) {
   currentPath = path;
+  // Hide chat for all paths except help
+  if (path !== 'help') {
+    document.querySelector('.card').classList.add('hide-chat');
+  } else {
+    document.querySelector('.card').classList.remove('hide-chat');
+  }
   hideJOForm();
   hideJOModeTabs();
   if (blastFormActive) hideBlastForm();
