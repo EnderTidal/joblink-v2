@@ -41,7 +41,7 @@ function renderCandidatePage(db, candidate, orgName) {
   const jobCards = jobs.map((jo) => {
     const done = interested.has(jo.id);
     return `
-    <div class="card" id="job-${jo.id}">
+    <div class="card" id="job-${jo.id}" data-title-es="${esc(jo.title_es || '')}" data-desc-es="${esc(jo.description_es || '')}" data-req-es="${esc(jo.requirements_es || '')}">
       <h2>${esc(jo.title)}</h2>
       <div class="meta">
         ${jo.pay ? `<span class="chip pay">\u{1F4B5} ${esc(jo.pay)}</span>` : ''}
@@ -126,37 +126,43 @@ function _captureOrig() {
 }
 
 function setLang(lang) {
-  try { localStorage.setItem(joblink_lang, lang); } catch(e) {}
+  try { localStorage.setItem('joblink_lang', lang); } catch(e) {}
   _lang = lang;
   document.getElementById('langEN').classList.toggle('active', lang === 'en');
   document.getElementById('langES').classList.toggle('active', lang === 'es');
   _captureOrig();
   if (lang === 'en') { _restoreEN(); return; }
-  var key = _hashJobs();
-  if (_cache[key]) { _applyES(_cache[key]); return; }
-  document.querySelector('main').classList.add('translating');
-  var jobs = [];
+  // Use stored translations from data attributes
+  var hp = document.querySelector('header p');
+  if (hp) hp.textContent = 'Estos trabajos están disponibles ahora — toca cualquiera que te interese.';
   document.querySelectorAll('.card:not(.empty)').forEach(function(card) {
     if (!card.id) return;
-    var t = []; card.querySelectorAll('.req').forEach(function(el) { t.push(el.textContent); });
-    jobs.push({ id: card.id, title: card.querySelector('h2') ? card.querySelector('h2').textContent : '', texts: t });
+    var titleEs = card.getAttribute('data-title-es');
+    var descEs = card.getAttribute('data-desc-es');
+    var reqEs = card.getAttribute('data-req-es');
+    var hasTranslation = titleEs && titleEs.length > 0;
+    var h2 = card.querySelector('h2');
+    if (h2) {
+      if (hasTranslation) { h2.textContent = titleEs; }
+      else { h2.textContent = (_orig[card.id] ? _orig[card.id].title : '') + ' (traducción no disponible)'; }
+    }
+    var reqs = card.querySelectorAll('.req');
+    if (hasTranslation) {
+      reqs.forEach(function(el) {
+        var strong = el.querySelector('strong');
+        if (strong && strong.textContent.includes('Description')) {
+          el.innerHTML = '<strong>Descripción:</strong> ' + descEs.replace(/\n/g, '<br>');
+        } else if (strong && strong.textContent.includes('Requirements')) {
+          el.innerHTML = '<strong>Requisitos:</strong> ' + reqEs;
+        }
+      });
+    }
+    var btn = card.querySelector('.interest');
+    if (btn && !btn.classList.contains('done')) btn.textContent = 'Me Interesa ✋';
+    if (btn && btn.classList.contains('done')) btn.textContent = '✓ Interés Enviado';
   });
-  fetch('/api/translate-es', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobs: jobs, header: _orig._headerP }) })
-    .then(function(r) { return r.json(); })
-    .then(function(data) { document.querySelector('main').classList.remove('translating'); if (data.translations) { _cache[key] = data; _applyES(data); } })
-    .catch(function() { document.querySelector('main').classList.remove('translating'); setLang('en'); });
 }
 
-function _applyES(data) {
-  var hp = document.querySelector('header p'); if (hp && data.header) hp.textContent = data.header;
-  (data.translations || []).forEach(function(t) {
-    var card = document.getElementById(t.id); if (!card) return;
-    var h2 = card.querySelector('h2'); if (h2) h2.textContent = t.title;
-    var reqs = card.querySelectorAll('.req');
-    (t.texts || []).forEach(function(txt, i) { if (reqs[i]) reqs[i].innerHTML = txt; });
-    var btn = card.querySelector('.interest'); if (btn && !btn.classList.contains('done')) btn.textContent = 'Me Interesa \u270b';
-  });
-}
 
 function _restoreEN() {
   var hp = document.querySelector('header p'); if (hp) hp.textContent = _orig._headerP;
@@ -188,7 +194,7 @@ document.querySelectorAll('.interest').forEach(function (btn) {
 });
 
   // Auto-restore language preference
-  try { var saved = localStorage.getItem(joblink_lang); if (saved === es) setLang(es); } catch(e) {}
+  try { var saved = localStorage.getItem('joblink_lang'); if (saved === 'es') setLang('es'); } catch(e) {}
 </script>
 </body></html>`;
 }
@@ -199,7 +205,7 @@ function renderPreviewPage(db, preSelectedCategory) {
   const jobs = db.prepare("SELECT * FROM job_orders WHERE status = 'Published' ORDER BY category, id").all();
 
   const jobCards = jobs.map((jo) => `
-    <div class="card job-card" data-category="${esc(jo.category || '')}" id="job-${jo.id}">
+    <div class="card job-card" data-category="${esc(jo.category || '')}" id="job-${jo.id}" data-title-es="${esc(jo.title_es || '')}" data-desc-es="${esc(jo.description_es || '')}" data-req-es="${esc(jo.requirements_es || '')}">
       <h2>${esc(jo.title)}</h2>
       <div class="meta">
         ${jo.category ? '<span class="chip cat-chip">' + esc(jo.category) + '</span>' : ''}
@@ -294,37 +300,43 @@ function _captureOrig() {
 }
 
 function setLang(lang) {
-  try { localStorage.setItem(joblink_lang, lang); } catch(e) {}
+  try { localStorage.setItem('joblink_lang', lang); } catch(e) {}
   _lang = lang;
   document.getElementById('langEN').classList.toggle('active', lang === 'en');
   document.getElementById('langES').classList.toggle('active', lang === 'es');
   _captureOrig();
   if (lang === 'en') { _restoreEN(); return; }
-  var key = _hashJobs();
-  if (_cache[key]) { _applyES(_cache[key]); return; }
-  document.querySelector('main').classList.add('translating');
-  var jobs = [];
+  // Use stored translations from data attributes
+  var hp = document.querySelector('header p');
+  if (hp) hp.textContent = 'Estos trabajos están disponibles ahora — toca cualquiera que te interese.';
   document.querySelectorAll('.card:not(.empty)').forEach(function(card) {
     if (!card.id) return;
-    var t = []; card.querySelectorAll('.req').forEach(function(el) { t.push(el.textContent); });
-    jobs.push({ id: card.id, title: card.querySelector('h2') ? card.querySelector('h2').textContent : '', texts: t });
+    var titleEs = card.getAttribute('data-title-es');
+    var descEs = card.getAttribute('data-desc-es');
+    var reqEs = card.getAttribute('data-req-es');
+    var hasTranslation = titleEs && titleEs.length > 0;
+    var h2 = card.querySelector('h2');
+    if (h2) {
+      if (hasTranslation) { h2.textContent = titleEs; }
+      else { h2.textContent = (_orig[card.id] ? _orig[card.id].title : '') + ' (traducción no disponible)'; }
+    }
+    var reqs = card.querySelectorAll('.req');
+    if (hasTranslation) {
+      reqs.forEach(function(el) {
+        var strong = el.querySelector('strong');
+        if (strong && strong.textContent.includes('Description')) {
+          el.innerHTML = '<strong>Descripción:</strong> ' + descEs.replace(/\n/g, '<br>');
+        } else if (strong && strong.textContent.includes('Requirements')) {
+          el.innerHTML = '<strong>Requisitos:</strong> ' + reqEs;
+        }
+      });
+    }
+    var btn = card.querySelector('.interest');
+    if (btn && !btn.classList.contains('done')) btn.textContent = 'Me Interesa ✋';
+    if (btn && btn.classList.contains('done')) btn.textContent = '✓ Interés Enviado';
   });
-  fetch('/api/translate-es', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobs: jobs, header: _orig._headerP }) })
-    .then(function(r) { return r.json(); })
-    .then(function(data) { document.querySelector('main').classList.remove('translating'); if (data.translations) { _cache[key] = data; _applyES(data); } })
-    .catch(function() { document.querySelector('main').classList.remove('translating'); setLang('en'); });
 }
 
-function _applyES(data) {
-  var hp = document.querySelector('header p'); if (hp && data.header) hp.textContent = data.header;
-  (data.translations || []).forEach(function(t) {
-    var card = document.getElementById(t.id); if (!card) return;
-    var h2 = card.querySelector('h2'); if (h2) h2.textContent = t.title;
-    var reqs = card.querySelectorAll('.req');
-    (t.texts || []).forEach(function(txt, i) { if (reqs[i]) reqs[i].innerHTML = txt; });
-    var btn = card.querySelector('.interest'); if (btn && !btn.classList.contains('done')) btn.textContent = 'Me Interesa \u270b';
-  });
-}
 
 function _restoreEN() {
   var hp = document.querySelector('header p'); if (hp) hp.textContent = _orig._headerP;
@@ -380,7 +392,7 @@ document.querySelectorAll('.preview-toggle').forEach(function(btn) {
 });
 
   // Auto-restore language preference
-  try { var saved = localStorage.getItem(joblink_lang); if (saved === es) setLang(es); } catch(e) {}
+  try { var saved = localStorage.getItem('joblink_lang'); if (saved === 'es') setLang('es'); } catch(e) {}
 </script>
 </body></html>`;
 }
