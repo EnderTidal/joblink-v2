@@ -197,6 +197,29 @@
   .cm-table select { background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:6px 8px; border-radius:6px; font-size:.85rem; font-family:inherit; min-width:140px; }
   .cm-table select:focus { border-color:var(--brand); outline:none; }
   .cm-actions { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
+  /* Column mapper: auto-detect summary card */
+  .cm-summary-card { background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:20px 24px; margin-bottom:16px; }
+  .cm-summary-count { font-size:1.1rem; margin:12px 0 16px; color:var(--green, #22c55e); }
+  .cm-summary-count strong { font-weight:700; }
+  .cm-summary-fields { display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
+  .cm-summary-field { font-size:.92rem; color:var(--text); line-height:1.5; }
+  .cm-summary-field .cm-field-label { font-weight:600; color:var(--text); }
+  .cm-summary-field .cm-sample-preview { color:var(--text-muted); font-size:.85rem; font-style:italic; }
+  .cm-summary-field .cm-field-warn { color:#f59e0b; margin-right:4px; }
+  .cm-optional { color:var(--text-muted); font-size:.82rem; }
+  /* Column mapper: manual mapper fields */
+  .cm-field-group { margin-bottom:18px; }
+  .cm-field-group > label.cm-field-label,
+  .cm-field-group > .cm-field-label { display:block; font-weight:600; font-size:.92rem; margin-bottom:6px; color:var(--text); }
+  .cm-field-group select.cm-select { display:block; width:100%; max-width:360px; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 10px; border-radius:8px; font-size:.9rem; font-family:inherit; margin-top:4px; }
+  .cm-field-group select.cm-select:focus { border-color:var(--brand); outline:none; }
+  .cm-format-group { margin-top:10px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .cm-format-group .cm-field-label { font-weight:600; font-size:.88rem; }
+  .cm-radio-label { display:inline-flex; align-items:center; gap:4px; font-size:.88rem; cursor:pointer; color:var(--text); }
+  .cm-radio-label input[type="radio"] { accent-color:var(--brand); }
+  .cm-separate-group { display:flex; gap:12px; margin-top:10px; flex-wrap:wrap; align-items:center; }
+  .cm-separate-group label { font-size:.88rem; font-weight:500; color:var(--text); }
+  .cm-separate-group select { background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:6px 8px; border-radius:6px; font-size:.85rem; font-family:inherit; min-width:140px; }
 
   /* Step indicator */
   .step-indicator { font-size:.82rem; color:var(--text-muted); margin-bottom:12px; font-weight:500; }
@@ -591,7 +614,7 @@ function showColumnMapPanel(data) {
 
   var cmStep = document.createElement('div');
   cmStep.className = 'step-indicator';
-  cmStep.innerHTML = 'Step <strong>2</strong> of 4: Map Columns';
+  cmStep.innerHTML = 'Step <strong>2</strong> of 4: Verify Contacts';
   panel.appendChild(cmStep);
 
   var cmBackBtn = document.createElement('button');
@@ -603,140 +626,336 @@ function showColumnMapPanel(data) {
   });
   panel.appendChild(cmBackBtn);
 
-  var title = document.createElement('div');
-  title.className = 'cm-title';
-  title.textContent = 'Map Your Columns';
-  panel.appendChild(title);
+  // Build auto-detect summary from suggestedMap
+  var suggested = data.suggestedMap || {};
+  var headers = data.headers || [];
+  var samples = data.sampleRows || [];
 
-  var hint = document.createElement('div');
-  hint.className = 'cm-hint';
-  hint.textContent = 'We detected ' + data.headers.length + ' columns. Assign each column to the right field, or set to Skip.';
-  panel.appendChild(hint);
+  // Find what was detected
+  var nameCol = null, nameFormat = null, phoneCol = null, lastContactedCol = null;
+  var firstCol = null, lastCol = null;
+  var nameFormatLabel = { 'name_fl': 'First Last', 'name_lf': 'Last, First', 'first': 'First Name', 'last': 'Last Name' };
 
-  var table = document.createElement('table');
-  table.className = 'cm-table';
-
-  // Header row
-  var thead = document.createElement('thead');
-  var headRow = document.createElement('tr');
-  ['Column Header', 'Sample Data', 'Map To'].forEach(function(t) {
-    var th = document.createElement('th');
-    th.textContent = t;
-    headRow.appendChild(th);
-  });
-  thead.appendChild(headRow);
-  table.appendChild(thead);
-
-  var tbody = document.createElement('tbody');
-  var fieldOptions = [
-    { value: 'skip', label: 'Skip' },
-    { value: 'first', label: 'First Name' },
-    { value: 'last', label: 'Last Name' },
-    { value: 'name_fl', label: 'Name (First Last)' },
-    { value: 'name_lf', label: 'Name (Last, First)' },
-    { value: 'phone', label: 'Phone' },
-    { value: 'lastContacted', label: 'Last Contacted' },
-  ];
-
-  data.headers.forEach(function(header, i) {
-    var tr = document.createElement('tr');
-
-    // Column header name
-    var tdName = document.createElement('td');
-    tdName.className = 'cm-header-name';
-    tdName.textContent = header || '(empty)';
-    tr.appendChild(tdName);
-
-    // Sample data from first few rows
-    var tdSample = document.createElement('td');
-    tdSample.className = 'cm-sample';
-    var samples = (data.sampleRows || []).map(function(row) { return String(row[i] || ''); }).filter(Boolean);
-    tdSample.textContent = samples.slice(0, 3).join(', ') || '—';
-    tdSample.title = samples.join('\n');
-    tr.appendChild(tdSample);
-
-    // Dropdown
-    var tdSelect = document.createElement('td');
-    var sel = document.createElement('select');
-    sel.dataset.colIndex = i;
-    sel.className = 'cm-select';
-    fieldOptions.forEach(function(opt) {
-      var o = document.createElement('option');
-      o.value = opt.value;
-      o.textContent = opt.label;
-      sel.appendChild(o);
-    });
-    // Auto-suggest from server
-    var suggested = data.suggestedMap && data.suggestedMap[String(i)];
-    if (suggested) {
-      sel.value = suggested;
+  Object.keys(suggested).forEach(function(idx) {
+    var val = suggested[idx];
+    var i = parseInt(idx);
+    if (val === 'name_fl' || val === 'name_lf') {
+      nameCol = i; nameFormat = val;
+    } else if (val === 'first') {
+      firstCol = i;
+      if (nameCol === null) { nameCol = i; nameFormat = 'first'; }
+    } else if (val === 'last') {
+      lastCol = i;
+    } else if (val === 'phone' && phoneCol === null) {
+      phoneCol = i;
+    } else if (val === 'lastContacted') {
+      lastContactedCol = i;
     }
-    tdSelect.appendChild(sel);
-    tr.appendChild(tdSelect);
-
-    tbody.appendChild(tr);
   });
-  table.appendChild(tbody);
-  panel.appendChild(table);
 
-  // Actions
-  var actions = document.createElement('div');
-  actions.className = 'cm-actions';
+  // If we have separate first+last columns, note that
+  var hasSeparateCols = firstCol !== null && lastCol !== null && nameFormat === 'first';
 
-  var confirmBtn = document.createElement('button');
-  confirmBtn.className = 'btn';
-  confirmBtn.textContent = 'Confirm Mapping';
-  confirmBtn.addEventListener('click', function() {
-    var selects = panel.querySelectorAll('.cm-select');
-    var columnMap = {};
-    var hasPhone = false;
-    selects.forEach(function(sel) {
-      var idx = sel.dataset.colIndex;
-      var val = sel.value;
-      columnMap[idx] = val;
-      if (val === 'phone') hasPhone = true;
+  // Total data rows
+  var totalRows = data.totalRows || samples.length;
+
+  // Sample names for verification
+  var sampleNames = [];
+  if (hasSeparateCols) {
+    samples.forEach(function(row) {
+      var f = String(row[firstCol] || '').trim();
+      var l = String(row[lastCol] || '').trim();
+      if (f || l) sampleNames.push((f + ' ' + l).trim());
     });
-    if (!hasPhone) {
-      toast('You must map at least one column to Phone.');
-      return;
+  } else if (nameCol !== null) {
+    samples.forEach(function(row) {
+      var val = String(row[nameCol] || '').trim();
+      if (val) sampleNames.push(val);
+    });
+  }
+
+  // Helper to escape HTML in header names
+  function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  // ---- AUTO-DETECT SUMMARY VIEW ----
+  var summaryCard = document.createElement('div');
+  summaryCard.className = 'cm-summary-card';
+  summaryCard.id = 'cm-auto-summary';
+
+  var cardTitle = document.createElement('div');
+  cardTitle.className = 'cm-title';
+  cardTitle.textContent = 'Contact File Summary';
+  summaryCard.appendChild(cardTitle);
+
+  // Contact count
+  var countLine = document.createElement('div');
+  countLine.className = 'cm-summary-count';
+  countLine.innerHTML = '\u2713 We found <strong>' + totalRows + '</strong> contacts';
+  summaryCard.appendChild(countLine);
+
+  // Detected fields
+  var fieldsList = document.createElement('div');
+  fieldsList.className = 'cm-summary-fields';
+
+  // Name field
+  var nameLine = document.createElement('div');
+  nameLine.className = 'cm-summary-field';
+  if (hasSeparateCols) {
+    nameLine.innerHTML = '<span class="cm-field-label">Name:</span> "' + escH(headers[firstCol]) + '" + "' + escH(headers[lastCol]) + '" columns (separate)';
+    if (sampleNames.length) {
+      var sampleSpan = document.createElement('span');
+      sampleSpan.className = 'cm-sample-preview';
+      sampleSpan.textContent = ' \u2014 ' + sampleNames.slice(0, 3).join(', ');
+      nameLine.appendChild(sampleSpan);
     }
+  } else if (nameCol !== null) {
+    nameLine.innerHTML = '<span class="cm-field-label">Name:</span> "' + escH(headers[nameCol] || 'Column ' + nameCol) + '" column (' + (nameFormatLabel[nameFormat] || 'auto') + ')';
+    if (sampleNames.length) {
+      var sampleSpan2 = document.createElement('span');
+      sampleSpan2.className = 'cm-sample-preview';
+      sampleSpan2.textContent = ' \u2014 ' + sampleNames.slice(0, 3).join(', ');
+      nameLine.appendChild(sampleSpan2);
+    }
+  } else {
+    nameLine.innerHTML = '<span class="cm-field-warn">\u26A0</span> No name column found \u2014 contacts will be imported without names';
+  }
+  fieldsList.appendChild(nameLine);
+
+  // Phone field
+  var phoneLine = document.createElement('div');
+  phoneLine.className = 'cm-summary-field';
+  if (phoneCol !== null) {
+    var phoneSamples = samples.map(function(row) { return String(row[phoneCol] || '').trim(); }).filter(Boolean);
+    phoneLine.innerHTML = '<span class="cm-field-label">Phone:</span> "' + escH(headers[phoneCol] || 'Column ' + phoneCol) + '" column';
+    if (phoneSamples.length) {
+      var ps = document.createElement('span');
+      ps.className = 'cm-sample-preview';
+      ps.textContent = ' \u2014 ' + phoneSamples.slice(0, 2).join(', ');
+      phoneLine.appendChild(ps);
+    }
+  } else {
+    phoneLine.innerHTML = '<span class="cm-field-warn">\u26A0</span> No phone column found \u2014 please map manually';
+  }
+  fieldsList.appendChild(phoneLine);
+
+  // Last Contacted (optional)
+  if (lastContactedCol !== null) {
+    var lcLine = document.createElement('div');
+    lcLine.className = 'cm-summary-field';
+    lcLine.innerHTML = '<span class="cm-field-label">Last Contacted:</span> "' + escH(headers[lastContactedCol]) + '" column <span class="cm-optional">(optional \u2014 used for sorting)</span>';
+    fieldsList.appendChild(lcLine);
+  }
+
+  summaryCard.appendChild(fieldsList);
+
+  // Action buttons
+  var summaryActions = document.createElement('div');
+  summaryActions.className = 'cm-actions';
+
+  if (phoneCol !== null) {
+    var blastBtn = document.createElement('button');
+    blastBtn.className = 'btn';
+    blastBtn.style.background = 'var(--green, #22c55e)';
+    blastBtn.textContent = 'Yes, blast it';
+    blastBtn.addEventListener('click', function() {
+      hideColumnMapPanel();
+      sendAction('confirm_auto', { columnMap: suggested });
+    });
+    summaryActions.appendChild(blastBtn);
+  }
+
+  var fixBtn = document.createElement('button');
+  fixBtn.className = 'btn ghost';
+  fixBtn.textContent = 'No, let me fix it';
+  fixBtn.addEventListener('click', function() {
+    document.getElementById('cm-auto-summary').style.display = 'none';
+    document.getElementById('cm-manual-mapper').style.display = 'block';
+  });
+  summaryActions.appendChild(fixBtn);
+
+  var startOverBtn1 = document.createElement('button');
+  startOverBtn1.className = 'btn ghost';
+  startOverBtn1.textContent = 'Start Over';
+  startOverBtn1.addEventListener('click', function() {
     hideColumnMapPanel();
-    sendAction('confirm_column_map', { columnMap: columnMap });
+    sendAction('start_over', {});
+  });
+  summaryActions.appendChild(startOverBtn1);
+
+  summaryCard.appendChild(summaryActions);
+  panel.appendChild(summaryCard);
+
+  // ---- MANUAL MAPPER (hidden by default) ----
+  var manualMapper = document.createElement('div');
+  manualMapper.id = 'cm-manual-mapper';
+  manualMapper.style.display = 'none';
+
+  var manualTitle = document.createElement('div');
+  manualTitle.className = 'cm-title';
+  manualTitle.textContent = 'Map Your Columns';
+  manualMapper.appendChild(manualTitle);
+
+  // Name column picker
+  var nameGroup = document.createElement('div');
+  nameGroup.className = 'cm-field-group';
+
+  var nameLabel = document.createElement('label');
+  nameLabel.className = 'cm-field-label';
+  nameLabel.textContent = 'Which column has the name?';
+  nameGroup.appendChild(nameLabel);
+
+  var nameSel = document.createElement('select');
+  nameSel.id = 'cm-manual-name';
+  nameSel.className = 'cm-select';
+  var noneOpt = document.createElement('option');
+  noneOpt.value = '';
+  noneOpt.textContent = '\u2014 None \u2014';
+  nameSel.appendChild(noneOpt);
+  headers.forEach(function(h, i) {
+    var o = document.createElement('option');
+    o.value = i;
+    o.textContent = h || '(Column ' + (i + 1) + ')';
+    if (nameCol !== null && i === nameCol) o.selected = true;
+    nameSel.appendChild(o);
+  });
+  nameGroup.appendChild(nameSel);
+
+  // Name format radios
+  var formatDiv = document.createElement('div');
+  formatDiv.className = 'cm-format-group';
+  formatDiv.id = 'cm-name-format-group';
+
+  var formatLabel2 = document.createElement('span');
+  formatLabel2.className = 'cm-field-label';
+  formatLabel2.textContent = 'Name format: ';
+  formatDiv.appendChild(formatLabel2);
+
+  var formats = [{ val: 'name_fl', label: 'First Last' }, { val: 'name_lf', label: 'Last, First' }, { val: 'separate', label: 'Separate columns' }];
+  formats.forEach(function(f) {
+    var lbl = document.createElement('label');
+    lbl.className = 'cm-radio-label';
+    var radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'nameFormat';
+    radio.value = f.val;
+    if (hasSeparateCols && f.val === 'separate') radio.checked = true;
+    else if (!hasSeparateCols && f.val === (nameFormat || 'name_fl')) radio.checked = true;
+    radio.addEventListener('change', function() {
+      document.getElementById('cm-separate-cols').style.display = this.value === 'separate' ? 'flex' : 'none';
+    });
+    lbl.appendChild(radio);
+    lbl.appendChild(document.createTextNode(' ' + f.label));
+    formatDiv.appendChild(lbl);
+  });
+  nameGroup.appendChild(formatDiv);
+
+  // Separate columns (hidden by default unless detected)
+  var separateCols = document.createElement('div');
+  separateCols.id = 'cm-separate-cols';
+  separateCols.className = 'cm-separate-group';
+  separateCols.style.display = hasSeparateCols ? 'flex' : 'none';
+
+  var firstLabelEl = document.createElement('label');
+  firstLabelEl.textContent = 'First name column: ';
+  var firstSel = document.createElement('select');
+  firstSel.id = 'cm-manual-first';
+  firstSel.className = 'cm-select';
+  headers.forEach(function(h, i) {
+    var o = document.createElement('option');
+    o.value = i;
+    o.textContent = h || '(Column ' + (i + 1) + ')';
+    if (firstCol !== null && i === firstCol) o.selected = true;
+    firstSel.appendChild(o);
+  });
+  separateCols.appendChild(firstLabelEl);
+  separateCols.appendChild(firstSel);
+
+  var lastLabelEl = document.createElement('label');
+  lastLabelEl.textContent = 'Last name column: ';
+  var lastSel = document.createElement('select');
+  lastSel.id = 'cm-manual-last';
+  lastSel.className = 'cm-select';
+  headers.forEach(function(h, i) {
+    var o = document.createElement('option');
+    o.value = i;
+    o.textContent = h || '(Column ' + (i + 1) + ')';
+    if (lastCol !== null && i === lastCol) o.selected = true;
+    lastSel.appendChild(o);
+  });
+  separateCols.appendChild(lastLabelEl);
+  separateCols.appendChild(lastSel);
+
+  nameGroup.appendChild(separateCols);
+  manualMapper.appendChild(nameGroup);
+
+  // Phone column picker
+  var phoneGroup = document.createElement('div');
+  phoneGroup.className = 'cm-field-group';
+
+  var phoneLabel = document.createElement('label');
+  phoneLabel.className = 'cm-field-label';
+  phoneLabel.textContent = 'Which column has the phone number?';
+  phoneGroup.appendChild(phoneLabel);
+
+  var phoneSel = document.createElement('select');
+  phoneSel.id = 'cm-manual-phone';
+  phoneSel.className = 'cm-select';
+  headers.forEach(function(h, i) {
+    var o = document.createElement('option');
+    o.value = i;
+    o.textContent = h || '(Column ' + (i + 1) + ')';
+    if (phoneCol !== null && i === phoneCol) o.selected = true;
+    phoneSel.appendChild(o);
+  });
+  phoneGroup.appendChild(phoneSel);
+  manualMapper.appendChild(phoneGroup);
+
+  // Manual mapper actions
+  var manualActions = document.createElement('div');
+  manualActions.className = 'cm-actions';
+
+  var confirmManualBtn = document.createElement('button');
+  confirmManualBtn.className = 'btn';
+  confirmManualBtn.textContent = 'Confirm Mapping';
+  confirmManualBtn.addEventListener('click', function() {
+    var manualMap = {};
+    var phoneIdx = document.getElementById('cm-manual-phone').value;
+    manualMap[phoneIdx] = 'phone';
+
+    var nameIdx = document.getElementById('cm-manual-name').value;
+    var format = document.querySelector('input[name="nameFormat"]:checked');
+    var formatVal = format ? format.value : 'name_fl';
+
+    if (nameIdx !== '') {
+      if (formatVal === 'separate') {
+        var fIdx = document.getElementById('cm-manual-first').value;
+        var lIdx = document.getElementById('cm-manual-last').value;
+        manualMap[fIdx] = 'first';
+        manualMap[lIdx] = 'last';
+      } else {
+        manualMap[nameIdx] = formatVal;
+      }
+    }
+
+    hideColumnMapPanel();
+    sendAction('confirm_column_map', { columnMap: manualMap });
   });
 
-  var startOverBtn = document.createElement('button');
-  startOverBtn.className = 'btn ghost';
-  startOverBtn.textContent = 'Start Over';
-  startOverBtn.addEventListener('click', function() {
+  var startOverBtn2 = document.createElement('button');
+  startOverBtn2.className = 'btn ghost';
+  startOverBtn2.textContent = 'Start Over';
+  startOverBtn2.addEventListener('click', function() {
     hideColumnMapPanel();
     sendAction('start_over', {});
   });
 
-  var skipBtn = document.createElement("button");
-  skipBtn.className = "btn";
-  skipBtn.style.background = "var(--green, #22c55e)";
-  skipBtn.textContent = "Looks good — skip to blast";
-  skipBtn.addEventListener("click", function() {
-    var selects = panel.querySelectorAll(".cm-select");
-    var columnMap = {};
-    var hasPhone = false;
-    selects.forEach(function(sel) {
-      var idx = sel.dataset.colIndex;
-      var val = sel.value;
-      columnMap[idx] = val;
-      if (val === "phone") hasPhone = true;
-    });
-    if (!hasPhone) {
-      toast("You must map at least one column to Phone.");
-      return;
-    }
-    hideColumnMapPanel();
-    sendAction("confirm_and_skip", { columnMap: columnMap });
-  });
-  actions.appendChild(skipBtn);
-  actions.appendChild(confirmBtn);
-  actions.appendChild(startOverBtn);
-  panel.appendChild(actions);
+  manualActions.appendChild(confirmManualBtn);
+  manualActions.appendChild(startOverBtn2);
+  manualMapper.appendChild(manualActions);
+
+  panel.appendChild(manualMapper);
+}
+
 }
 
 function hideColumnMapPanel() {

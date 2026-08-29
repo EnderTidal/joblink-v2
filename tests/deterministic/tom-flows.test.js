@@ -149,7 +149,12 @@ test('blast path: Last Contacted subset via form sort', async () => {
   const { tom } = freshTom();
   const s = await tom.start('blast');
   const rows = 'Name,Phone,Last Contacted\nJohn Smith,5551234567,2026-07-01\nJane Doe,5559876543,2026-07-15';
-  const r = await tom.message(s.sessionId, { file: { buffer: Buffer.from(rows), originalname: 'list.csv' } });
+  const mapReply = await tom.message(s.sessionId, { file: { buffer: Buffer.from(rows), originalname: 'list.csv' } });
+  assert.strictEqual(mapReply.state, 'await_column_map');
+  assert.ok(mapReply.showColumnMap, 'should show column map summary');
+  assert.ok(mapReply.suggestedMap, 'should have suggested map');
+  // Accept auto-detect (confirm_auto skips exclusion -> blast_form)
+  const r = await tom.message(s.sessionId, { action: 'confirm_auto', payload: { columnMap: mapReply.suggestedMap } });
   assert.strictEqual(r.state, 'blast_form');
   assert.ok(r.hasLastContacted, 'should detect Last Contacted dates');
   assert.ok(r.sortOptions, 'should include sort options');
