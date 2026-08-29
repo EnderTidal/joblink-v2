@@ -151,9 +151,9 @@ function setLang(lang) {
       reqs.forEach(function(el) {
         var strong = el.querySelector('strong');
         if (strong && strong.textContent.includes('Description')) {
-          el.innerHTML = '<strong>Descripción:</strong> ' + descEs.replace(/\n/g, '<br>');
+          el.innerHTML = '<strong>Descripci\u00f3n:</strong> ' + descEs.split('\\n').join('<br>');
         } else if (strong && strong.textContent.includes('Requirements')) {
-          el.innerHTML = '<strong>Requisitos:</strong> ' + reqEs;
+          el.innerHTML = '<strong>Requisitos:</strong> ' + reqEs.split('\\n').join('<br>');
         }
       });
     }
@@ -325,9 +325,9 @@ function setLang(lang) {
       reqs.forEach(function(el) {
         var strong = el.querySelector('strong');
         if (strong && strong.textContent.includes('Description')) {
-          el.innerHTML = '<strong>Descripción:</strong> ' + descEs.replace(/\n/g, '<br>');
+          el.innerHTML = '<strong>Descripci\u00f3n:</strong> ' + descEs.split('\\n').join('<br>');
         } else if (strong && strong.textContent.includes('Requirements')) {
-          el.innerHTML = '<strong>Requisitos:</strong> ' + reqEs;
+          el.innerHTML = '<strong>Requisitos:</strong> ' + reqEs.split('\\n').join('<br>');
         }
       });
     }
