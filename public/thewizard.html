@@ -1014,6 +1014,162 @@ function hideColumnMapPanel() {
   document.getElementById('chat').style.display = 'flex';
 }
 
+// ---- Exclusion Column Mapper Panel ----
+function showExclusionMapPanel(data) {
+  var panel = document.getElementById('exclusion-panel');
+  panel.className = 'active';
+  panel.innerHTML = '';
+  document.getElementById('chat').style.display = 'none';
+  document.getElementById('blast-form-panel').className = '';
+  document.getElementById('column-map-panel').className = '';
+  document.getElementById('contact-form-panel').className = '';
+  document.getElementById('composer').style.display = 'none';
+
+  var exStep = document.createElement('div');
+  exStep.className = 'step-indicator';
+  exStep.innerHTML = 'Step <strong>3</strong> of 4: Exclusion List';
+  panel.appendChild(exStep);
+
+  var exBackBtn = document.createElement('button');
+  exBackBtn.className = 'back-btn';
+  exBackBtn.innerHTML = '\u2190 Back';
+  exBackBtn.addEventListener('click', function() {
+    hideExclusionPanel();
+    sendAction('back_to_column_map', {});
+  });
+  panel.appendChild(exBackBtn);
+
+  var headers = data.headers || [];
+  var sampleRows = data.sampleRows || [];
+  var suggestedPhoneCol = data.suggestedPhoneCol;
+
+  // Summary card
+  var card = document.createElement('div');
+  card.className = 'cm-summary-card';
+
+  var cardTitle = document.createElement('div');
+  cardTitle.className = 'cm-title';
+  cardTitle.textContent = 'Exclusion File Summary';
+  card.appendChild(cardTitle);
+
+  var countDiv = document.createElement('div');
+  countDiv.className = 'cm-summary-count';
+  countDiv.innerHTML = '\u2713 <strong>' + esc(data.exclusionFileName) + '</strong> — ' + data.totalRows + ' ' + (data.totalRows === 1 ? 'row' : 'rows');
+  card.appendChild(countDiv);
+
+  // Show detected phone column
+  var fieldsList = document.createElement('div');
+  fieldsList.className = 'cm-summary-fields';
+
+  if (suggestedPhoneCol !== null && suggestedPhoneCol !== undefined) {
+    var phoneLine = document.createElement('div');
+    phoneLine.className = 'cm-summary-field';
+    var samplePhones = sampleRows.map(function(r) { return r[suggestedPhoneCol]; }).filter(Boolean).slice(0, 3).join(', ');
+    phoneLine.innerHTML = '<span class="cm-field-label">Phone column:</span> "' + esc(headers[suggestedPhoneCol]) + '"' +
+      (samplePhones ? ' <span class="cm-sample-preview">— ' + esc(samplePhones) + '</span>' : '');
+    fieldsList.appendChild(phoneLine);
+  } else {
+    var warnLine = document.createElement('div');
+    warnLine.className = 'cm-summary-field';
+    warnLine.innerHTML = '<span class="cm-field-warn">\u26A0</span> Could not auto-detect a phone column. Please select one below.';
+    fieldsList.appendChild(warnLine);
+  }
+
+  card.appendChild(fieldsList);
+
+  // Action buttons
+  var actions = document.createElement('div');
+  actions.className = 'cm-actions';
+
+  if (suggestedPhoneCol !== null && suggestedPhoneCol !== undefined) {
+    var confirmBtn = document.createElement('button');
+    confirmBtn.className = 'btn';
+    confirmBtn.style.background = 'var(--green, #22c55e)';
+    confirmBtn.textContent = 'Yes, exclude these';
+    confirmBtn.addEventListener('click', function() {
+      hideExclusionPanel();
+      sendAction('confirm_exclusion_auto', { phoneCol: suggestedPhoneCol });
+    });
+    actions.appendChild(confirmBtn);
+  }
+
+  var fixBtn = document.createElement('button');
+  fixBtn.className = 'btn ghost';
+  fixBtn.textContent = 'No, let me pick the column';
+  fixBtn.addEventListener('click', function() {
+    document.getElementById('excl-auto-summary').style.display = 'none';
+    document.getElementById('excl-manual-picker').style.display = 'block';
+  });
+  actions.appendChild(fixBtn);
+
+  var startOverBtn = document.createElement('button');
+  startOverBtn.className = 'btn text-link';
+  startOverBtn.textContent = 'Start Over';
+  startOverBtn.addEventListener('click', function() {
+    hideExclusionPanel();
+    sendAction('start_over', {});
+  });
+  actions.appendChild(startOverBtn);
+
+  card.appendChild(actions);
+
+  var autoWrap = document.createElement('div');
+  autoWrap.id = 'excl-auto-summary';
+  autoWrap.appendChild(card);
+  panel.appendChild(autoWrap);
+
+  // Manual phone column picker (hidden by default)
+  var manualPicker = document.createElement('div');
+  manualPicker.id = 'excl-manual-picker';
+  manualPicker.style.display = 'none';
+
+  var manualTitle = document.createElement('div');
+  manualTitle.className = 'cm-title';
+  manualTitle.textContent = 'Pick the Phone Column';
+  manualPicker.appendChild(manualTitle);
+
+  var phoneGroup = document.createElement('div');
+  phoneGroup.className = 'cm-field-group';
+  var phoneLabel = document.createElement('label');
+  phoneLabel.className = 'cm-field-label';
+  phoneLabel.textContent = 'Which column has the phone numbers?';
+  phoneGroup.appendChild(phoneLabel);
+  var phoneSel = document.createElement('select');
+  phoneSel.className = 'cm-select';
+  headers.forEach(function(h, i) {
+    var o = document.createElement('option');
+    o.value = i;
+    o.textContent = h || '(Column ' + (i + 1) + ')';
+    if (suggestedPhoneCol !== null && i === suggestedPhoneCol) o.selected = true;
+    phoneSel.appendChild(o);
+  });
+  phoneGroup.appendChild(phoneSel);
+  manualPicker.appendChild(phoneGroup);
+
+  var manualActions = document.createElement('div');
+  manualActions.className = 'cm-actions';
+  var confirmManual = document.createElement('button');
+  confirmManual.className = 'btn';
+  confirmManual.textContent = 'Confirm & Exclude';
+  confirmManual.addEventListener('click', function() {
+    hideExclusionPanel();
+    sendAction('confirm_exclusion_map', { phoneCol: parseInt(phoneSel.value) });
+  });
+  manualActions.appendChild(confirmManual);
+
+  var manualStartOver = document.createElement('button');
+  manualStartOver.className = 'btn text-link';
+  manualStartOver.textContent = 'Start Over';
+  manualStartOver.addEventListener('click', function() {
+    hideExclusionPanel();
+    sendAction('start_over', {});
+  });
+  manualActions.appendChild(manualStartOver);
+
+  manualPicker.appendChild(manualActions);
+  panel.appendChild(manualPicker);
+}
+
 // ---- Exclusion Upload Panel ----
 function showExclusionPanel(data) {
   var panel = document.getElementById('exclusion-panel');
@@ -2080,6 +2236,11 @@ function handleReply(r) {
     return;
   }
 
+  // Exclusion column mapper
+  if (r.showExclusionMap) {
+    showExclusionMapPanel(r);
+    return;
+  }
   // Exclusion upload panel
   if (r.showExclusionUpload) {
     showExclusionPanel(r);
