@@ -1188,6 +1188,33 @@ function showBlastForm(data) {
     window._blastContactCount = data.estimatedSendable;
   }
 
+  // Recipient preview toggle
+  if (data.contacts && data.contacts.length > 0) {
+    var recipWrap = document.createElement('div');
+    recipWrap.style.marginBottom = '12px';
+    var recipBtn = document.createElement('button');
+    recipBtn.className = 'recipient-toggle';
+    recipBtn.textContent = '👥 Show all ' + data.contacts.length + ' recipients';
+    var recipExpanded = false;
+    var recipList = document.createElement('div');
+    recipList.className = 'recipient-list';
+    recipList.style.display = 'none';
+    data.contacts.forEach(function(c) {
+      var row = document.createElement('div');
+      row.className = 'rl-row';
+      row.textContent = (c.first_name || '') + ' ' + (c.last_name || '') + ' — ' + (c.phone || '');
+      recipList.appendChild(row);
+    });
+    recipBtn.addEventListener('click', function() {
+      recipExpanded = !recipExpanded;
+      recipList.style.display = recipExpanded ? 'block' : 'none';
+      recipBtn.textContent = recipExpanded ? '👥 Hide recipients' : '👥 Show all ' + data.contacts.length + ' recipients';
+    });
+    recipWrap.appendChild(recipBtn);
+    recipWrap.appendChild(recipList);
+    panel.appendChild(recipWrap);
+  }
+
   // Smart nudge: low candidate pool warning
   if (data.totalCandidates !== undefined) {
     var nudge = document.createElement('div');

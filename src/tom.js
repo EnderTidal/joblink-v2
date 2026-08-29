@@ -337,6 +337,7 @@ function createTom(db) {
           whippyUsers: formData.whippyUsers,
           localUsers: formData.localUsers.map(u => ({ id: u.id, username: u.username, role: u.role })),
           whippyNumbers: formData.whippyNumbers,
+          contacts: (s.data.contacts || []).map(c => ({ first_name: c.first || '', last_name: c.last || '', phone: c.phone })),
         });
       }
       // File upload: show column mapping step
@@ -422,6 +423,7 @@ function createTom(db) {
           whippyUsers: formData.whippyUsers,
           localUsers: formData.localUsers.map(u => ({ id: u.id, username: u.username, role: u.role })),
           whippyNumbers: formData.whippyNumbers,
+          contacts: (s.data.contacts || []).map(c => ({ first_name: c.first || '', last_name: c.last || '', phone: c.phone })),
         });
       }
       if (action === 'confirm_column_map') {
@@ -505,6 +507,7 @@ function createTom(db) {
           whippyUsers: formData.whippyUsers,
           localUsers: formData.localUsers.map(u => ({ id: u.id, username: u.username, role: u.role })),
           whippyNumbers: formData.whippyNumbers,
+          contacts: (s.data.contacts || []).map(c => ({ first_name: c.first || '', last_name: c.last || '', phone: c.phone })),
         });
       }
       if (file) {
@@ -551,6 +554,7 @@ function createTom(db) {
           whippyUsers: formData.whippyUsers,
           localUsers: formData.localUsers.map(u => ({ id: u.id, username: u.username, role: u.role })),
           whippyNumbers: formData.whippyNumbers,
+          contacts: (s.data.contacts || []).map(c => ({ first_name: c.first || '', last_name: c.last || '', phone: c.phone })),
         });
       }
       return reply(s, 'Upload an exclusion list or click Skip to continue.');
@@ -686,6 +690,7 @@ function createTom(db) {
           whippyUsers: formData.whippyUsers,
           localUsers: formData.localUsers.map(u => ({ id: u.id, username: u.username, role: u.role })),
           whippyNumbers: formData.whippyNumbers,
+          contacts: (s.data.contacts || []).map(c => ({ first_name: c.first || '', last_name: c.last || '', phone: c.phone })),
         });
       }
 
