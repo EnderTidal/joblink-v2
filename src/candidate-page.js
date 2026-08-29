@@ -114,11 +114,13 @@ function _hashJobs() {
 
 function _captureOrig() {
   if (Object.keys(_orig).length) return;
+  _orig._headerH1 = document.querySelector('header h1') ? document.querySelector('header h1').textContent : '';
   _orig._headerP = document.querySelector('header p') ? document.querySelector('header p').textContent : '';
   document.querySelectorAll('.card:not(.empty)').forEach(function(card) {
     if (!card.id) return;
-    var o = { title: '', reqs: [], btn: '' };
+    var o = { title: '', reqs: [], btn: '', badges: [] };
     var h2 = card.querySelector('h2'); if (h2) o.title = h2.textContent;
+    card.querySelectorAll('.badge').forEach(function(b) { o.badges.push(b.textContent); });
     card.querySelectorAll('.req').forEach(function(el) { o.reqs.push(el.innerHTML); });
     var btn = card.querySelector('.interest'); if (btn) o.btn = btn.textContent.trim();
     _orig[card.id] = o;
@@ -132,9 +134,27 @@ function setLang(lang) {
   document.getElementById('langES').classList.toggle('active', lang === 'es');
   _captureOrig();
   if (lang === 'en') { _restoreEN(); return; }
-  // Use stored translations from data attributes
+  // Translate header
+  var hh = document.querySelector('header h1');
+  if (hh) { var n = hh.textContent.match(/Hi (.+)!/); hh.textContent = n ? '\u00a1Hola ' + n[1] + '! \u{1F44B}' : '\u00a1Hola! \u{1F44B}'; }
   var hp = document.querySelector('header p');
-  if (hp) hp.textContent = 'Estos trabajos están disponibles ahora — toca cualquiera que te interese.';
+  if (hp) hp.textContent = 'Estos trabajos est\u00e1n disponibles ahora \u2014 toca cualquiera que te interese.';
+  // Translate filter
+  var filterLabel = document.querySelector('label[for="categoryFilter"]');
+  if (filterLabel) filterLabel.textContent = 'Ver como:';
+  var catSelect = document.getElementById('categoryFilter');
+  if (catSelect) { Array.from(catSelect.options).forEach(function(o) {
+    if (o.value === '') o.textContent = 'Todas las Categor\u00edas';
+    else if (o.value === 'Industrial') o.textContent = 'Industrial';
+    else if (o.value === 'Administrative') o.textContent = 'Administrativo';
+    else if (o.value === 'Skilled Trade') o.textContent = 'Oficio Calificado';
+  }); }
+  // Translate empty state
+  var emptyH2 = document.querySelector('.empty h2');
+  if (emptyH2) emptyH2.textContent = 'No hay posiciones abiertas en este momento';
+  var emptyP = document.querySelector('.empty p');
+  if (emptyP) emptyP.textContent = 'Vuelve pronto \u2014 se publican nuevos trabajos todo el tiempo.';
+  // Translate job cards
   document.querySelectorAll('.card:not(.empty)').forEach(function(card) {
     if (!card.id) return;
     var titleEs = card.getAttribute('data-title-es');
@@ -144,8 +164,13 @@ function setLang(lang) {
     var h2 = card.querySelector('h2');
     if (h2) {
       if (hasTranslation) { h2.textContent = titleEs; }
-      else { h2.textContent = (_orig[card.id] ? _orig[card.id].title : '') + ' (traducción no disponible)'; }
+      else { h2.textContent = (_orig[card.id] ? _orig[card.id].title : '') + ' (traducci\u00f3n no disponible)'; }
     }
+    var badges = card.querySelectorAll('.badge');
+    badges.forEach(function(b) {
+      if (b.textContent === 'Administrative') b.textContent = 'Administrativo';
+      else if (b.textContent === 'Skilled Trade') b.textContent = 'Oficio Calificado';
+    });
     var reqs = card.querySelectorAll('.req');
     if (hasTranslation) {
       reqs.forEach(function(el) {
@@ -158,19 +183,35 @@ function setLang(lang) {
       });
     }
     var btn = card.querySelector('.interest');
-    if (btn && !btn.classList.contains('done')) btn.textContent = 'Me Interesa ✋';
-    if (btn && btn.classList.contains('done')) btn.textContent = '✓ Interés Enviado';
+    if (btn && !btn.classList.contains('done')) btn.textContent = 'Me Interesa \u270B';
+    if (btn && btn.classList.contains('done')) btn.textContent = '\u2713 Inter\u00e9s Enviado';
   });
 }
 
 
 function _restoreEN() {
+  var hh = document.querySelector('header h1'); if (hh && _orig._headerH1) hh.textContent = _orig._headerH1;
   var hp = document.querySelector('header p'); if (hp) hp.textContent = _orig._headerP;
+  var filterLabel = document.querySelector('label[for="categoryFilter"]');
+  if (filterLabel) filterLabel.textContent = 'View as:';
+  var catSelect = document.getElementById('categoryFilter');
+  if (catSelect) { Array.from(catSelect.options).forEach(function(o) {
+    if (o.value === '') o.textContent = 'All Categories';
+    else if (o.value === 'Industrial') o.textContent = 'Industrial';
+    else if (o.value === 'Administrative') o.textContent = 'Administrative';
+    else if (o.value === 'Skilled Trade') o.textContent = 'Skilled Trade';
+  }); }
+  var emptyH2 = document.querySelector('.empty h2');
+  if (emptyH2) emptyH2.textContent = 'No open positions right now';
+  var emptyP = document.querySelector('.empty p');
+  if (emptyP) emptyP.textContent = 'Check back soon \u2014 new jobs are posted all the time.';
   Object.keys(_orig).forEach(function(id) {
-    if (id === '_headerP') return;
+    if (id.startsWith('_')) return;
     var card = document.getElementById(id); if (!card) return;
     var o = _orig[id];
     var h2 = card.querySelector('h2'); if (h2) h2.textContent = o.title;
+    var badges = card.querySelectorAll('.badge');
+    if (o.badges) o.badges.forEach(function(txt, i) { if (badges[i]) badges[i].textContent = txt; });
     var reqs = card.querySelectorAll('.req');
     o.reqs.forEach(function(html, i) { if (reqs[i]) reqs[i].innerHTML = html; });
     var btn = card.querySelector('.interest'); if (btn && !btn.classList.contains('done')) btn.textContent = o.btn || "I'm Interested \u270b";
@@ -288,11 +329,13 @@ function _hashJobs() {
 
 function _captureOrig() {
   if (Object.keys(_orig).length) return;
+  _orig._headerH1 = document.querySelector('header h1') ? document.querySelector('header h1').textContent : '';
   _orig._headerP = document.querySelector('header p') ? document.querySelector('header p').textContent : '';
   document.querySelectorAll('.card:not(.empty)').forEach(function(card) {
     if (!card.id) return;
-    var o = { title: '', reqs: [], btn: '' };
+    var o = { title: '', reqs: [], btn: '', badges: [] };
     var h2 = card.querySelector('h2'); if (h2) o.title = h2.textContent;
+    card.querySelectorAll('.badge').forEach(function(b) { o.badges.push(b.textContent); });
     card.querySelectorAll('.req').forEach(function(el) { o.reqs.push(el.innerHTML); });
     var btn = card.querySelector('.interest'); if (btn) o.btn = btn.textContent.trim();
     _orig[card.id] = o;
@@ -306,9 +349,27 @@ function setLang(lang) {
   document.getElementById('langES').classList.toggle('active', lang === 'es');
   _captureOrig();
   if (lang === 'en') { _restoreEN(); return; }
-  // Use stored translations from data attributes
+  // Translate header
+  var hh = document.querySelector('header h1');
+  if (hh) { var n = hh.textContent.match(/Hi (.+)!/); hh.textContent = n ? '\u00a1Hola ' + n[1] + '! \u{1F44B}' : '\u00a1Hola! \u{1F44B}'; }
   var hp = document.querySelector('header p');
-  if (hp) hp.textContent = 'Estos trabajos están disponibles ahora — toca cualquiera que te interese.';
+  if (hp) hp.textContent = 'Estos trabajos est\u00e1n disponibles ahora \u2014 toca cualquiera que te interese.';
+  // Translate filter
+  var filterLabel = document.querySelector('label[for="categoryFilter"]');
+  if (filterLabel) filterLabel.textContent = 'Ver como:';
+  var catSelect = document.getElementById('categoryFilter');
+  if (catSelect) { Array.from(catSelect.options).forEach(function(o) {
+    if (o.value === '') o.textContent = 'Todas las Categor\u00edas';
+    else if (o.value === 'Industrial') o.textContent = 'Industrial';
+    else if (o.value === 'Administrative') o.textContent = 'Administrativo';
+    else if (o.value === 'Skilled Trade') o.textContent = 'Oficio Calificado';
+  }); }
+  // Translate empty state
+  var emptyH2 = document.querySelector('.empty h2');
+  if (emptyH2) emptyH2.textContent = 'No hay posiciones abiertas en este momento';
+  var emptyP = document.querySelector('.empty p');
+  if (emptyP) emptyP.textContent = 'Vuelve pronto \u2014 se publican nuevos trabajos todo el tiempo.';
+  // Translate job cards
   document.querySelectorAll('.card:not(.empty)').forEach(function(card) {
     if (!card.id) return;
     var titleEs = card.getAttribute('data-title-es');
@@ -318,8 +379,13 @@ function setLang(lang) {
     var h2 = card.querySelector('h2');
     if (h2) {
       if (hasTranslation) { h2.textContent = titleEs; }
-      else { h2.textContent = (_orig[card.id] ? _orig[card.id].title : '') + ' (traducción no disponible)'; }
+      else { h2.textContent = (_orig[card.id] ? _orig[card.id].title : '') + ' (traducci\u00f3n no disponible)'; }
     }
+    var badges = card.querySelectorAll('.badge');
+    badges.forEach(function(b) {
+      if (b.textContent === 'Administrative') b.textContent = 'Administrativo';
+      else if (b.textContent === 'Skilled Trade') b.textContent = 'Oficio Calificado';
+    });
     var reqs = card.querySelectorAll('.req');
     if (hasTranslation) {
       reqs.forEach(function(el) {
@@ -332,19 +398,35 @@ function setLang(lang) {
       });
     }
     var btn = card.querySelector('.interest');
-    if (btn && !btn.classList.contains('done')) btn.textContent = 'Me Interesa ✋';
-    if (btn && btn.classList.contains('done')) btn.textContent = '✓ Interés Enviado';
+    if (btn && !btn.classList.contains('done')) btn.textContent = 'Me Interesa \u270B';
+    if (btn && btn.classList.contains('done')) btn.textContent = '\u2713 Inter\u00e9s Enviado';
   });
 }
 
 
 function _restoreEN() {
+  var hh = document.querySelector('header h1'); if (hh && _orig._headerH1) hh.textContent = _orig._headerH1;
   var hp = document.querySelector('header p'); if (hp) hp.textContent = _orig._headerP;
+  var filterLabel = document.querySelector('label[for="categoryFilter"]');
+  if (filterLabel) filterLabel.textContent = 'View as:';
+  var catSelect = document.getElementById('categoryFilter');
+  if (catSelect) { Array.from(catSelect.options).forEach(function(o) {
+    if (o.value === '') o.textContent = 'All Categories';
+    else if (o.value === 'Industrial') o.textContent = 'Industrial';
+    else if (o.value === 'Administrative') o.textContent = 'Administrative';
+    else if (o.value === 'Skilled Trade') o.textContent = 'Skilled Trade';
+  }); }
+  var emptyH2 = document.querySelector('.empty h2');
+  if (emptyH2) emptyH2.textContent = 'No open positions right now';
+  var emptyP = document.querySelector('.empty p');
+  if (emptyP) emptyP.textContent = 'Check back soon \u2014 new jobs are posted all the time.';
   Object.keys(_orig).forEach(function(id) {
-    if (id === '_headerP') return;
+    if (id.startsWith('_')) return;
     var card = document.getElementById(id); if (!card) return;
     var o = _orig[id];
     var h2 = card.querySelector('h2'); if (h2) h2.textContent = o.title;
+    var badges = card.querySelectorAll('.badge');
+    if (o.badges) o.badges.forEach(function(txt, i) { if (badges[i]) badges[i].textContent = txt; });
     var reqs = card.querySelectorAll('.req');
     o.reqs.forEach(function(html, i) { if (reqs[i]) reqs[i].innerHTML = html; });
     var btn = card.querySelector('.interest'); if (btn && !btn.classList.contains('done')) btn.textContent = o.btn || "I'm Interested \u270b";
