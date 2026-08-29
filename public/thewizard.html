@@ -5,13 +5,19 @@
 <script>(function(){if(localStorage.getItem("joblink_light_mode")!=="false"){document.documentElement.classList.add("light-mode")}})();</script>
 <link rel="stylesheet" href="/app.css?v=5">
 <style>
-  .paths { justify-content: center; display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px; }
-  .paths button { display:flex;flex-direction:column;gap:8px;align-items:flex-start;text-align:left;padding:18px;border:1px solid var(--border);background:var(--surface); border-radius:var(--radius); cursor:pointer;
-    font-size:.95rem; font-weight:600; color:var(--text); transition:border-color .15s, background .15s; }
-  .paths button:hover { border-color:var(--brand); }
+  .paths { justify-content: center; display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+  .paths button { display:flex;flex-direction:column;gap:8px;align-items:flex-start;text-align:left;padding:18px 18px 18px 22px;border:1px solid var(--border);background:var(--surface); border-radius:var(--radius); cursor:pointer;
+    font-size:.95rem; font-weight:600; color:var(--text); transition:border-color .15s, background .15s, box-shadow .15s; border-left:4px solid transparent; position:relative; }
+  .paths button:hover { border-color:var(--brand); box-shadow:0 2px 8px rgba(0,0,0,0.15); }
   .paths button.on { border-color:var(--brand); background:var(--brand-soft); }
+  .paths button[data-path="job_order"] { border-left-color:#3b82f6; }
+  .paths button[data-path="blast"] { border-left-color:#22c55e; }
+  .paths button[data-path="review"] { border-left-color:#a855f7; }
+  .paths button[data-path="help"] { border-left-color:var(--text-muted); background:var(--surface-2); opacity:0.85; }
+  .paths button[data-path="help"]:hover { opacity:1; }
   .paths.wizard-active { display:none; }
-  #chat { display:flex; flex-direction:column; gap:10px; min-height:300px; }
+  @media(max-width:600px) { .paths { grid-template-columns:1fr; } .paths button { padding:16px 16px 16px 20px; } }
+  #chat { display:flex; flex-direction:column; gap:10px; min-height:120px; }
   .msg { max-width:78%; padding:12px 15px; border-radius:14px; white-space:pre-wrap; font-size:.94rem; line-height:1.45; }
   .msg.tom { background:var(--surface-2); border:1px solid var(--border); align-self:flex-start; border-bottom-left-radius:4px; }
   .msg.me { background:var(--brand); color:#fff; align-self:flex-end; border-bottom-right-radius:4px; }
@@ -236,15 +242,43 @@
   .ex-hint { color:var(--text-muted); font-size:13px; margin-bottom:16px; }
   .ex-actions { display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
   .ex-result { background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-top:12px; font-size:.9rem; }
+
+  /* Button hierarchy improvements */
+  .btn.text-link { background:none; border:none; color:var(--text-muted); font-size:.82rem; font-weight:500; padding:8px 4px; cursor:pointer; text-decoration:underline; }
+  .btn.text-link:hover { color:var(--text); }
+  .cm-actions { display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; align-items:center; }
+  .cm-actions .btn.ghost { border-color:var(--border); color:var(--text-muted); font-size:.88rem; }
+  .cm-actions .btn.ghost:hover { border-color:var(--brand); color:var(--text); }
+  .ex-actions .btn.ghost { border-color:var(--border); color:var(--text-muted); }
+
+  /* Blast form sections */
+  .bf-section { background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:16px 18px; margin-bottom:14px; }
+  .bf-section-title { font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); margin-bottom:12px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+
+  /* Dark mode contrast improvements */
+  :root:not(.light-mode) .paths button { border-color:rgba(255,255,255,0.12); }
+  :root:not(.light-mode) .cm-summary-card { border-color:rgba(255,255,255,0.15); }
+  :root:not(.light-mode) .card { border-color:rgba(255,255,255,0.1); }
+  :root:not(.light-mode) .contact-row .remove-row { color:var(--text-subtle); border-color:rgba(255,255,255,0.15); }
+  :root:not(.light-mode) .bf-field label { color:var(--text); opacity:0.7; }
+  :root:not(.light-mode) input::placeholder, :root:not(.light-mode) textarea::placeholder { opacity:0.5; }
+
+  /* Mobile nav improvements */
+  @media(max-width:480px) {
+    nav.topbar .nav-links { gap:2px; }
+    nav.topbar .nav-links a { padding:6px 8px; font-size:12px; }
+    nav.topbar #whoami { display:none; }
+    nav.topbar button { padding:6px 8px; font-size:12px; }
+  }
 </style></head>
 <body>
 <main class="page">
   <h1 class="pagetitle">The Wizard</h1><p class="mut" style="margin:0 0 24px">Pick a task to start — each conversation handles one job at a time.</p>
   <div class="paths" id="paths">
-    <button data-path="job_order"><span style="font-size:14px;font-weight:700">New Job Order</span><span style="font-size:12px;color:var(--text-subtle);font-weight:500">Draft a JO fast</span></button>
-    <button data-path="blast"><span style="font-size:14px;font-weight:700">Send Magic Blast</span><span style="font-size:12px;color:var(--text-subtle);font-weight:500">Text matched candidates</span></button>
-    <button data-path="review"><span style="font-size:14px;font-weight:700">Review Magic Blasts</span><span style="font-size:12px;color:var(--text-subtle);font-weight:500">See what went out</span></button>
-    <button data-path="help"><span style="font-size:14px;font-weight:700">Help / Tutorial / FAQ</span><span style="font-size:12px;color:var(--text-subtle);font-weight:500">Learn the basics</span></button>
+    <button data-path="job_order"><span style="font-size:18px;margin-bottom:2px">📋</span><span style="font-size:14px;font-weight:700">New Job Order</span><span style="font-size:12px;color:var(--text-subtle);font-weight:500">Draft a JO fast</span></button>
+    <button data-path="blast"><span style="font-size:18px;margin-bottom:2px">📨</span><span style="font-size:14px;font-weight:700">Send Magic Blast</span><span style="font-size:12px;color:var(--text-subtle);font-weight:500">Text matched candidates</span></button>
+    <button data-path="review"><span style="font-size:18px;margin-bottom:2px">📊</span><span style="font-size:14px;font-weight:700">Review Magic Blasts</span><span style="font-size:12px;color:var(--text-subtle);font-weight:500">See what went out</span></button>
+    <button data-path="help"><span style="font-size:18px;margin-bottom:2px">❓</span><span style="font-size:14px;font-weight:700">Help / Tutorial / FAQ</span><span style="font-size:12px;color:var(--text-subtle);font-weight:500">Learn the basics</span></button>
   </div>
   <div class="card">
     <div id="jo-form-panel"></div>
@@ -762,6 +796,15 @@ function showColumnMapPanel(data) {
       sendAction('confirm_auto', { columnMap: suggested });
     });
     summaryActions.appendChild(blastBtn);
+
+    var exclBtn = document.createElement('button');
+    exclBtn.className = 'btn ghost';
+    exclBtn.textContent = 'Yes, with exclusion list';
+    exclBtn.addEventListener('click', function() {
+      hideColumnMapPanel();
+      sendAction('confirm_column_map', { columnMap: suggested });
+    });
+    summaryActions.appendChild(exclBtn);
   }
 
   var fixBtn = document.createElement('button');
@@ -774,7 +817,7 @@ function showColumnMapPanel(data) {
   summaryActions.appendChild(fixBtn);
 
   var startOverBtn1 = document.createElement('button');
-  startOverBtn1.className = 'btn ghost';
+  startOverBtn1.className = 'btn text-link';
   startOverBtn1.textContent = 'Start Over';
   startOverBtn1.addEventListener('click', function() {
     hideColumnMapPanel();
@@ -942,7 +985,7 @@ function showColumnMapPanel(data) {
   });
 
   var startOverBtn2 = document.createElement('button');
-  startOverBtn2.className = 'btn ghost';
+  startOverBtn2.className = 'btn text-link';
   startOverBtn2.textContent = 'Start Over';
   startOverBtn2.addEventListener('click', function() {
     hideColumnMapPanel();
@@ -1042,7 +1085,7 @@ function showExclusionPanel(data) {
 
   var skipBtn = document.createElement('button');
   skipBtn.className = 'btn ghost';
-  skipBtn.style.cssText = 'width:100%;padding:14px;font-size:14px;';
+  skipBtn.style.cssText = 'padding:12px 24px;font-size:14px;';
   skipBtn.textContent = 'Skip — No Exclusions';
   skipBtn.addEventListener('click', function() {
     hideExclusionPanel();
@@ -1050,7 +1093,7 @@ function showExclusionPanel(data) {
   });
 
   var startOverBtn = document.createElement('button');
-  startOverBtn.className = 'btn ghost';
+  startOverBtn.className = 'btn text-link';
   startOverBtn.textContent = 'Start Over';
   startOverBtn.addEventListener('click', function() {
     hideExclusionPanel();
@@ -1368,6 +1411,31 @@ function showBlastForm(data) {
   // Initial credit calculation
   setTimeout(function() { updateTemplatePreview(); }, 0);
 
+  // Add section dividers for visual grouping
+  setTimeout(function() {
+    var formEl = document.getElementById('blast-settings-form');
+    if (!formEl) return;
+    var fields = formEl.querySelectorAll('.bf-field');
+    // Find the template field (3rd or 4th depending on sort presence)
+    for (var i = 0; i < fields.length; i++) {
+      var label = fields[i].querySelector('label');
+      if (!label) continue;
+      var txt = label.textContent;
+      if (txt === 'Template') {
+        var divider1 = document.createElement('div');
+        divider1.style.cssText = 'border-top:1px solid var(--border);margin:8px 0 4px;padding-top:4px;';
+        divider1.innerHTML = '<span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);">Message</span>';
+        fields[i].parentNode.insertBefore(divider1, fields[i]);
+      }
+      if (txt === 'Sending Number *') {
+        var divider2 = document.createElement('div');
+        divider2.style.cssText = 'border-top:1px solid var(--border);margin:8px 0 4px;padding-top:4px;';
+        divider2.innerHTML = '<span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);">Delivery</span>';
+        fields[i].parentNode.insertBefore(divider2, fields[i]);
+      }
+    }
+  }, 50);
+
   // --- Action buttons ---
   var actions = document.createElement('div');
   actions.className = 'bf-actions';
@@ -1378,7 +1446,7 @@ function showBlastForm(data) {
   previewBtn.addEventListener('click', function() { submitBlastForm(); });
 
   var startOverBtn = document.createElement('button');
-  startOverBtn.className = 'btn ghost';
+  startOverBtn.className = 'btn text-link';
   startOverBtn.textContent = 'Start Over';
   startOverBtn.addEventListener('click', function() { hideBlastForm(); sendAction('start_over', {}); });
 
