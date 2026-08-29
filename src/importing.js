@@ -329,7 +329,7 @@ function parseContactFileWithMap(buffer, columnMap, filename = '') {
  * Extract phone numbers from an exclusion file.
  * Tries to find any phone column automatically.
  */
-function parseExclusionFile(buffer, filename = '') {
+function parseExclusionFile(buffer, filename = '', forcePhoneCol = null) {
   const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
   const sheet = wb.Sheets[wb.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
@@ -340,7 +340,10 @@ function parseExclusionFile(buffer, filename = '') {
   const hasHeader = firstRow.some(f => f !== null);
   let phoneCols = [];
 
-  if (hasHeader) {
+  if (forcePhoneCol !== null && forcePhoneCol !== undefined) {
+    // User explicitly chose the phone column
+    phoneCols = [forcePhoneCol];
+  } else if (hasHeader) {
     firstRow.forEach((field, i) => {
       if (field === 'phone') phoneCols.push(i);
     });

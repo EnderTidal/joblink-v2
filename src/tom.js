@@ -510,15 +510,19 @@ function createTom(db) {
           contacts: (s.data.contacts || []).map(c => ({ first_name: c.first || '', last_name: c.last || '', phone: c.phone })),
         });
       }
-      if (file) {
-        const excResult = parseExclusionFile(file.buffer, file.originalname);
+      // confirm_exclusion_auto: user accepts auto-detected phone column
+      if (action === 'confirm_exclusion_auto' || action === 'confirm_exclusion_map') {
+        const phoneColIdx = payload && payload.phoneCol;
+        if (phoneColIdx === undefined || phoneColIdx === null) return reply(s, 'Please select which column has the phone numbers.', { showExclusionMap: true });
+        const buf = Buffer.from(s.data.exclusionFileBuffer, 'base64');
+        const excResult = parseExclusionFile(buf, s.data.exclusionFileName, parseInt(phoneColIdx));
         s.data.exclusionPhones = excResult.phones;
         const exclSet = new Set(excResult.phones);
         const originalCount = s.data.contacts.length;
         s.data.contacts = s.data.contacts.filter(c => !exclSet.has(c.phone));
         s.data.excludedCount = originalCount - s.data.contacts.length;
         s.data.exclusionTotal = excResult.count;
-        s.data.exclusionFileName = file.originalname;
+        // s.data.exclusionFileName already set when file was uploaded
         s.state = 'blast_form';
         const _totalPool = db.prepare('SELECT COUNT(*) AS n FROM candidates').get().n;
         const cooldownHrs = getCooldownHours(db);
@@ -555,6 +559,27 @@ function createTom(db) {
           localUsers: formData.localUsers.map(u => ({ id: u.id, username: u.username, role: u.role })),
           whippyNumbers: formData.whippyNumbers,
           contacts: (s.data.contacts || []).map(c => ({ first_name: c.first || '', last_name: c.last || '', phone: c.phone })),
+        });
+      }
+      if (file) {
+        // Store exclusion file for later parsing after user confirms column
+        s.data.exclusionFileBuffer = file.buffer.toString('base64');
+        s.data.exclusionFileName = file.originalname;
+        const headerPreview = parseHeadersOnly(file.buffer, file.originalname);
+        // Find suggested phone column
+        let suggestedPhoneCol = null;
+        if (headerPreview.suggestedMap) {
+          for (const [idx, role] of Object.entries(headerPreview.suggestedMap)) {
+            if (role === 'phone') { suggestedPhoneCol = parseInt(idx); break; }
+          }
+        }
+        return reply(s, '', {
+          showExclusionMap: true,
+          headers: headerPreview.headers,
+          sampleRows: headerPreview.sampleRows,
+          totalRows: headerPreview.totalRows,
+          suggestedPhoneCol,
+          exclusionFileName: file.originalname,
         });
       }
       return reply(s, 'Upload an exclusion list or click Skip to continue.');
