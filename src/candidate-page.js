@@ -85,9 +85,9 @@ function renderCandidatePage(db, candidate, orgName) {
   .empty { text-align:center; padding:40px 18px; }
   .cat { text-align:center; font-size:.85rem; color:var(--text-muted); margin:4px 0 12px; }
   header { position:relative; }
-  .lang-pill { position:absolute; right:16px; top:50%; transform:translateY(-50%); display:flex; border-radius:99px; overflow:hidden; border:1.5px solid rgba(255,255,255,0.5); }
-  .lang-pill button { padding:4px 10px; border:none; font-size:11px; font-weight:700; cursor:pointer; background:transparent; color:rgba(255,255,255,0.7); }
-  .lang-pill button.active { background:rgba(255,255,255,0.25); color:#fff; }
+  .lang-pill { position:absolute; right:12px; top:50%; transform:translateY(-50%); display:flex; border-radius:99px; overflow:hidden; border:2px solid rgba(255,255,255,0.7); background:rgba(0,0,0,0.2); backdrop-filter:blur(8px); }
+  .lang-pill button { padding:8px 14px; border:none; font-size:14px; font-weight:700; cursor:pointer; background:transparent; color:rgba(255,255,255,0.8); transition:background .15s; }
+  .lang-pill button.active { background:rgba(255,255,255,0.35); color:#fff; }
   .translating { opacity:0.5; pointer-events:none; transition:opacity .2s; }
 </style></head>
 <body>
@@ -125,6 +125,7 @@ function _captureOrig() {
 }
 
 function setLang(lang) {
+  try { localStorage.setItem(joblink_lang, lang); } catch(e) {}
   _lang = lang;
   document.getElementById('langEN').classList.toggle('active', lang === 'en');
   document.getElementById('langES').classList.toggle('active', lang === 'es');
@@ -184,6 +185,9 @@ document.querySelectorAll('.interest').forEach(function (btn) {
     }).catch(function () { alert('Something went wrong — try again?'); });
   });
 });
+
+  // Auto-restore language preference
+  try { var saved = localStorage.getItem(joblink_lang); if (saved === es) setLang(es); } catch(e) {}
 </script>
 </body></html>`;
 }
@@ -240,9 +244,9 @@ function renderPreviewPage(db, preSelectedCategory) {
   .empty { text-align:center; padding:40px 18px; }
   .count-badge { font-size:.82rem; color:var(--text-muted); text-align:center; margin-bottom:10px; }
   header { position:relative; }
-  .lang-pill { position:absolute; right:16px; top:50%; transform:translateY(-50%); display:flex; border-radius:99px; overflow:hidden; border:1.5px solid rgba(255,255,255,0.5); }
-  .lang-pill button { padding:4px 10px; border:none; font-size:11px; font-weight:700; cursor:pointer; background:transparent; color:rgba(255,255,255,0.7); }
-  .lang-pill button.active { background:rgba(255,255,255,0.25); color:#fff; }
+  .lang-pill { position:absolute; right:12px; top:50%; transform:translateY(-50%); display:flex; border-radius:99px; overflow:hidden; border:2px solid rgba(255,255,255,0.7); background:rgba(0,0,0,0.2); backdrop-filter:blur(8px); }
+  .lang-pill button { padding:8px 14px; border:none; font-size:14px; font-weight:700; cursor:pointer; background:transparent; color:rgba(255,255,255,0.8); transition:background .15s; }
+  .lang-pill button.active { background:rgba(255,255,255,0.35); color:#fff; }
   .translating { opacity:0.5; pointer-events:none; transition:opacity .2s; }
 </style></head>
 <body>
@@ -288,6 +292,7 @@ function _captureOrig() {
 }
 
 function setLang(lang) {
+  try { localStorage.setItem(joblink_lang, lang); } catch(e) {}
   _lang = lang;
   document.getElementById('langEN').classList.toggle('active', lang === 'en');
   document.getElementById('langES').classList.toggle('active', lang === 'es');
@@ -371,6 +376,9 @@ document.querySelectorAll('.preview-toggle').forEach(function(btn) {
     }
   });
 });
+
+  // Auto-restore language preference
+  try { var saved = localStorage.getItem(joblink_lang); if (saved === es) setLang(es); } catch(e) {}
 </script>
 </body></html>`;
 }
