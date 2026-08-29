@@ -18,6 +18,14 @@
   .paths.wizard-active { display:none; }
   @media(max-width:600px) { .paths { grid-template-columns:1fr; } .paths button { padding:16px 16px 16px 20px; } }
   #chat { display:flex; flex-direction:column; gap:10px; min-height:120px; }
+  /* Hide chat when any wizard panel is active — prevents flash between transitions */
+  #contact-form-panel.active ~ #chat,
+  #column-map-panel.active ~ #chat,
+  #exclusion-panel.active ~ #chat,
+  #blast-form-panel.active ~ #chat,
+  #jo-form-panel.active ~ #chat,
+  #jo-entry-panel.active ~ #chat,
+  #paste-panel.active ~ #chat { display:none !important; }
   .msg { max-width:78%; padding:12px 15px; border-radius:14px; white-space:pre-wrap; font-size:.94rem; line-height:1.45; }
   .msg.tom { background:var(--surface-2); border:1px solid var(--border); align-self:flex-start; border-bottom-left-radius:4px; }
   .msg.me { background:var(--brand); color:#fff; align-self:flex-end; border-bottom-right-radius:4px; }
