@@ -844,6 +844,7 @@ function showColumnMapPanel(data) {
 
   var nameLabel = document.createElement('label');
   nameLabel.className = 'cm-field-label';
+  nameLabel.id = 'cm-name-label';
   nameLabel.textContent = 'Which column has the name?';
   nameGroup.appendChild(nameLabel);
 
@@ -861,6 +862,7 @@ function showColumnMapPanel(data) {
     if (nameCol !== null && i === nameCol) o.selected = true;
     nameSel.appendChild(o);
   });
+  nameGroup.id = 'cm-name-group';
   nameGroup.appendChild(nameSel);
 
   // Name format radios
@@ -885,6 +887,8 @@ function showColumnMapPanel(data) {
     else if (!hasSeparateCols && f.val === (nameFormat || 'name_fl')) radio.checked = true;
     radio.addEventListener('change', function() {
       document.getElementById('cm-separate-cols').style.display = this.value === 'separate' ? 'flex' : 'none';
+      document.getElementById('cm-manual-name').style.display = this.value === 'separate' ? 'none' : 'block';
+      document.getElementById('cm-name-label').style.display = this.value === 'separate' ? 'none' : 'block';
     });
     lbl.appendChild(radio);
     lbl.appendChild(document.createTextNode(' ' + f.label));
@@ -897,6 +901,7 @@ function showColumnMapPanel(data) {
   separateCols.id = 'cm-separate-cols';
   separateCols.className = 'cm-separate-group';
   separateCols.style.display = hasSeparateCols ? 'flex' : 'none';
+  if (hasSeparateCols) { nameSel.style.display = 'none'; nameLabel.style.display = 'none'; }
 
   var firstLabelEl = document.createElement('label');
   firstLabelEl.textContent = 'First name column: ';
