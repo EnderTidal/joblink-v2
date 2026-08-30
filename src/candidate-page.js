@@ -104,7 +104,7 @@ function renderCandidatePage(db, candidate, orgName) {
 <main>
   ${category ? `<div class="cat">${esc(category)} positions</div>` : ''}
   ${jobs.length > 1 ? `<div class="sort-bar">
-    <button class="sort-btn active" onclick="sortJobs('recommended')" data-sort="recommended">\u2B50 Recommended</button>
+    <span style="font-size:.8rem;font-weight:600;color:var(--text-muted)">Sort:</span><button class="sort-btn active" onclick="sortJobs('recommended')" data-sort="recommended">\u2B50 Recommended</button>
     <button class="sort-btn" onclick="sortJobs('newest')" data-sort="newest">\u{1F195} Newest</button>
     <button class="sort-btn" onclick="sortJobs('pay')" data-sort="pay">\u{1F4B0} Pay</button>
   </div>` : ''}
@@ -297,7 +297,7 @@ function renderPreviewPage(db, preSelectedCategory) {
 
   const jobCards = jobs.map((jo) => `
     <div class="card job-card" data-category="${esc(jo.category || '')}" data-pay="${esc(jo.pay || '')}" data-sort-order="${jo.sort_order || 0}" data-created="${jo.id}" id="job-${jo.id}" data-title-es="${esc(jo.title_es || '')}" data-desc-es="${esc(jo.description_es || '')}" data-req-es="${esc(jo.requirements_es || '')}">
-      <h2>${esc(jo.title)}</h2>
+      <span class="drag-grip">\u2807\u2807</span><h2>${esc(jo.title)}</h2>
       <div class="meta">
         ${jo.category ? '<span class="chip cat-chip">' + esc(jo.category) + '</span>' : ''}
         ${jo.pay ? '<span class="chip pay">\u{1F4B5} ' + esc(jo.pay) + '</span>' : ''}
@@ -345,6 +345,18 @@ function renderPreviewPage(db, preSelectedCategory) {
   .sort-bar button { padding:6px 14px; border:1.5px solid var(--border); border-radius:99px; background:var(--surface); color:var(--text-muted); font-size:.8rem; font-weight:600; cursor:pointer; transition:all .15s; font-family:inherit; }
   .sort-bar button.active { background:var(--brand); color:#fff; border-color:var(--brand); }
   .sort-bar button:hover:not(.active) { border-color:var(--brand); color:var(--brand); }
+  .reorder-toggle { padding:6px 14px; border:1.5px solid var(--amber); border-radius:99px; background:var(--surface); color:var(--amber); font-size:.8rem; font-weight:600; cursor:pointer; font-family:inherit; margin-left:6px; }
+  .reorder-toggle.active { background:var(--amber); color:#fff; }
+  .reorder-mode .job-card { cursor:grab; border:2px dashed transparent; transition:border-color .15s; position:relative; }
+  .reorder-mode .job-card:hover { border-color:var(--brand); }
+  .reorder-mode .job-card.dragging { opacity:.4; }
+  .reorder-mode .job-card.drag-over { border-color:var(--amber); border-style:solid; }
+  .reorder-mode .drag-grip { display:block !important; }
+  .drag-grip { display:none; position:absolute; top:8px; left:8px; font-size:18px; color:var(--text-muted); cursor:grab; user-select:none; }
+  .save-order-bar { position:fixed; bottom:0; left:0; right:0; background:var(--brand); color:#fff; padding:14px 20px; display:flex; justify-content:center; align-items:center; gap:14px; z-index:999; font-weight:700; box-shadow:0 -3px 12px rgba(0,0,0,.2); }
+  .save-order-bar button { padding:8px 22px; border-radius:8px; border:none; font-weight:700; font-size:14px; cursor:pointer; font-family:inherit; }
+  .save-order-bar .save-btn { background:#fff; color:var(--brand); }
+  .save-order-bar .cancel-btn { background:transparent; color:#fff; border:1px solid rgba(255,255,255,.5); }
   header { position:relative; }
   .lang-row { text-align:center; padding:10px 0 2px; }
   .lang-pill { display:inline-flex; border-radius:99px; overflow:hidden; border:2px solid rgba(255,255,255,0.7); background:rgba(0,0,0,0.2); backdrop-filter:blur(8px); }
@@ -368,9 +380,9 @@ function renderPreviewPage(db, preSelectedCategory) {
     </select>
   </div>
   <div class="sort-bar" style="margin-top:8px">
-    <button class="sort-btn active" onclick="sortPreviewJobs('recommended')" data-sort="recommended">\u2B50 Recommended</button>
+    <span style="font-size:.8rem;font-weight:600;color:var(--text-muted)">Sort:</span><button class="sort-btn active" onclick="sortPreviewJobs('recommended')" data-sort="recommended">\u2B50 Recommended</button>
     <button class="sort-btn" onclick="sortPreviewJobs('newest')" data-sort="newest">\u{1F195} Newest</button>
-    <button class="sort-btn" onclick="sortPreviewJobs('pay')" data-sort="pay">\u{1F4B0} Pay</button>
+    <button class="sort-btn" onclick="sortPreviewJobs('pay')" data-sort="pay">\u{1F4B0} Pay</button><button class="reorder-toggle" onclick="toggleReorderMode()" id="reorderBtn">✏️ Reorder</button>
   </div>
   <div class="count-badge" id="countBadge"></div>
   ${jobs.length ? jobCards : empty}
@@ -530,6 +542,118 @@ function filterCards() {
   }
   document.getElementById("countBadge").textContent = sel ? (shown + " " + sel + " position" + (shown !== 1 ? "s" : "")) : "";
 }
+var _reorderMode = false;
+var _dragId = null;
+var _reorderDirty = false;
+
+function toggleReorderMode() {
+  _reorderMode = !_reorderMode;
+  var main = document.querySelector('main');
+  var btn = document.getElementById('reorderBtn');
+  if (_reorderMode) {
+    main.classList.add('reorder-mode');
+    btn.classList.add('active');
+    btn.textContent = '\u2716 Cancel';
+    // Make cards draggable
+    document.querySelectorAll('.job-card').forEach(function(c) {
+      c.setAttribute('draggable', 'true');
+      c.addEventListener('dragstart', cardDragStart);
+      c.addEventListener('dragover', cardDragOver);
+      c.addEventListener('dragleave', cardDragLeave);
+      c.addEventListener('drop', cardDrop);
+      c.addEventListener('dragend', cardDragEnd);
+    });
+  } else {
+    main.classList.remove('reorder-mode');
+    btn.classList.remove('active');
+    btn.textContent = '\u270F\uFE0F Reorder';
+    document.querySelectorAll('.job-card').forEach(function(c) {
+      c.setAttribute('draggable', 'false');
+      c.classList.remove('dragging', 'drag-over');
+    });
+    if (_reorderDirty) { removeSaveBar(); _reorderDirty = false; location.reload(); }
+  }
+}
+
+function cardDragStart(e) {
+  _dragId = this.id;
+  this.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function cardDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  this.classList.add('drag-over');
+}
+function cardDragLeave(e) { this.classList.remove('drag-over'); }
+function cardDragEnd(e) {
+  document.querySelectorAll('.job-card').forEach(function(c) { c.classList.remove('dragging', 'drag-over'); });
+}
+function cardDrop(e) {
+  e.preventDefault();
+  this.classList.remove('drag-over');
+  if (!_dragId || _dragId === this.id) return;
+  var main = document.querySelector('main');
+  var dragged = document.getElementById(_dragId);
+  if (!dragged) return;
+  // Insert dragged before or after target
+  var rect = this.getBoundingClientRect();
+  var midY = rect.top + rect.height / 2;
+  if (e.clientY < midY) {
+    main.insertBefore(dragged, this);
+  } else {
+    main.insertBefore(dragged, this.nextSibling);
+  }
+  _dragId = null;
+  _reorderDirty = true;
+  showSaveBar();
+}
+
+function showSaveBar() {
+  if (document.getElementById('saveOrderBar')) return;
+  var bar = document.createElement('div');
+  bar.id = 'saveOrderBar';
+  bar.className = 'save-order-bar';
+  bar.innerHTML = '<span>Unsaved changes</span><button class="save-btn" onclick="saveOrder()">Save Order</button><button class="cancel-btn" onclick="cancelOrder()">Cancel</button>';
+  document.body.appendChild(bar);
+}
+
+function removeSaveBar() {
+  var bar = document.getElementById('saveOrderBar');
+  if (bar) bar.remove();
+}
+
+async function saveOrder() {
+  var cards = document.querySelectorAll('.job-card');
+  var orderings = [];
+  cards.forEach(function(c, i) {
+    var id = parseInt(c.id.replace('job-', ''));
+    if (!isNaN(id)) orderings.push({ id: id, sort_order: i + 1 });
+  });
+  try {
+    var resp = await fetch('/api/job-orders/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') },
+      body: JSON.stringify({ orderings: orderings })
+    });
+    if (!resp.ok) throw new Error('Save failed');
+    removeSaveBar();
+    _reorderDirty = false;
+    // Flash success
+    var btn = document.getElementById('reorderBtn');
+    btn.textContent = '\u2705 Saved!';
+    setTimeout(function() { btn.textContent = '\u270F\uFE0F Reorder'; toggleReorderMode(); }, 1500);
+  } catch(e) {
+    alert('Error saving order: ' + e.message);
+  }
+}
+
+function cancelOrder() {
+  _reorderDirty = false;
+  removeSaveBar();
+  toggleReorderMode();
+}
+
 function sortPreviewJobs(mode) {
   document.querySelectorAll('.sort-btn').forEach(function(b) {
     b.classList.toggle('active', b.getAttribute('data-sort') === mode);
