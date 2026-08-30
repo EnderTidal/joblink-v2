@@ -102,6 +102,7 @@
         <option value="alpha">Sort: A-Z</option>
         <option value="category">Sort: Category</option>
         <option value="pay">Sort: Pay Rate</option>
+        <option value="candidate_order">Sort: Candidate View Order</option>
       </select>
       <select id="pipelineFilter" onchange="pipelineFilter=this.value; renderTable()" class="sort-select" style="min-width:150px">
         <option value="">Pipeline: All</option>
@@ -216,6 +217,7 @@ function renderTable() {
   else if (currentSort === 'pay') jobs.sort((a, b) => dir * (parseFloat(b.pay || 0) - parseFloat(a.pay || 0)));
   else if (currentSort === 'pipeline') jobs.sort((a, b) => dir * ((b.interested_count || 0) - (a.interested_count || 0)));
   else if (currentSort === 'recruiter') jobs.sort((a, b) => dir * (a.assigned_recruiter || '').localeCompare(b.assigned_recruiter || ''));
+  else if (currentSort === 'candidate_order') jobs.sort((a, b) => (a.sort_order || 9999) - (b.sort_order || 9999));
   else jobs.sort((a, b) => (b.interested_count || 0) - (a.interested_count || 0));
 
   // Split active vs completed
@@ -248,7 +250,9 @@ function renderRow(jo) {
   var yc = jo.yeslisted_count || 0;
   var fc = jo.filled_count || 0;
   var sc = jo.sent_count || 0;
-  return '<div class="pipeline-row" onclick="window.location=\'/jo-detail.html?id=' + jo.id + '\'">' +
+  var dragHandle = currentSort === 'candidate_order' ? '<div class="drag-handle" draggable="true" ondragstart="dragStart(event,' + jo.id + ')" ondragover="dragOver(event)" ondrop="dropRow(event,' + jo.id + ')" onclick="event.stopPropagation()" title="Drag to reorder">\u2807\u2807</div>' : '';
+  return '<div class="pipeline-row' + (currentSort === 'candidate_order' ? ' reorderable' : '') + '" data-jo-id="' + jo.id + '" data-sort-order="' + (jo.sort_order || 0) + '" ondragover="if(currentSort===\'candidate_order\')dragOver(event)" ondrop="if(currentSort===\'candidate_order\')dropRow(event,' + jo.id + ')" onclick="window.location=\'/jo-detail.html?id=' + jo.id + '\'">' +
+    dragHandle +
     '<div style="min-width:0">' +
       '<div class="jo-title-link" style="font-size:14.5px;font-weight:700;letter-spacing:-.01em;line-height:1.25">' + esc(jo.title) + '</div>' +
       '<div class="jo-sub">' + esc(jo.city_state || '') + (jo.shift_hours ? ' &middot; ' + esc(jo.shift_hours) : '') + '</div>' +
@@ -610,5 +614,92 @@ if (_pipelineSel) _pipelineSel.addEventListener('change', function() { localStor
 document.getElementById('pipelineSearch').addEventListener('input', function() { localStorage.setItem('jl_filter_search', this.value); });
 
 boot('dash').then(async function() { loadStats(); await loadRecruiterFilter(); restoreFilters(); loadRows(); loadBlasts(); });
+</script>
+<style>
+.drag-handle { cursor:grab; font-size:18px; color:var(--text-muted); padding:0 8px 0 0; user-select:none; display:flex; align-items:center; }
+.drag-handle:active { cursor:grabbing; }
+.pipeline-row.reorderable { cursor:default; }
+.pipeline-row.drag-over { border-top:3px solid var(--brand); }
+.reorder-save-bar { position:fixed; bottom:0; left:0; right:0; background:var(--brand); color:#fff; padding:12px 20px; display:flex; justify-content:center; align-items:center; gap:12px; z-index:999; font-weight:700; box-shadow:0 -2px 10px rgba(0,0,0,.15); }
+.reorder-save-bar button { padding:8px 20px; border-radius:8px; border:none; font-weight:700; font-size:14px; cursor:pointer; }
+.reorder-save-bar .save-btn { background:#fff; color:var(--brand); }
+.reorder-save-bar .cancel-btn { background:transparent; color:#fff; border:1px solid rgba(255,255,255,.5); }
+</style>
+<script>
+var _dragId = null;
+var _reorderDirty = false;
+
+function dragStart(e, id) {
+  e.stopPropagation();
+  _dragId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  e.target.closest('.pipeline-row').style.opacity = '0.5';
+}
+
+function dragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  // Highlight drop target
+  var row = e.target.closest('.pipeline-row');
+  if (row) {
+    document.querySelectorAll('.pipeline-row.drag-over').forEach(function(r) { r.classList.remove('drag-over'); });
+    row.classList.add('drag-over');
+  }
+}
+
+function dropRow(e, targetId) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.querySelectorAll('.pipeline-row.drag-over').forEach(function(r) { r.classList.remove('drag-over'); });
+  document.querySelectorAll('.pipeline-row').forEach(function(r) { r.style.opacity = ''; });
+  if (_dragId === null || _dragId === targetId) return;
+
+  // Reorder in allJobs array
+  var dragIdx = allJobs.findIndex(function(j) { return j.id === _dragId; });
+  var targetIdx = allJobs.findIndex(function(j) { return j.id === targetId; });
+  if (dragIdx === -1 || targetIdx === -1) return;
+
+  var item = allJobs.splice(dragIdx, 1)[0];
+  allJobs.splice(targetIdx, 0, item);
+
+  // Reassign sort_order sequentially
+  allJobs.forEach(function(j, i) { j.sort_order = i + 1; });
+
+  _reorderDirty = true;
+  _dragId = null;
+  renderTable();
+  showReorderBar();
+}
+
+function showReorderBar() {
+  if (document.getElementById('reorderBar')) return;
+  var bar = document.createElement('div');
+  bar.id = 'reorderBar';
+  bar.className = 'reorder-save-bar';
+  bar.innerHTML = '<span>Unsaved changes to candidate view order</span>' +
+    '<button class="save-btn" onclick="saveReorder()">Save Order</button>' +
+    '<button class="cancel-btn" onclick="cancelReorder()">Cancel</button>';
+  document.body.appendChild(bar);
+}
+
+async function saveReorder() {
+  var orderings = allJobs.map(function(j) { return { id: j.id, sort_order: j.sort_order }; });
+  try {
+    await api('/api/job-orders/reorder', { method: 'POST', body: { orderings: orderings } });
+    toast('Candidate view order saved!');
+    _reorderDirty = false;
+    var bar = document.getElementById('reorderBar');
+    if (bar) bar.remove();
+  } catch(e) {
+    toast('Error saving order: ' + e.message);
+  }
+}
+
+function cancelReorder() {
+  _reorderDirty = false;
+  var bar = document.getElementById('reorderBar');
+  if (bar) bar.remove();
+  loadRows();
+}
 </script>
 </body></html>

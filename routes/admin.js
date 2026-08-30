@@ -5,7 +5,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const https = require('node:https');
-const { listJobOrders, setStatus, updateJobOrder } = require('../src/job-orders');
+const { listJobOrders, setStatus, updateJobOrder, reorderJobOrders } = require('../src/job-orders');
 const { listBlasts, markDoNotContact } = require('../src/blast');
 const { getProvider } = require('../src/messaging');
 const { getSetting, setSetting, logInterestEvent } = require('../src/db');
@@ -146,6 +146,16 @@ function createAdminRoutes(sysDb, auth) {
   router.patch('/api/job-orders/:id', (req, res, next) => {
     try { res.json(updateJobOrder(req.db, Number(req.params.id), req.body || {})); }
     catch (err) { next(err); }
+  });
+
+  // Reorder job orders (recruiter sets candidate-facing sort order)
+  router.post('/api/job-orders/reorder', auth.requireAdmin, (req, res, next) => {
+    try {
+      const orderings = req.body?.orderings;
+      if (!Array.isArray(orderings)) return res.status(400).json({ error: 'orderings array required' });
+      reorderJobOrders(req.db, orderings);
+      res.json({ ok: true });
+    } catch (err) { next(err); }
   });
 
 router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {

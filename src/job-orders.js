@@ -40,8 +40,8 @@ function createJobOrder(db, draft) {
   const v = validateJobOrder(draft);
   if (!v.ok) throw new Error('Invalid job order: ' + [...v.missing, ...v.errors].join('; '));
   const r = db.prepare(
-    `INSERT INTO job_orders (title, category, pay, shift_hours, address, city_state, requirements, description, company, status, assigned_recruiter)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO job_orders (title, category, pay, shift_hours, address, city_state, requirements, description, company, status, assigned_recruiter, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     draft.title.trim(), draft.category, String(draft.pay || '').trim(),
     String(draft.shift_hours || '').trim(), String(draft.address || '').trim(),
@@ -49,6 +49,7 @@ function createJobOrder(db, draft) {
     String(draft.requirements || '').trim(), String(draft.description || '').trim(),
     String(draft.company || '').trim(), draft.status || 'Unpublished',
     String(draft.assigned_recruiter || '').trim() || null,
+    0,
   );
   return Number(r.lastInsertRowid);
 }
@@ -112,11 +113,22 @@ function listJobOrders(db, { status, category, recruiter } = {}) {
 /** What a candidate sees on their magic link: published jobs in their current category. */
 function publishedInCategory(db, category) {
   return db.prepare(
-    `SELECT * FROM job_orders WHERE status = 'Published' AND category = ? ORDER BY id DESC`,
+    `SELECT * FROM job_orders WHERE status = 'Published' AND category = ? ORDER BY sort_order ASC, id DESC`,
   ).all(category);
+}
+
+/** Reorder job orders: receives array of { id, sort_order } */
+function reorderJobOrders(db, orderings) {
+  const stmt = db.prepare('UPDATE job_orders SET sort_order = ? WHERE id = ?');
+  const tx = db.transaction((items) => {
+    for (const item of items) {
+      stmt.run(item.sort_order, item.id);
+    }
+  });
+  tx(orderings);
 }
 
 module.exports = {
   JOB_ORDER_FIELDS, STATUSES, validateJobOrder, createJobOrder, updateJobOrder,
-  setStatus, listJobOrders, publishedInCategory,
+  setStatus, listJobOrders, publishedInCategory, reorderJobOrders,
 };
