@@ -1748,6 +1748,7 @@ async function submitBlastForm() {
   var _counterEl = document.getElementById('smsCreditCounter');
   window._lastBlastCredits = _counterEl ? _counterEl.textContent : '';
   hideBlastForm();
+  document.querySelector('.card').classList.remove('hide-chat');
   showLoading();
   var r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, action: 'preview_blast', payload: vals } });
   hideLoading();
