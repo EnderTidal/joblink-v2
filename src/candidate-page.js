@@ -154,6 +154,12 @@ function setLang(lang) {
   if (emptyH2) emptyH2.textContent = 'No hay posiciones abiertas en este momento';
   var emptyP = document.querySelector('.empty p');
   if (emptyP) emptyP.textContent = 'Vuelve pronto \u2014 se publican nuevos trabajos todo el tiempo.';
+  // Translate category header badge
+  var catDiv = document.querySelector('.cat');
+  if (catDiv) {
+    var catMap = { 'Industrial positions': 'Posiciones industriales', 'Administrative positions': 'Posiciones administrativas', 'Skilled Trade positions': 'Posiciones de oficio calificado' };
+    if (catMap[catDiv.textContent]) catDiv.textContent = catMap[catDiv.textContent];
+  }
   // Translate job cards
   document.querySelectorAll('.card:not(.empty)').forEach(function(card) {
     if (!card.id) return;
@@ -204,6 +210,12 @@ function _restoreEN() {
   var emptyH2 = document.querySelector('.empty h2');
   if (emptyH2) emptyH2.textContent = 'No open positions right now';
   var emptyP = document.querySelector('.empty p');
+  // Restore category header badge
+  var catDivR = document.querySelector('.cat');
+  if (catDivR) {
+    var catMapR = { 'Posiciones industriales': 'Industrial positions', 'Posiciones administrativas': 'Administrative positions', 'Posiciones de oficio calificado': 'Skilled Trade positions' };
+    if (catMapR[catDivR.textContent]) catDivR.textContent = catMapR[catDivR.textContent];
+  }
   if (emptyP) emptyP.textContent = 'Check back soon \u2014 new jobs are posted all the time.';
   Object.keys(_orig).forEach(function(id) {
     if (id.startsWith('_')) return;
@@ -369,6 +381,12 @@ function setLang(lang) {
   if (emptyH2) emptyH2.textContent = 'No hay posiciones abiertas en este momento';
   var emptyP = document.querySelector('.empty p');
   if (emptyP) emptyP.textContent = 'Vuelve pronto \u2014 se publican nuevos trabajos todo el tiempo.';
+  // Translate category header badge
+  var catDiv = document.querySelector('.cat');
+  if (catDiv) {
+    var catMap = { 'Industrial positions': 'Posiciones industriales', 'Administrative positions': 'Posiciones administrativas', 'Skilled Trade positions': 'Posiciones de oficio calificado' };
+    if (catMap[catDiv.textContent]) catDiv.textContent = catMap[catDiv.textContent];
+  }
   // Translate job cards
   document.querySelectorAll('.card:not(.empty)').forEach(function(card) {
     if (!card.id) return;
@@ -419,6 +437,12 @@ function _restoreEN() {
   var emptyH2 = document.querySelector('.empty h2');
   if (emptyH2) emptyH2.textContent = 'No open positions right now';
   var emptyP = document.querySelector('.empty p');
+  // Restore category header badge
+  var catDivR = document.querySelector('.cat');
+  if (catDivR) {
+    var catMapR = { 'Posiciones industriales': 'Industrial positions', 'Posiciones administrativas': 'Administrative positions', 'Posiciones de oficio calificado': 'Skilled Trade positions' };
+    if (catMapR[catDivR.textContent]) catDivR.textContent = catMapR[catDivR.textContent];
+  }
   if (emptyP) emptyP.textContent = 'Check back soon \u2014 new jobs are posted all the time.';
   Object.keys(_orig).forEach(function(id) {
     if (id.startsWith('_')) return;
