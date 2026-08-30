@@ -297,7 +297,7 @@ function renderPreviewPage(db, preSelectedCategory) {
 
   const jobCards = jobs.map((jo) => `
     <div class="card job-card" data-category="${esc(jo.category || '')}" data-pay="${esc(jo.pay || '')}" data-sort-order="${jo.sort_order || 0}" data-created="${jo.id}" id="job-${jo.id}" data-title-es="${esc(jo.title_es || '')}" data-desc-es="${esc(jo.description_es || '')}" data-req-es="${esc(jo.requirements_es || '')}">
-      <span class="drag-grip">\u2807\u2807</span><h2>${esc(jo.title)}</h2>
+      <div class="drag-grip-row"><span class="drag-grip">\u2807\u2807\u2807</span></div>\n      <h2>${esc(jo.title)}</h2>
       <div class="meta">
         ${jo.category ? '<span class="chip cat-chip">' + esc(jo.category) + '</span>' : ''}
         ${jo.pay ? '<span class="chip pay">\u{1F4B5} ' + esc(jo.pay) + '</span>' : ''}
@@ -351,8 +351,9 @@ function renderPreviewPage(db, preSelectedCategory) {
   .reorder-mode .job-card:hover { border-color:var(--brand); }
   .reorder-mode .job-card.dragging { opacity:.4; }
   .reorder-mode .job-card.drag-over { border-color:var(--amber); border-style:solid; }
-  .reorder-mode .drag-grip { display:block !important; }
-  .drag-grip { display:none; position:absolute; top:8px; left:8px; font-size:18px; color:var(--text-muted); cursor:grab; user-select:none; }
+  .drag-grip-row { display:none; text-align:center; margin:-8px -8px 10px; padding:6px 0; cursor:grab; border-bottom:1px dashed var(--border); }
+  .reorder-mode .drag-grip-row { display:block !important; }
+  .drag-grip { font-size:22px; color:var(--text-muted); cursor:grab; user-select:none; letter-spacing:3px; }
   .save-order-bar { position:fixed; bottom:0; left:0; right:0; background:var(--brand); color:#fff; padding:14px 20px; display:flex; justify-content:center; align-items:center; gap:14px; z-index:999; font-weight:700; box-shadow:0 -3px 12px rgba(0,0,0,.2); }
   .save-order-bar button { padding:8px 22px; border-radius:8px; border:none; font-weight:700; font-size:14px; cursor:pointer; font-family:inherit; }
   .save-order-bar .save-btn { background:#fff; color:var(--brand); }
