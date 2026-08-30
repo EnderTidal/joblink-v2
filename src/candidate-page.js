@@ -41,7 +41,7 @@ function renderCandidatePage(db, candidate, orgName) {
   const jobCards = jobs.map((jo) => {
     const done = interested.has(jo.id);
     return `
-    <div class="card" id="job-${jo.id}" data-title-es="${esc(jo.title_es || '')}" data-desc-es="${esc(jo.description_es || '')}" data-req-es="${esc(jo.requirements_es || '')}">
+    <div class="card" id="job-${jo.id}" data-pay="${esc(jo.pay || '')}" data-sort-order="${jo.sort_order || 0}" data-created="${jo.id}" data-title-es="${esc(jo.title_es || '')}" data-desc-es="${esc(jo.description_es || '')}" data-req-es="${esc(jo.requirements_es || '')}">
       <h2>${esc(jo.title)}</h2>
       <div class="meta">
         ${jo.pay ? `<span class="chip pay">\u{1F4B5} ${esc(jo.pay)}</span>` : ''}
@@ -84,6 +84,10 @@ function renderCandidatePage(db, candidate, orgName) {
   .interest.done { background:var(--green); color:#fff; }
   .empty { text-align:center; padding:40px 18px; }
   .cat { text-align:center; font-size:.85rem; color:var(--text-muted); margin:4px 0 12px; }
+  .sort-bar { display:flex; align-items:center; justify-content:center; gap:6px; margin:0 0 14px; flex-wrap:wrap; }
+  .sort-bar button { padding:6px 14px; border:1.5px solid var(--border); border-radius:99px; background:var(--surface); color:var(--text-muted); font-size:.8rem; font-weight:600; cursor:pointer; transition:all .15s; font-family:inherit; }
+  .sort-bar button.active { background:var(--brand); color:#fff; border-color:var(--brand); }
+  .sort-bar button:hover:not(.active) { border-color:var(--brand); color:var(--brand); }
   header { position:relative; }
   .lang-row { text-align:center; padding:10px 0 2px; }
   .lang-pill { display:inline-flex; border-radius:99px; overflow:hidden; border:2px solid rgba(255,255,255,0.7); background:rgba(0,0,0,0.2); backdrop-filter:blur(8px); }
@@ -99,6 +103,11 @@ function renderCandidatePage(db, candidate, orgName) {
 </header>
 <main>
   ${category ? `<div class="cat">${esc(category)} positions</div>` : ''}
+  ${jobs.length > 1 ? `<div class="sort-bar">
+    <button class="sort-btn active" onclick="sortJobs('recommended')" data-sort="recommended">\u2B50 Recommended</button>
+    <button class="sort-btn" onclick="sortJobs('newest')" data-sort="newest">\u{1F195} Newest</button>
+    <button class="sort-btn" onclick="sortJobs('pay')" data-sort="pay">\u{1F4B0} Pay</button>
+  </div>` : ''}
   ${jobs.length ? jobCards : empty}
 </main>
 <script>
@@ -229,6 +238,35 @@ function _restoreEN() {
     var btn = card.querySelector('.interest'); if (btn && !btn.classList.contains('done')) btn.textContent = o.btn || "I'm Interested \u270b";
   });
 }
+function sortJobs(mode) {
+  // Update active button
+  document.querySelectorAll('.sort-btn').forEach(function(b) {
+    b.classList.toggle('active', b.getAttribute('data-sort') === mode);
+  });
+  var main = document.querySelector('main');
+  var cards = Array.from(main.querySelectorAll('.card:not(.empty)'));
+  if (!cards.length) return;
+
+  cards.sort(function(a, b) {
+    if (mode === 'recommended') {
+      return (parseInt(a.dataset.sortOrder) || 9999) - (parseInt(b.dataset.sortOrder) || 9999);
+    } else if (mode === 'newest') {
+      return (parseInt(b.dataset.created) || 0) - (parseInt(a.dataset.created) || 0);
+    } else if (mode === 'pay') {
+      var payA = parseFloat((a.dataset.pay || '0').replace(/[^0-9.]/g, '')) || 0;
+      var payB = parseFloat((b.dataset.pay || '0').replace(/[^0-9.]/g, '')) || 0;
+      return payB - payA;
+    }
+    return 0;
+  });
+
+  // Re-append in sorted order (after .cat and .sort-bar)
+  cards.forEach(function(c) { main.appendChild(c); });
+  // Move empty state to end if visible
+  var empty = main.querySelector('.empty');
+  if (empty) main.appendChild(empty);
+}
+
 _captureOrig();
 document.querySelectorAll('.interest').forEach(function (btn) {
   btn.addEventListener('click', function () {
@@ -258,7 +296,7 @@ function renderPreviewPage(db, preSelectedCategory) {
   const jobs = db.prepare("SELECT * FROM job_orders WHERE status = 'Published' ORDER BY category, id").all();
 
   const jobCards = jobs.map((jo) => `
-    <div class="card job-card" data-category="${esc(jo.category || '')}" id="job-${jo.id}" data-title-es="${esc(jo.title_es || '')}" data-desc-es="${esc(jo.description_es || '')}" data-req-es="${esc(jo.requirements_es || '')}">
+    <div class="card job-card" data-category="${esc(jo.category || '')}" data-pay="${esc(jo.pay || '')}" data-sort-order="${jo.sort_order || 0}" data-created="${jo.id}" id="job-${jo.id}" data-title-es="${esc(jo.title_es || '')}" data-desc-es="${esc(jo.description_es || '')}" data-req-es="${esc(jo.requirements_es || '')}">
       <h2>${esc(jo.title)}</h2>
       <div class="meta">
         ${jo.category ? '<span class="chip cat-chip">' + esc(jo.category) + '</span>' : ''}
@@ -303,6 +341,10 @@ function renderPreviewPage(db, preSelectedCategory) {
   .interest.done { background:var(--green); }
   .empty { text-align:center; padding:40px 18px; }
   .count-badge { font-size:.82rem; color:var(--text-muted); text-align:center; margin-bottom:10px; }
+  .sort-bar { display:flex; align-items:center; justify-content:center; gap:6px; margin:0 0 14px; flex-wrap:wrap; }
+  .sort-bar button { padding:6px 14px; border:1.5px solid var(--border); border-radius:99px; background:var(--surface); color:var(--text-muted); font-size:.8rem; font-weight:600; cursor:pointer; transition:all .15s; font-family:inherit; }
+  .sort-bar button.active { background:var(--brand); color:#fff; border-color:var(--brand); }
+  .sort-bar button:hover:not(.active) { border-color:var(--brand); color:var(--brand); }
   header { position:relative; }
   .lang-row { text-align:center; padding:10px 0 2px; }
   .lang-pill { display:inline-flex; border-radius:99px; overflow:hidden; border:2px solid rgba(255,255,255,0.7); background:rgba(0,0,0,0.2); backdrop-filter:blur(8px); }
@@ -324,6 +366,11 @@ function renderPreviewPage(db, preSelectedCategory) {
       <option value=""${!validCat ? ' selected' : ''}>All Categories</option>
       ${cats.map(c => '<option value="' + c + '"' + (validCat === c ? ' selected' : '') + '>' + c + '</option>').join('\n      ')}
     </select>
+  </div>
+  <div class="sort-bar" style="margin-top:8px">
+    <button class="sort-btn active" onclick="sortPreviewJobs('recommended')" data-sort="recommended">\u2B50 Recommended</button>
+    <button class="sort-btn" onclick="sortPreviewJobs('newest')" data-sort="newest">\u{1F195} Newest</button>
+    <button class="sort-btn" onclick="sortPreviewJobs('pay')" data-sort="pay">\u{1F4B0} Pay</button>
   </div>
   <div class="count-badge" id="countBadge"></div>
   ${jobs.length ? jobCards : empty}
@@ -483,6 +530,28 @@ function filterCards() {
   }
   document.getElementById("countBadge").textContent = sel ? (shown + " " + sel + " position" + (shown !== 1 ? "s" : "")) : "";
 }
+function sortPreviewJobs(mode) {
+  document.querySelectorAll('.sort-btn').forEach(function(b) {
+    b.classList.toggle('active', b.getAttribute('data-sort') === mode);
+  });
+  var main = document.querySelector('main');
+  var cards = Array.from(main.querySelectorAll('.job-card'));
+  if (!cards.length) return;
+  cards.sort(function(a, b) {
+    if (mode === 'recommended') {
+      return (parseInt(a.dataset.sortOrder) || 9999) - (parseInt(b.dataset.sortOrder) || 9999);
+    } else if (mode === 'newest') {
+      return (parseInt(b.dataset.created) || 0) - (parseInt(a.dataset.created) || 0);
+    } else if (mode === 'pay') {
+      var payA = parseFloat((a.dataset.pay || '0').replace(/[^0-9.]/g, '')) || 0;
+      var payB = parseFloat((b.dataset.pay || '0').replace(/[^0-9.]/g, '')) || 0;
+      return payB - payA;
+    }
+    return 0;
+  });
+  cards.forEach(function(c) { main.appendChild(c); });
+}
+
 filterCards();
 document.querySelectorAll('.preview-toggle').forEach(function(btn) {
   btn.addEventListener('click', function() {
