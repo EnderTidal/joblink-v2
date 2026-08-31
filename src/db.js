@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS candidates (
 CREATE TABLE IF NOT EXISTS job_orders (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   title        TEXT NOT NULL,
-  category     TEXT NOT NULL CHECK (category IN ('Industrial','Administrative','Skilled Trade')),
+  category     TEXT NOT NULL,
   pay          TEXT NOT NULL DEFAULT '',
   shift_hours  TEXT NOT NULL DEFAULT '',
   location     TEXT NOT NULL DEFAULT '',
@@ -84,6 +84,14 @@ CREATE TABLE IF NOT EXISTS interest_events (
 );
 CREATE INDEX IF NOT EXISTS idx_interest_events_phone ON interest_events(phone);
 CREATE INDEX IF NOT EXISTS idx_interest_events_changed_at ON interest_events(changed_at);
+
+
+CREATE TABLE IF NOT EXISTS categories (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL UNIQUE,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
 
 CREATE TABLE IF NOT EXISTS templates (
   id      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -174,6 +182,40 @@ function openDb(filePath) {
     db.exec('CREATE INDEX IF NOT EXISTS idx_interest_events_phone ON interest_events(phone)');
     db.exec('CREATE INDEX IF NOT EXISTS idx_interest_events_changed_at ON interest_events(changed_at)');
   } catch { /* already exists */ }
+  // Migration: categories table + seed defaults
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    )`);
+    const catCount = db.prepare('SELECT COUNT(*) AS n FROM categories').get().n;
+    if (catCount === 0) {
+      db.prepare('INSERT INTO categories (name, sort_order) VALUES (?, ?)').run('Industrial', 1);
+      db.prepare('INSERT INTO categories (name, sort_order) VALUES (?, ?)').run('Administrative', 2);
+      db.prepare('INSERT INTO categories (name, sort_order) VALUES (?, ?)').run('Skilled Trade', 3);
+    }
+  } catch { /* already exists */ }
+  // Migration: remove CHECK constraint on job_orders.category if present
+  try {
+    const joSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='job_orders'").get();
+    if (joSql && joSql.sql && joSql.sql.includes('CHECK (category IN')) {
+      db.exec('PRAGMA foreign_keys = OFF');
+      const cols = db.prepare('PRAGMA table_info(job_orders)').all();
+      const colNames = cols.map(c => c.name);
+      const indexes = db.prepare("SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='job_orders' AND sql IS NOT NULL").all();
+      let newSql = joSql.sql
+        .replace(/job_orders/, 'job_orders_migrate')
+        .replace(/CHECK\s*\(\s*category\s+IN\s*\([^)]+\)\s*\)/gi, '');
+      db.exec(newSql);
+      db.exec('INSERT INTO job_orders_migrate (' + colNames.join(', ') + ') SELECT ' + colNames.join(', ') + ' FROM job_orders');
+      db.exec('DROP TABLE job_orders');
+      db.exec('ALTER TABLE job_orders_migrate RENAME TO job_orders');
+      for (const idx of indexes) { try { db.exec(idx.sql); } catch {} }
+      db.exec('PRAGMA foreign_keys = ON');
+    }
+  } catch { /* migration already done */ }
   // Seed defaults (INSERT OR IGNORE keeps this idempotent)
   const seed = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) seed.run(k, v);

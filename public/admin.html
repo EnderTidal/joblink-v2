@@ -130,6 +130,32 @@
     <button class="btn ghost" onclick="addUser()">Add user manually</button>
   </div></section>
 
+  
+  <section id="s-categories"><div class="card half">
+    <h3 style="margin-bottom:4px">Categories</h3>
+    <p class="mut" style="margin-bottom:12px;font-size:.82rem">Job classifications used across the platform. Max 10.</p>
+    <div id="cat-list" style="margin-bottom:12px"></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="cat-new-name" placeholder="New category name" style="flex:1">
+      <button class="btn sm" id="cat-add-btn" onclick="addCategory()">Add</button>
+    </div>
+  </div></section>
+
+  <!-- Delete category modal -->
+  <div id="cat-delete-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;justify-content:center;align-items:center">
+    <div style="background:var(--surface,#fff);border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
+      <h3 style="margin:0 0 8px">Delete Category</h3>
+      <p id="cat-delete-msg" class="mut" style="margin-bottom:14px"></p>
+      <label class="f">Move to:
+        <select id="cat-reassign-select"></select>
+      </label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button class="btn ghost sm" onclick="closeCatModal()">Cancel</button>
+        <button class="btn sm" style="background:var(--red,#ef4444)" onclick="confirmDeleteCategory()">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <section id="s-templates"><div class="card half">
     <h3 style="margin-bottom:12px">Blast message templates</h3>
     <p class="mut" style="margin-bottom:10px">Placeholders: {first_name} and {link}. {link} is required.</p>
@@ -139,9 +165,7 @@
     <label class="f">Category
       <select id="tpl-cat">
         <option value="">All (global)</option>
-        <option value="Industrial">Industrial</option>
-        <option value="Administrative">Administrative</option>
-        <option value="Skilled Trade">Skilled Trades</option>
+        <!-- loaded dynamically -->
       </select>
     </label>
     <label class="f">Body <textarea id="tpl-body" rows="3"></textarea></label>
@@ -365,9 +389,7 @@ async function loadTemplates() {
       !t.is_default ? '<button class="btn sm" onclick="setDefault(' + t.id + ')">Set as default</button>' : '',
       '<select class="sort-select" style="font-size:13px;min-width:150px;padding:6px 10px" onchange="setCat(' + t.id + ', this.value)">' +
         '<option value=""' + (!t.category ? ' selected' : '') + '>All</option>' +
-        '<option value="Industrial"' + (t.category === 'Industrial' ? ' selected' : '') + '>Industrial</option>' +
-        '<option value="Administrative"' + (t.category === 'Administrative' ? ' selected' : '') + '>Administrative</option>' +
-        '<option value="Skilled Trade"' + (t.category === 'Skilled Trade' ? ' selected' : '') + '>Skilled Trades</option>' +
+        (window._joblink_categories || ['Industrial','Administrative','Skilled Trade']).map(function(c) { return '<option value="' + c + '"' + (t.category === c ? ' selected' : '') + '>' + c + '</option>'; }).join('') +
       '</select>',
       !t.is_default ? '<button class="btn sm ghost" onclick="delTemplate(' + t.id + ')">Delete</button>' : '',
     ].filter(Boolean).join(' ') : '';
@@ -807,9 +829,151 @@ async function loadPhoneLines() {
   }
 }
 
+
+// ---- Categories management ----
+var _catDeleteId = null;
+var _categories = [];
+
+async function loadCategories() {
+  try {
+    var cats = await api('/api/categories');
+    if (!Array.isArray(cats)) return;
+    _categories = cats;
+    window._joblink_categories = cats.map(function(c) { return c.name; });
+    renderCategories(cats);
+    // Update template category dropdowns
+    var tplCat = document.getElementById('tpl-cat');
+    if (tplCat) {
+      var currentVal = tplCat.value;
+      tplCat.innerHTML = '<option value="">All (global)</option>' +
+        cats.map(function(c) { return '<option value="' + esc(c.name) + '">' + esc(c.name) + '</option>'; }).join('');
+      tplCat.value = currentVal;
+    }
+    // Update add button state
+    var addBtn = document.getElementById('cat-add-btn');
+    if (addBtn) addBtn.disabled = cats.length >= 10;
+  } catch(e) { console.error('loadCategories:', e); }
+}
+
+function renderCategories(cats) {
+  var list = document.getElementById('cat-list');
+  if (!list) return;
+  if (!cats.length) { list.innerHTML = '<p class="mut">No categories yet.</p>'; return; }
+  list.innerHTML = cats.map(function(cat, idx) {
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:4px;background:var(--surface-2,#f1f5f9);border-radius:8px;border:1px solid var(--border,#e2e8f0)" data-cat-id="' + cat.id + '">' +
+      '<div style="display:flex;flex-direction:column;gap:2px;margin-right:4px">' +
+        (idx > 0 ? '<button class="btn ghost" style="padding:0 4px;font-size:.7rem;line-height:1" onclick="moveCat(' + cat.id + ',-1)" title="Move up">&#9650;</button>' : '<span style="width:20px"></span>') +
+        (idx < cats.length - 1 ? '<button class="btn ghost" style="padding:0 4px;font-size:.7rem;line-height:1" onclick="moveCat(' + cat.id + ',1)" title="Move down">&#9660;</button>' : '<span style="width:20px"></span>') +
+      '</div>' +
+      '<span class="cat-name" id="cat-name-' + cat.id + '" style="flex:1;font-weight:600">' + esc(cat.name) + '</span>' +
+      '<input class="cat-edit-input" id="cat-edit-' + cat.id + '" style="display:none;flex:1;font-size:.9rem;padding:4px 8px;border:1px solid var(--blue,#3b82f6);border-radius:4px" value="' + esc(cat.name) + '">' +
+      '<button class="btn ghost sm" onclick="startRenameCat(' + cat.id + ')" id="cat-rename-btn-' + cat.id + '" style="font-size:.78rem">Rename</button>' +
+      '<button class="btn ghost sm" onclick="saveRenameCat(' + cat.id + ')" id="cat-save-btn-' + cat.id + '" style="display:none;font-size:.78rem;color:var(--green,#22c55e)">Save</button>' +
+      '<button class="btn ghost sm" onclick="cancelRenameCat(' + cat.id + ')" id="cat-cancel-btn-' + cat.id + '" style="display:none;font-size:.78rem">Cancel</button>' +
+      (cats.length > 1 ? '<button class="btn ghost sm" onclick="deleteCat(' + cat.id + ')" style="font-size:.78rem;color:var(--red,#ef4444)">Delete</button>' : '') +
+    '</div>';
+  }).join('');
+}
+
+function startRenameCat(id) {
+  document.getElementById('cat-name-' + id).style.display = 'none';
+  document.getElementById('cat-edit-' + id).style.display = '';
+  document.getElementById('cat-rename-btn-' + id).style.display = 'none';
+  document.getElementById('cat-save-btn-' + id).style.display = '';
+  document.getElementById('cat-cancel-btn-' + id).style.display = '';
+  document.getElementById('cat-edit-' + id).focus();
+}
+
+function cancelRenameCat(id) {
+  var cat = _categories.find(function(c) { return c.id === id; });
+  document.getElementById('cat-name-' + id).style.display = '';
+  document.getElementById('cat-edit-' + id).style.display = 'none';
+  document.getElementById('cat-edit-' + id).value = cat ? cat.name : '';
+  document.getElementById('cat-rename-btn-' + id).style.display = '';
+  document.getElementById('cat-save-btn-' + id).style.display = 'none';
+  document.getElementById('cat-cancel-btn-' + id).style.display = 'none';
+}
+
+async function saveRenameCat(id) {
+  var newName = document.getElementById('cat-edit-' + id).value.trim();
+  if (!newName) return;
+  try {
+    await api('/api/categories/' + id, { method: 'PATCH', body: JSON.stringify({ name: newName }), headers: { 'Content-Type': 'application/json' } });
+    toast('Category renamed');
+    loadCategories();
+  } catch(e) { toast(e.message || 'Rename failed', 'error'); }
+}
+
+async function addCategory() {
+  var input = document.getElementById('cat-new-name');
+  var name = input.value.trim();
+  if (!name) return;
+  try {
+    await api('/api/categories', { method: 'POST', body: JSON.stringify({ name: name }), headers: { 'Content-Type': 'application/json' } });
+    input.value = '';
+    toast('Category added');
+    loadCategories();
+  } catch(e) { toast(e.message || 'Add failed', 'error'); }
+}
+
+function deleteCat(id) {
+  var cat = _categories.find(function(c) { return c.id === id; });
+  if (!cat) return;
+  _catDeleteId = id;
+  // Count jobs and candidates in this category
+  var jobCount = '?'; var candCount = '?';
+  api('/api/job-orders').then(function(jobs) {
+    jobCount = jobs.filter(function(j) { return j.category === cat.name; }).length;
+    api('/api/candidates').then(function(cands) {
+      candCount = cands.filter(function(c) { return c.current_category === cat.name; }).length;
+      document.getElementById('cat-delete-msg').textContent = jobCount + ' job order(s) and ' + candCount + ' candidate(s) are in "' + cat.name + '". They will be moved to the category you select below.';
+    }).catch(function() {
+      document.getElementById('cat-delete-msg').textContent = 'Items in "' + cat.name + '" will be moved to the category you select below.';
+    });
+  }).catch(function() {
+    document.getElementById('cat-delete-msg').textContent = 'Items in "' + cat.name + '" will be moved to the category you select below.';
+  });
+  // Populate reassign dropdown (exclude self)
+  var sel = document.getElementById('cat-reassign-select');
+  sel.innerHTML = _categories.filter(function(c) { return c.id !== id; }).map(function(c) {
+    return '<option value="' + c.id + '">' + esc(c.name) + '</option>';
+  }).join('');
+  document.getElementById('cat-delete-modal').style.display = 'flex';
+}
+
+function closeCatModal() {
+  document.getElementById('cat-delete-modal').style.display = 'none';
+  _catDeleteId = null;
+}
+
+async function confirmDeleteCategory() {
+  if (!_catDeleteId) return;
+  var reassignTo = document.getElementById('cat-reassign-select').value;
+  try {
+    await api('/api/categories/' + _catDeleteId, { method: 'DELETE', body: JSON.stringify({ reassignTo: Number(reassignTo) }), headers: { 'Content-Type': 'application/json' } });
+    closeCatModal();
+    toast('Category deleted');
+    loadCategories();
+  } catch(e) { toast(e.message || 'Delete failed', 'error'); }
+}
+
+async function moveCat(id, direction) {
+  var idx = _categories.findIndex(function(c) { return c.id === id; });
+  if (idx < 0) return;
+  var newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= _categories.length) return;
+  // Swap
+  var order = _categories.map(function(c) { return c.id; });
+  var tmp = order[idx]; order[idx] = order[newIdx]; order[newIdx] = tmp;
+  try {
+    await api('/api/categories/reorder', { method: 'POST', body: JSON.stringify({ order: order }), headers: { 'Content-Type': 'application/json' } });
+    loadCategories();
+  } catch(e) { toast(e.message || 'Reorder failed', 'error'); }
+}
+
 boot('admin').then(function(m) {
   me = m;
-  loadSettings(); loadTemplates(); loadUsers(); loadCandidates(); loadFeedback(); loadChangelog(); loadWhippyUsers(); loadPhoneLines();
+  loadCategories(); loadSettings(); loadTemplates(); loadUsers(); loadCandidates(); loadFeedback(); loadChangelog(); loadWhippyUsers(); loadPhoneLines();
 });
 
 </script>

@@ -81,9 +81,7 @@
         </div>
         <div class="cat-filters" id="catFilters">
           <button data-v="" class="on">All categories</button>
-          <button data-v="Industrial">Industrial</button>
-          <button data-v="Administrative">Administrative</button>
-          <button data-v="Skilled Trade">Skilled Trades</button>
+          <!-- Dynamic category filters loaded from API -->
         </div>
       </div>
     </div>
@@ -421,7 +419,7 @@ async function openJoDetail(id) {
   try {
     var jo = await api('/api/job-orders/' + id);
     document.getElementById('joModalTitle').textContent = 'Job Order #' + jo.id;
-    var cats = ['Industrial', 'Administrative', 'Skilled Trade'];
+    var cats = window._joblink_categories || ['Industrial', 'Administrative', 'Skilled Trade'];
     var statuses = ['Unpublished', 'Published', 'Complete'];
     var html = '<form id="joEditForm">';
     html += '<div class="f"><label>Title</label><input name="title" value="' + esc(jo.title) + '"></div>';
@@ -610,5 +608,37 @@ if (_pipelineSel) _pipelineSel.addEventListener('change', function() { localStor
 document.getElementById('pipelineSearch').addEventListener('input', function() { localStorage.setItem('jl_filter_search', this.value); });
 
 boot('dash').then(async function() { loadStats(); await loadRecruiterFilter(); restoreFilters(); loadRows(); loadBlasts(); });
+</script>
+
+<script>
+// Dynamic category loading
+(function() {
+  var token = localStorage.getItem('joblink_token');
+  if (!token) return;
+  fetch('/api/categories', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(function(r) { return r.json(); })
+    .then(function(cats) {
+      if (!Array.isArray(cats) || !cats.length) return;
+      window._joblink_categories = cats.map(function(c) { return c.name; });
+      // Build filter buttons dynamically
+      var filterBar = document.querySelector('.filter-buttons');
+      if (filterBar) {
+        // Find existing category buttons (data-v attribute) and remove them
+        var existing = filterBar.querySelectorAll('button[data-v]:not([data-v="all"]):not([data-v="Published"]):not([data-v="Unpublished"]):not([data-v="Complete"])');
+        existing.forEach(function(b) { b.remove(); });
+        // Add dynamic ones after the "All" button
+        var allBtn = filterBar.querySelector('button[data-v="all"]');
+        var refNode = allBtn ? allBtn.nextSibling : null;
+        cats.forEach(function(cat) {
+          var btn = document.createElement('button');
+          btn.setAttribute('data-v', cat.name);
+          btn.textContent = cat.name;
+          if (refNode) filterBar.insertBefore(btn, refNode);
+          else filterBar.appendChild(btn);
+        });
+      }
+    })
+    .catch(function() {});
+})();
 </script>
 </body></html>

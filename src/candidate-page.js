@@ -253,7 +253,8 @@ document.querySelectorAll('.interest').forEach(function (btn) {
 }
 
 function renderPreviewPage(db, preSelectedCategory) {
-  const cats = ['Industrial', 'Administrative', 'Skilled Trade'];
+  let cats;
+  try { cats = db.prepare('SELECT name FROM categories ORDER BY sort_order, id').all().map(r => r.name); } catch { cats = ['Industrial', 'Administrative', 'Skilled Trade']; }
   const validCat = cats.includes(preSelectedCategory) ? preSelectedCategory : '';
   const jobs = db.prepare("SELECT * FROM job_orders WHERE status = 'Published' ORDER BY category, id").all();
 
