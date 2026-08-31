@@ -6,7 +6,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const https = require('node:https');
 const { listJobOrders, setStatus, updateJobOrder } = require('../src/job-orders');
-const { listBlasts, markDoNotContact } = require('../src/blast');
+const { listBlasts, markDoNotContact, getCategories } = require('../src/blast');
 const { getProvider } = require('../src/messaging');
 const { getSetting, setSetting, logInterestEvent } = require('../src/db');
 const { normalizePhone, formatPhone, toE164 } = require("../src/phone");
@@ -668,6 +668,135 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
     if (!version || !notes) return res.status(400).json({ error: 'version and notes required' });
     req.db.prepare('INSERT INTO changelog (version, notes) VALUES (?, ?)').run(String(version), String(notes));
     res.json({ ok: true });
+  });
+
+
+  // ---- Categories (custom categories management) ----
+  router.get('/api/categories', (req, res) => {
+    try {
+      const rows = req.db.prepare('SELECT * FROM categories ORDER BY sort_order, id').all();
+      res.json(rows);
+    } catch (e) {
+      // Table might not exist yet — return defaults
+      res.json([
+        { id: 0, name: 'Industrial', sort_order: 1 },
+        { id: 0, name: 'Administrative', sort_order: 2 },
+        { id: 0, name: 'Skilled Trade', sort_order: 3 },
+      ]);
+    }
+  });
+
+  router.post('/api/categories', auth.requireAdmin, (req, res) => {
+    const { name } = req.body || {};
+    if (!name || !String(name).trim()) return res.status(400).json({ error: 'name is required' });
+    const trimmed = String(name).trim();
+    if (trimmed.length > 50) return res.status(400).json({ error: 'name must be 50 characters or less' });
+
+    // Max 10 categories per org
+    const count = req.db.prepare('SELECT COUNT(*) AS n FROM categories').get().n;
+    if (count >= 10) return res.status(400).json({ error: 'Maximum 10 categories allowed' });
+
+    // Check uniqueness
+    const existing = req.db.prepare('SELECT id FROM categories WHERE name = ?').get(trimmed);
+    if (existing) return res.status(409).json({ error: 'Category already exists' });
+
+    // sort_order = max + 1
+    const maxOrder = req.db.prepare('SELECT COALESCE(MAX(sort_order), 0) AS m FROM categories').get().m;
+    req.db.prepare('INSERT INTO categories (name, sort_order) VALUES (?, ?)').run(trimmed, maxOrder + 1);
+    const created = req.db.prepare('SELECT * FROM categories WHERE name = ?').get(trimmed);
+    res.status(201).json(created);
+  });
+
+  router.patch('/api/categories/:id', auth.requireAdmin, (req, res) => {
+    const id = Number(req.params.id);
+    const { name, sort_order } = req.body || {};
+    const cat = req.db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
+    if (!cat) return res.status(404).json({ error: 'Category not found' });
+
+    if (name !== undefined) {
+      const trimmed = String(name).trim();
+      if (!trimmed) return res.status(400).json({ error: 'name cannot be empty' });
+      if (trimmed.length > 50) return res.status(400).json({ error: 'name must be 50 characters or less' });
+      // Check uniqueness (excluding self)
+      const dup = req.db.prepare('SELECT id FROM categories WHERE name = ? AND id != ?').get(trimmed, id);
+      if (dup) return res.status(409).json({ error: 'Category name already exists' });
+
+      const oldName = cat.name;
+      req.db.exec('BEGIN');
+      try {
+        req.db.prepare('UPDATE categories SET name = ? WHERE id = ?').run(trimmed, id);
+        // Update job_orders that reference old category name
+        req.db.prepare('UPDATE job_orders SET category = ? WHERE category = ?').run(trimmed, oldName);
+        // Update candidates that reference old category via current_category
+        req.db.prepare('UPDATE candidates SET current_category = ? WHERE current_category = ?').run(trimmed, oldName);
+        // Update blasts that reference old category
+        try { req.db.prepare('UPDATE blasts SET category = ? WHERE category = ?').run(trimmed, oldName); } catch {}
+        // Update templates that reference old category
+        try { req.db.prepare('UPDATE templates SET category = ? WHERE category = ?').run(trimmed, oldName); } catch {}
+        req.db.exec('COMMIT');
+      } catch (e) {
+        req.db.exec('ROLLBACK');
+        return res.status(500).json({ error: 'Failed to rename: ' + e.message });
+      }
+    }
+
+    if (sort_order !== undefined) {
+      req.db.prepare('UPDATE categories SET sort_order = ? WHERE id = ?').run(Number(sort_order), id);
+    }
+
+    const updated = req.db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
+    res.json(updated);
+  });
+
+  router.delete('/api/categories/:id', auth.requireAdmin, (req, res) => {
+    const id = Number(req.params.id);
+    const { reassignTo } = req.body || {};
+
+    const cat = req.db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
+    if (!cat) return res.status(404).json({ error: 'Category not found' });
+
+    const totalCats = req.db.prepare('SELECT COUNT(*) AS n FROM categories').get().n;
+    if (totalCats <= 1) return res.status(400).json({ error: 'Cannot delete the last category' });
+
+    if (!reassignTo) return res.status(400).json({ error: 'reassignTo category ID is required' });
+    const target = req.db.prepare('SELECT * FROM categories WHERE id = ?').get(Number(reassignTo));
+    if (!target) return res.status(400).json({ error: 'Target category not found' });
+    if (target.id === id) return res.status(400).json({ error: 'Cannot reassign to the same category' });
+
+    req.db.exec('BEGIN');
+    try {
+      // Reassign job_orders
+      const movedJobs = req.db.prepare('UPDATE job_orders SET category = ? WHERE category = ?').run(target.name, cat.name).changes;
+      // Reassign candidates
+      const movedCandidates = req.db.prepare('UPDATE candidates SET current_category = ? WHERE current_category = ?').run(target.name, cat.name).changes;
+      // Reassign blasts
+      try { req.db.prepare('UPDATE blasts SET category = ? WHERE category = ?').run(target.name, cat.name); } catch {}
+      // Reassign templates
+      try { req.db.prepare('UPDATE templates SET category = ? WHERE category = ?').run(target.name, cat.name); } catch {}
+      // Delete the category
+      req.db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+      req.db.exec('COMMIT');
+      res.json({ ok: true, movedJobs, movedCandidates, reassignedTo: target.name });
+    } catch (e) {
+      req.db.exec('ROLLBACK');
+      res.status(500).json({ error: 'Failed to delete: ' + e.message });
+    }
+  });
+
+  router.post('/api/categories/reorder', auth.requireAdmin, (req, res) => {
+    const { order } = req.body || {};
+    if (!Array.isArray(order)) return res.status(400).json({ error: 'order must be an array of category IDs' });
+    req.db.exec('BEGIN');
+    try {
+      const stmt = req.db.prepare('UPDATE categories SET sort_order = ? WHERE id = ?');
+      order.forEach((catId, i) => stmt.run(i + 1, Number(catId)));
+      req.db.exec('COMMIT');
+      const rows = req.db.prepare('SELECT * FROM categories ORDER BY sort_order, id').all();
+      res.json(rows);
+    } catch (e) {
+      req.db.exec('ROLLBACK');
+      res.status(500).json({ error: 'Reorder failed: ' + e.message });
+    }
   });
 
   return router;

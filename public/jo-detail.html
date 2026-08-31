@@ -26,7 +26,7 @@
     <div class="jo-edit-form" id="joEditForm">
       <div class="row2">
         <label class="f">Title<input name="title" id="fTitle"></label>
-        <label class="f">Category<select name="category" id="fCategory"><option>Industrial</option><option>Administrative</option><option>Skilled Trade</option></select></label>
+        <label class="f">Category<select name="category" id="fCategory"><!-- loaded dynamically --></select></label>
       </div>
       <div class="row2">
         <label class="f">Pay<input name="pay" id="fPay"></label>
@@ -102,6 +102,7 @@ function renderFunnel(jo) {
 
 function populateEditForm(jo) {
   document.getElementById('fTitle').value = jo.title || '';
+  window._currentJo = jo;
   document.getElementById('fCategory').value = jo.category || 'Industrial';
   document.getElementById('fPay').value = jo.pay || '';
   document.getElementById('fShift').value = jo.shift_hours || '';
@@ -259,5 +260,33 @@ async function loadDetail() {
 }
 
 boot('dash').then(function() { loadDetail(); loadRecruiterOptions(); });
+</script>
+
+<script>
+(function() {
+  var token = localStorage.getItem('joblink_token');
+  if (!token) return;
+  fetch('/api/categories', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(function(r) { return r.json(); })
+    .then(function(cats) {
+      if (!Array.isArray(cats) || !cats.length) return;
+      var sel = document.getElementById('fCategory');
+      if (!sel) return;
+      sel.innerHTML = cats.map(function(c) {
+        return '<option value="' + c.name + '">' + c.name + '</option>';
+      }).join('');
+      // Re-set value if JO data already loaded
+      if (window._currentJo && window._currentJo.category) {
+        sel.value = window._currentJo.category;
+      }
+    })
+    .catch(function() {
+      // Fallback
+      var sel = document.getElementById('fCategory');
+      if (sel && !sel.options.length) {
+        sel.innerHTML = '<option>Industrial</option><option>Administrative</option><option>Skilled Trade</option>';
+      }
+    });
+})();
 </script>
 </body></html>

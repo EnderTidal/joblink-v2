@@ -25,7 +25,7 @@ const crypto = require('node:crypto');
 const { parseContactRows, parseContactFile, parseContactFileWithMap, parseExclusionFile, parseHeadersOnly, upsertCandidates, selectByLastContacted } = require('./importing');
 const { normalizePhone } = require('./phone');
 const { splitName } = require('./names');
-const { planBlast, executeBlast, listBlasts, renderMessage, CATEGORIES } = require('./blast');
+const { planBlast, executeBlast, listBlasts, renderMessage, CATEGORIES, getCategories } = require('./blast');
 const { JOB_ORDER_FIELDS, validateJobOrder, createJobOrder } = require('./job-orders');
 const { parseJobOrderText, extractText } = require('./ai/parse-job-order');
 const { answerHelpQuestion } = require('./ai/help-faq');
@@ -232,9 +232,10 @@ function createTom(db) {
       const edit = parseFieldEdit(t);
       if (edit) {
         if (edit.field === 'category') {
-          const cat = CATEGORIES.find((c) => c.toLowerCase() === edit.value.toLowerCase().replace(/s$/, ''))
-            || CATEGORIES.find((c) => edit.value.toLowerCase().includes(c.toLowerCase()));
-          if (!cat) return reply(s, `Category has to be one of: ${CATEGORIES.join(', ')}.`, { showForm: true, draft, warnings: [] });
+          const dynCats = getCategories(db);
+          const cat = dynCats.find((c) => c.toLowerCase() === edit.value.toLowerCase().replace(/s$/, ''))
+            || dynCats.find((c) => edit.value.toLowerCase().includes(c.toLowerCase()));
+          if (!cat) return reply(s, `Category has to be one of: ${dynCats.join(', ')}.`, { showForm: true, draft, warnings: [] });
           draft.category = cat;
         } else if (edit.field === 'status') {
           return reply(s, 'Say "publish" to publish, or "done" to save unpublished \u2014 status changes go through those.', { showForm: true, draft, warnings: [] });
@@ -330,7 +331,7 @@ function createTom(db) {
           excludedCount: s.data.excludedCount || 0,
           exclusionTotal: s.data.exclusionTotal || 0,
           exclusionFileName: s.data.exclusionFileName || null,
-          categories: CATEGORIES,
+          categories: getCategories(db),
           sortOptions: SORT_OPTIONS,
           templates: formData.templates.map(t => ({ id: t.id, name: t.name, body: t.body, category: t.category || '', is_default: !!t.is_default })),
           defaultTemplateId: formData.defaultTemplate ? formData.defaultTemplate.id : null,
@@ -416,7 +417,7 @@ function createTom(db) {
           excludedCount: 0,
           exclusionTotal: 0,
           exclusionFileName: null,
-          categories: CATEGORIES,
+          categories: getCategories(db),
           sortOptions: SORT_OPTIONS,
           templates: formData.templates.map(t => ({ id: t.id, name: t.name, body: t.body, category: t.category || '', is_default: !!t.is_default })),
           defaultTemplateId: formData.defaultTemplate ? formData.defaultTemplate.id : null,
@@ -500,7 +501,7 @@ function createTom(db) {
           excludedCount: s.data.excludedCount || 0,
           exclusionTotal: s.data.exclusionTotal || 0,
           exclusionFileName: s.data.exclusionFileName || null,
-          categories: CATEGORIES,
+          categories: getCategories(db),
           sortOptions: SORT_OPTIONS,
           templates: formData.templates.map(t => ({ id: t.id, name: t.name, body: t.body, category: t.category || '', is_default: !!t.is_default })),
           defaultTemplateId: formData.defaultTemplate ? formData.defaultTemplate.id : null,
@@ -551,7 +552,7 @@ function createTom(db) {
           excludedCount: s.data.excludedCount || 0,
           exclusionTotal: s.data.exclusionTotal || 0,
           exclusionFileName: s.data.exclusionFileName || null,
-          categories: CATEGORIES,
+          categories: getCategories(db),
           sortOptions: SORT_OPTIONS,
           templates: formData.templates.map(t => ({ id: t.id, name: t.name, body: t.body, category: t.category || '', is_default: !!t.is_default })),
           defaultTemplateId: formData.defaultTemplate ? formData.defaultTemplate.id : null,
@@ -625,7 +626,7 @@ function createTom(db) {
         const recruiterId = payload?.recruiterId ? Number(payload.recruiterId) : null;
         const selectedFromNumber = payload?.fromNumber || null;
 
-        if (!CATEGORIES.includes(category)) {
+        if (!getCategories(db).includes(category)) {
           return reply(s, 'Select a category before previewing.', { showBlastForm: true, keepForm: true });
         }
         if (!templateBody.trim()) {
@@ -708,7 +709,7 @@ function createTom(db) {
           invalidCount: s.data.invalidCount || 0,
           importCounts: s.data.importCounts || {},
           hasLastContacted: s.data.hasLastContacted || false,
-          categories: CATEGORIES,
+          categories: getCategories(db),
           sortOptions: SORT_OPTIONS,
           templates: formData.templates.map(t => ({ id: t.id, name: t.name, body: t.body, category: t.category || '', is_default: !!t.is_default })),
           defaultTemplateId: s.data.template?.id || (formData.defaultTemplate ? formData.defaultTemplate.id : null),

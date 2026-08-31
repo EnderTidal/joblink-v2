@@ -17,7 +17,19 @@ const { getCooldownHours, getSetting } = require('./db');
 const SMS_RATE_LIMIT_MS = 100; // 10 sends/sec — ported from V1 (Whippy pacing)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const CATEGORIES = ['Industrial', 'Administrative', 'Skilled Trade'];
+const DEFAULT_CATEGORIES = ['Industrial', 'Administrative', 'Skilled Trade'];
+
+/** Read categories from the DB, falling back to defaults if the table doesn't exist. */
+function getCategories(db) {
+  try {
+    const rows = db.prepare('SELECT name FROM categories ORDER BY sort_order, id').all();
+    if (rows.length > 0) return rows.map(r => r.name);
+  } catch { /* table doesn't exist yet — use defaults */ }
+  return DEFAULT_CATEGORIES;
+}
+
+// Legacy compat: const CATEGORIES still exported as the defaults
+const CATEGORIES = DEFAULT_CATEGORIES;
 
 /** Render a template for one candidate. Placeholders: {first_name}, {link}. */
 function renderMessage(templateBody, candidate, baseUrl, orgSlug) {
@@ -34,7 +46,8 @@ function renderMessage(templateBody, candidate, baseUrl, orgSlug) {
  * apply Blast Guard and return everything the preview needs.
  */
 function planBlast(db, { phones, category, now = new Date() }) {
-  if (!CATEGORIES.includes(category)) throw new Error(`Invalid category: ${category}`);
+  const validCats = getCategories(db);
+  if (!validCats.includes(category)) throw new Error(`Invalid category: ${category}`);
   const cooldownHours = getCooldownHours(db);
   const get = db.prepare('SELECT * FROM candidates WHERE phone = ?');
   const candidates = phones.map((p) => get.get(p)).filter(Boolean);
@@ -148,4 +161,4 @@ function markDoNotContact(db, phone, value = true) {
   db.prepare('UPDATE candidates SET do_not_contact = ? WHERE phone = ?').run(value ? 1 : 0, phone);
 }
 
-module.exports = { planBlast, executeBlast, renderMessage, listBlasts, markDoNotContact, CATEGORIES, SMS_RATE_LIMIT_MS };
+module.exports = { planBlast, executeBlast, renderMessage, listBlasts, markDoNotContact, CATEGORIES, getCategories, SMS_RATE_LIMIT_MS };

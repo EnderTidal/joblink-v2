@@ -2,7 +2,7 @@
 // fix #4). These eight fields ARE the Job Order template. The parser fills
 // them, the eval tests grade against them, and the candidate page displays them.
 
-const { CATEGORIES } = require('./blast');
+const { CATEGORIES, getCategories } = require('./blast');
 const { logInterestEvent } = require('./db');
 
 const JOB_ORDER_FIELDS = [
@@ -21,14 +21,15 @@ const JOB_ORDER_FIELDS = [
 const STATUSES = ['Unpublished', 'Published', 'Complete'];
 
 /** Validate a draft; returns { ok, missing: [], errors: [] }. */
-function validateJobOrder(draft) {
+function validateJobOrder(draft, db) {
   const missing = [];
   const errors = [];
   for (const f of JOB_ORDER_FIELDS) {
     if (f.required && !String(draft[f.key] || '').trim()) missing.push(f.key);
   }
-  if (draft.category && !CATEGORIES.includes(draft.category)) {
-    errors.push(`category must be one of: ${CATEGORIES.join(', ')}`);
+  const validCats = db ? getCategories(db) : CATEGORIES;
+  if (draft.category && !validCats.includes(draft.category)) {
+    errors.push(`category must be one of: ${validCats.join(', ')}`);
   }
   if (draft.status && !STATUSES.includes(draft.status)) {
     errors.push(`status must be one of: ${STATUSES.join(', ')}`);
@@ -37,7 +38,7 @@ function validateJobOrder(draft) {
 }
 
 function createJobOrder(db, draft) {
-  const v = validateJobOrder(draft);
+  const v = validateJobOrder(draft, db);
   if (!v.ok) throw new Error('Invalid job order: ' + [...v.missing, ...v.errors].join('; '));
   const r = db.prepare(
     `INSERT INTO job_orders (title, category, pay, shift_hours, address, city_state, requirements, description, company, status, assigned_recruiter)
@@ -57,7 +58,7 @@ function updateJobOrder(db, id, patch) {
   const jo = db.prepare('SELECT * FROM job_orders WHERE id = ?').get(id);
   if (!jo) throw new Error('Job order not found');
   const merged = { ...jo, ...patch };
-  const v = validateJobOrder(merged);
+  const v = validateJobOrder(merged, db);
   if (!v.ok) throw new Error('Invalid job order: ' + [...v.missing, ...v.errors].join('; '));
   db.prepare(
     `UPDATE job_orders SET title=?, category=?, pay=?, shift_hours=?, address=?, city_state=?, requirements=?, description=?, company=?, status=?, assigned_recruiter=?,

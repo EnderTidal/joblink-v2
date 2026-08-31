@@ -336,7 +336,7 @@ var blastFormActive = false;
 var blastFormData = null;
 var PATH_LABELS = { job_order: 'New Job Order', blast: 'Send Magic Blast', review: 'Review Magic Blasts', help: 'Help / FAQ' };
 
-var CATEGORIES = ['Industrial', 'Administrative', 'Skilled Trade'];
+var CATEGORIES = window._joblink_categories || ['Industrial', 'Administrative', 'Skilled Trade'];
 var STATUSES = ['Published', 'Unpublished'];
 
 var FIELD_VISIBILITY = {
