@@ -689,7 +689,7 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
   router.post('/api/categories', auth.requireAdmin, (req, res) => {
     const { name } = req.body || {};
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'name is required' });
-    const trimmed = String(name).trim();
+    const trimmed = String(name).trim().replace(/[<>"'/&]/g, '');
     if (trimmed.length > 50) return res.status(400).json({ error: 'name must be 50 characters or less' });
 
     // Max 10 categories per org
@@ -714,7 +714,7 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
     if (!cat) return res.status(404).json({ error: 'Category not found' });
 
     if (name !== undefined) {
-      const trimmed = String(name).trim();
+      const trimmed = String(name).trim().replace(/[<>"'/&]/g, '');
       if (!trimmed) return res.status(400).json({ error: 'name cannot be empty' });
       if (trimmed.length > 50) return res.status(400).json({ error: 'name must be 50 characters or less' });
       // Check uniqueness (excluding self)
