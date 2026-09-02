@@ -621,13 +621,13 @@ boot('dash').then(async function() { loadStats(); await loadRecruiterFilter(); r
       if (!Array.isArray(cats) || !cats.length) return;
       window._joblink_categories = cats.map(function(c) { return c.name; });
       // Build filter buttons dynamically
-      var filterBar = document.querySelector('.filter-buttons');
+      var filterBar = document.getElementById('catFilters');
       if (filterBar) {
         // Find existing category buttons (data-v attribute) and remove them
         var existing = filterBar.querySelectorAll('button[data-v]:not([data-v="all"]):not([data-v="Published"]):not([data-v="Unpublished"]):not([data-v="Complete"])');
         existing.forEach(function(b) { b.remove(); });
         // Add dynamic ones after the "All" button
-        var allBtn = filterBar.querySelector('button[data-v="all"]');
+        var allBtn = filterBar.querySelector('button[data-v=""]');
         var refNode = allBtn ? allBtn.nextSibling : null;
         cats.forEach(function(cat) {
           var btn = document.createElement('button');
