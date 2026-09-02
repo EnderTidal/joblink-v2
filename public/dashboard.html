@@ -79,10 +79,9 @@
           <button data-v="Unpublished">Unpublished</button>
           <button data-v="Complete">Archived</button>
         </div>
-        <div class="cat-filters" id="catFilters">
-          <button data-v="" class="on">All categories</button>
-          <!-- Dynamic category filters loaded from API -->
-        </div>
+        <select id="catFilterSelect" class="panel-select">
+          <option value="">All categories</option>
+        </select>
       </div>
     </div>
 
@@ -357,7 +356,11 @@ function wireFilters(id, setter, storageKey) {
   });
 }
 wireFilters('statusFilters', function(v) { statusFilter = v; }, 'jl_filter_status');
-wireFilters('catFilters', function(v) { categoryFilter = v; }, 'jl_filter_category');
+document.getElementById('catFilterSelect').addEventListener('change', function() {
+    categoryFilter = this.value;
+    localStorage.setItem('jl_filter_category', this.value);
+    loadRows();
+  });
 
 // ---- Pipeline action buttons for each status ----
 function pipelineButtons(c) {
@@ -570,9 +573,8 @@ function restoreFilters() {
   }
   if (savedCategory) {
     categoryFilter = savedCategory;
-    document.querySelectorAll('#catFilters button').forEach(function(b) {
-      b.classList.toggle('on', b.dataset.v === savedCategory);
-    });
+    var catSel2 = document.getElementById('catFilterSelect');
+      if (catSel2) catSel2.value = savedCategory;
   }
   var savedRecruiter = localStorage.getItem('jl_filter_recruiter');
   var savedPipeline = localStorage.getItem('jl_filter_pipeline');
@@ -620,21 +622,16 @@ boot('dash').then(async function() { loadStats(); await loadRecruiterFilter(); r
     .then(function(cats) {
       if (!Array.isArray(cats) || !cats.length) return;
       window._joblink_categories = cats.map(function(c) { return c.name; });
-      // Build filter buttons dynamically
-      var filterBar = document.getElementById('catFilters');
-      if (filterBar) {
-        // Find existing category buttons (data-v attribute) and remove them
-        var existing = filterBar.querySelectorAll('button[data-v]:not([data-v=""]):not([data-v="Published"]):not([data-v="Unpublished"]):not([data-v="Complete"])');
-        existing.forEach(function(b) { b.remove(); });
-        // Add dynamic ones after the "All" button
-        var allBtn = filterBar.querySelector('button[data-v=""]');
-        var refNode = allBtn ? allBtn.nextSibling : null;
+      // Populate category dropdown
+      var sel = document.getElementById('catFilterSelect');
+      if (sel) {
+        // Remove old dynamic options (keep first "All categories")
+        while (sel.options.length > 1) sel.remove(1);
         cats.forEach(function(cat) {
-          var btn = document.createElement('button');
-          btn.setAttribute('data-v', cat.name);
-          btn.textContent = cat.name;
-          if (refNode) filterBar.insertBefore(btn, refNode);
-          else filterBar.appendChild(btn);
+          var opt = document.createElement('option');
+          opt.value = cat.name;
+          opt.textContent = cat.name;
+          sel.appendChild(opt);
         });
       }
     })
