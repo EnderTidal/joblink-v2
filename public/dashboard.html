@@ -624,7 +624,7 @@ boot('dash').then(async function() { loadStats(); await loadRecruiterFilter(); r
       var filterBar = document.getElementById('catFilters');
       if (filterBar) {
         // Find existing category buttons (data-v attribute) and remove them
-        var existing = filterBar.querySelectorAll('button[data-v]:not([data-v="all"]):not([data-v="Published"]):not([data-v="Unpublished"]):not([data-v="Complete"])');
+        var existing = filterBar.querySelectorAll('button[data-v]:not([data-v=""]):not([data-v="Published"]):not([data-v="Unpublished"]):not([data-v="Complete"])');
         existing.forEach(function(b) { b.remove(); });
         // Add dynamic ones after the "All" button
         var allBtn = filterBar.querySelector('button[data-v=""]');
