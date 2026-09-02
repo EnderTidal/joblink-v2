@@ -2283,7 +2283,7 @@ function handleReply(r) {
 async function startPath(path) {
   currentPath = path;
   // Hide chat for all paths except help
-  if (path !== 'help') {
+  if (path !== 'help' && path !== 'review') {
     document.querySelector('.card').classList.add('hide-chat');
   } else {
     document.querySelector('.card').classList.remove('hide-chat');
