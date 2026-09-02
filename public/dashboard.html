@@ -79,7 +79,7 @@
           <button data-v="Unpublished">Unpublished</button>
           <button data-v="Complete">Archived</button>
         </div>
-        <select id="catFilterSelect" class="panel-select">
+        <select id="catFilterSelect" class="sort-select" style="min-width:130px;margin-left:8px;font-size:13px">
           <option value="">All categories</option>
         </select>
       </div>
@@ -91,7 +91,7 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input id="pipelineSearch" placeholder="Search title or company..." oninput="onSearch(this.value)">
       </div>
-      <select id="recruiterFilter" onchange="recruiterFilter=this.value; loadRows()" class="sort-select" style="min-width:140px">
+<select id="recruiterFilter" onchange="recruiterFilter=this.value; loadRows()" class="sort-select" style="min-width:140px">
         <option value="">All recruiters</option>
       </select>
       <select onchange="sortBy(this.value)" class="sort-select">
