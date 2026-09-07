@@ -20,6 +20,7 @@ const { createPublicRoutes } = require('./routes/public');
 const { createSignupRoutes, createStripeWebhook } = require('./routes/signup');
 const { createQboRoutes } = require("./routes/qbo");
 const { billingMiddleware } = require('./middleware/billing');
+const { createReportRoutes } = require('./routes/reports');
 const { createWebhookRoutes } = require('./routes/webhooks');
 
 const PORT = process.env.PORT || 3000;
@@ -233,6 +234,7 @@ app.use('/api', tenantMiddleware);
 app.use(createTomRoutes(sysDb));
 app.use(createAdminRoutes(sysDb, auth));
 app.use("/dev", createDevRoutes(sysDb, auth));
+app.use("/dev", createReportRoutes(auth));
 
 // Static UI (login page is public; app pages check session client-side + APIs are guarded)
 
