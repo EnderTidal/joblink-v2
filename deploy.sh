@@ -112,6 +112,7 @@ fi
 # Step 2: Restart PM2
 echo ""
 echo "--- Restarting PM2 process ---"
+touch /tmp/.joblink-deploy-active
 pm2 restart joblink-v2
 
 # Step 3: Wait for process to be ready
@@ -142,3 +143,5 @@ fi
 echo ""
 echo "=== Deploy complete ==="
 echo "$(date '+%Y-%m-%d %H:%M:%S') — All tests passed, server is live"
+# Clean up deploy lock
+rm -f /tmp/.joblink-deploy-active
