@@ -293,8 +293,9 @@ function checkTrialReminders() {
             '<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">' +
             '<h2 style="color:#6172f7">Trial Ending Soon</h2>' +
             '<p>Your free trial for <strong>' + org.name + '</strong> ends on <strong>' + endDate + '</strong>.</p>' +
-            '<p>After that, you will be charged <strong>$399/mo</strong>. Cancel anytime from your account settings or reply to this email.</p>' +
-            '<p style="color:#94a3b8;font-size:14px">No action needed if you want to continue — billing starts automatically.</p>' +
+            '<p>To keep using JobLink after your trial, add a payment method and your subscription will begin at <strong>$399/mo</strong>.</p>' +
+            '<p style="text-align:center;margin:24px 0"><a href="https://app.joblinkplatform.com/billing.html" style="background:#6172f7;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold">Add Payment Method</a></p>' +
+            '<p style="color:#94a3b8;font-size:14px">If you don\'t add a payment method, your account will be paused when the trial ends. Your data and candidate list will be saved — you can reactivate anytime.</p>' +
             '</div>'
           ).catch(function(e) { console.error('[trial-reminder]', e.message); });
 
