@@ -217,6 +217,8 @@ function openDb(filePath) {
     }
   } catch { /* migration already done */ }
   // Seed defaults (INSERT OR IGNORE keeps this idempotent)
+  // Migration: add type column to feedback table
+  try { db.exec("ALTER TABLE feedback ADD COLUMN type TEXT NOT NULL DEFAULT 'general'"  ); } catch { /* already exists */ }
   const seed = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) seed.run(k, v);
   const tCount = db.prepare('SELECT COUNT(*) AS n FROM templates').get().n;

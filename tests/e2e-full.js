@@ -8,16 +8,21 @@ const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
 
-// --- Bootstrap: fresh DB on a test port ---
-const DB_PATH = path.join(os.tmpdir(), `joblink-e2e-${Date.now()}.db`);
-process.env.JOBLINK_DB = DB_PATH;
+// --- Bootstrap: fresh DB in an isolated temp DATA_DIR on a test port ---
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'joblink-e2e-'));
+process.env.DATA_DIR = DATA_DIR;
 process.env.PORT = '3999';
 delete process.env.ANTHROPIC_API_KEY; // no external deps
 
-const { app, db } = require('../server');
+const { app, sysDb } = require('../server');
+const { getTenantDb } = require('../src/tenant');
 
 let server, BASE;
 let adminCookie = '';
+
+// The seeded org is always id=1 (from auth.js seed logic).
+// We lazy-init the tenant DB ref after the server is listening.
+let tenantDb;
 
 // HTTP helper
 async function http(method, url, body, opts = {}) {
@@ -59,15 +64,15 @@ async function httpRaw(method, url, opts = {}) {
 async function uploadCSV(url, csvContent, sessionId) {
   const boundary = '----TestBoundary' + Date.now();
   let body = '';
-  body += `--${boundary}\r\nContent-Disposition: form-data; name="sessionId"\r\n\r\n${sessionId}\r\n`;
-  body += `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="contacts.csv"\r\nContent-Type: text/csv\r\n\r\n${csvContent}\r\n`;
-  body += `--${boundary}--\r\n`;
+  body += '--' + boundary + '\r\nContent-Disposition: form-data; name="sessionId"\r\n\r\n' + sessionId + '\r\n';
+  body += '--' + boundary + '\r\nContent-Disposition: form-data; name="file"; filename="contacts.csv"\r\nContent-Type: text/csv\r\n\r\n' + csvContent + '\r\n';
+  body += '--' + boundary + '--\r\n';
 
   const res = await fetch(BASE + url, {
     method: 'POST',
     headers: {
       cookie: adminCookie,
-      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+      'Content-Type': 'multipart/form-data; boundary=' + boundary,
     },
     body,
   });
@@ -91,14 +96,15 @@ describe('JobLink V2 — Full E2E', () => {
   before(async () => {
     server = app.listen(3999);
     await new Promise((r) => server.on('listening', r));
-    BASE = `http://127.0.0.1:${server.address().port}`;
+    BASE = 'http://127.0.0.1:' + server.address().port;
+    // The auth seed creates org 1 + tenant DB automatically
+    tenantDb = getTenantDb(1);
   });
 
   after(() => {
     server.close();
-    try { fs.rmSync(DB_PATH, { force: true }); } catch {}
-    try { fs.rmSync(DB_PATH + '-wal', { force: true }); } catch {}
-    try { fs.rmSync(DB_PATH + '-shm', { force: true }); } catch {}
+    // Clean up all temp DB files
+    try { fs.rmSync(DATA_DIR, { recursive: true, force: true }); } catch {}
   });
 
   // ============================================================
@@ -137,8 +143,8 @@ describe('JobLink V2 — Full E2E', () => {
       const r = await http('POST', '/api/invite', { email: 'testrecruiter@example.com', role: 'recruiter' });
       assert.equal(r.status, 200);
       assert.equal(r.data.ok, true);
-      // Verify user was created in DB
-      const user = db.prepare("SELECT * FROM users WHERE email = 'testrecruiter@example.com'").get();
+      // Verify user was created in system DB
+      const user = sysDb.prepare("SELECT * FROM users WHERE email = 'testrecruiter@example.com'").get();
       assert.ok(user, 'Invited user should exist in DB');
       assert.equal(user.role, 'recruiter');
       assert.ok(user.invite_token, 'Should have invite token');
@@ -150,7 +156,7 @@ describe('JobLink V2 — Full E2E', () => {
       }, { cookie: '' });
       assert.equal(accept.status, 200);
       assert.equal(accept.data.ok, true);
-      const sc = accept.headers?.get('set-cookie');
+      const sc = accept.headers.get('set-cookie');
       if (sc) recruiterCookie = sc.split(';')[0];
     });
 
@@ -264,7 +270,7 @@ describe('JobLink V2 — Full E2E', () => {
 
     it('11. Save JO as draft (POST /api/tom with done action)', async () => {
       // Already tested in test 8 — verify the DB state
-      const jo = db.prepare('SELECT * FROM job_orders WHERE id = ?').get(joId2);
+      const jo = tenantDb.prepare('SELECT * FROM job_orders WHERE id = ?').get(joId2);
       assert.ok(jo, 'Draft JO should exist');
       assert.equal(jo.status, 'Unpublished');
     });
@@ -282,7 +288,7 @@ describe('JobLink V2 — Full E2E', () => {
     });
 
     it('13. Get JO detail (GET /api/job-orders/:id)', async () => {
-      const r = await http('GET', `/api/job-orders/${joId}`);
+      const r = await http('GET', '/api/job-orders/' + joId);
       assert.equal(r.status, 200);
       assert.equal(r.data.id, joId);
       assert.equal(r.data.title, 'Published Welder');
@@ -290,21 +296,21 @@ describe('JobLink V2 — Full E2E', () => {
     });
 
     it('14. Update JO via PATCH (PATCH /api/job-orders/:id)', async () => {
-      const r = await http('PATCH', `/api/job-orders/${joId}`, { pay: '$27/hr' });
+      const r = await http('PATCH', '/api/job-orders/' + joId, { pay: '$27/hr' });
       assert.equal(r.status, 200);
       assert.equal(r.data.pay, '$27/hr');
     });
 
     it('15. Unpublish JO', async () => {
-      const r = await http('POST', `/api/job-orders/${joId}/status`, { status: 'Unpublished' });
+      const r = await http('POST', '/api/job-orders/' + joId + '/status', { status: 'Unpublished' });
       assert.equal(r.status, 200);
       assert.equal(r.data.status, 'Unpublished');
       // Re-publish for later tests
-      await http('POST', `/api/job-orders/${joId}/status`, { status: 'Published' });
+      await http('POST', '/api/job-orders/' + joId + '/status', { status: 'Published' });
     });
 
     it('16. Complete JO', async () => {
-      const r = await http('POST', `/api/job-orders/${joId2}/status`, { status: 'Complete' });
+      const r = await http('POST', '/api/job-orders/' + joId2 + '/status', { status: 'Complete' });
       assert.equal(r.status, 200);
       assert.equal(r.data.status, 'Complete');
     });
@@ -324,8 +330,20 @@ describe('JobLink V2 — Full E2E', () => {
       const csv = 'First Name,Last Name,Phone\nAlice,Smith,555-111-2222\nBob,Jones,555-333-4444\nCarol,Williams,555-555-6666\nDave,Brown,555-777-8888\n';
       const r = await uploadCSV('/api/tom/upload', csv, blastSessionId);
       assert.equal(r.status, 200);
-      assert.ok(r.data.showBlastForm, 'Should show blast form after upload');
-      assert.equal(r.data.contactCount, 4);
+      // Upload now goes to column-mapping step first
+      assert.ok(r.data.showColumnMap, 'Should show column mapping after upload');
+      assert.ok(r.data.headers, 'Should have headers');
+      assert.ok(r.data.suggestedMap, 'Should have suggested column map');
+
+      // Confirm the auto-detected column mapping
+      const confirm = await http('POST', '/api/tom/message', {
+        sessionId: blastSessionId,
+        action: 'confirm_auto',
+        payload: { columnMap: r.data.suggestedMap }
+      });
+      assert.equal(confirm.status, 200);
+      assert.ok(confirm.data.showBlastForm, 'Should show blast form after column mapping');
+      assert.equal(confirm.data.contactCount, 4);
     });
 
     it('18. Parse contacts via tom (POST /api/tom with blast path + contacts text)', async () => {
@@ -378,7 +396,7 @@ describe('JobLink V2 — Full E2E', () => {
     });
 
     it('22. Get blast recipients (GET /api/blasts/:id/recipients)', async () => {
-      const r = await http('GET', `/api/blasts/${blastId}/recipients`);
+      const r = await http('GET', '/api/blasts/' + blastId + '/recipients');
       assert.equal(r.status, 200);
       assert.ok(r.data.blast, 'Should have blast details');
       assert.ok(Array.isArray(r.data.recipients));
@@ -386,7 +404,7 @@ describe('JobLink V2 — Full E2E', () => {
     });
 
     it('23. Download blast CSV (GET /api/blasts/:id/recipients/csv)', async () => {
-      const res = await httpRaw('GET', `/api/blasts/${blastId}/recipients/csv`);
+      const res = await httpRaw('GET', '/api/blasts/' + blastId + '/recipients/csv');
       assert.equal(res.status, 200);
       const ct = res.headers.get('content-type');
       assert.ok(ct.includes('text/csv'), 'Should be CSV content-type');
@@ -404,53 +422,53 @@ describe('JobLink V2 — Full E2E', () => {
 
     it('24. Mark interest (POST /m/:token/interest)', async () => {
       // Get a candidate's magic token
-      const cand = db.prepare("SELECT * FROM candidates WHERE phone = '5551112222'").get();
+      const cand = tenantDb.prepare("SELECT * FROM candidates WHERE phone = '5551112222'").get();
       assert.ok(cand, 'Candidate Alice should exist');
       candidateToken = cand.magic_token;
 
       // Interest on the published JO (Skilled Trade category)
-      const r = await http('POST', `/m/${candidateToken}/interest`, { job_order_id: joId }, { cookie: '' });
+      const r = await http('POST', '/m/' + candidateToken + '/interest', { job_order_id: joId }, { cookie: '' });
       assert.equal(r.status, 200);
       assert.equal(r.data.ok, true);
 
       // Verify interest was created
-      const interest = db.prepare("SELECT * FROM interests WHERE phone = '5551112222' AND job_order_id = ?").get(joId);
+      const interest = tenantDb.prepare("SELECT * FROM interests WHERE phone = '5551112222' AND job_order_id = ?").get(joId);
       assert.ok(interest, 'Interest should exist');
       interestId = interest.id;
     });
 
     it('25. Move to yes-listed (PATCH /api/interests/:id/status)', async () => {
-      const r = await http('PATCH', `/api/interests/${interestId}/status`, { status: 'yes_listed' });
+      const r = await http('PATCH', '/api/interests/' + interestId + '/status', { status: 'yes_listed' });
       assert.equal(r.status, 200);
       assert.equal(r.data.ok, true);
       assert.equal(r.data.status, 'yes_listed');
     });
 
     it('26. Move to confirmed', async () => {
-      const r = await http('PATCH', `/api/interests/${interestId}/status`, { status: 'confirmed' });
+      const r = await http('PATCH', '/api/interests/' + interestId + '/status', { status: 'confirmed' });
       assert.equal(r.status, 200);
       assert.equal(r.data.status, 'confirmed');
     });
 
     it('27. Move to filled', async () => {
-      const r = await http('PATCH', `/api/interests/${interestId}/status`, { status: 'filled' });
+      const r = await http('PATCH', '/api/interests/' + interestId + '/status', { status: 'filled' });
       assert.equal(r.status, 200);
       assert.equal(r.data.status, 'filled');
     });
 
     it('28. Rule out', async () => {
       // Create a second interest for a different candidate to rule out
-      const cand2 = db.prepare("SELECT * FROM candidates WHERE phone = '5553334444'").get();
-      await http('POST', `/m/${cand2.magic_token}/interest`, { job_order_id: joId }, { cookie: '' });
-      const interest2 = db.prepare("SELECT * FROM interests WHERE phone = '5553334444' AND job_order_id = ?").get(joId);
+      const cand2 = tenantDb.prepare("SELECT * FROM candidates WHERE phone = '5553334444'").get();
+      await http('POST', '/m/' + cand2.magic_token + '/interest', { job_order_id: joId }, { cookie: '' });
+      const interest2 = tenantDb.prepare("SELECT * FROM interests WHERE phone = '5553334444' AND job_order_id = ?").get(joId);
 
-      const r = await http('PATCH', `/api/interests/${interest2.id}/status`, { status: 'ruled_out' });
+      const r = await http('PATCH', '/api/interests/' + interest2.id + '/status', { status: 'ruled_out' });
       assert.equal(r.status, 200);
       assert.equal(r.data.status, 'ruled_out');
     });
 
     it('29. Undo fill (move back to confirmed)', async () => {
-      const r = await http('PATCH', `/api/interests/${interestId}/status`, { status: 'confirmed' });
+      const r = await http('PATCH', '/api/interests/' + interestId + '/status', { status: 'confirmed' });
       assert.equal(r.status, 200);
       assert.equal(r.data.status, 'confirmed');
     });
@@ -463,18 +481,18 @@ describe('JobLink V2 — Full E2E', () => {
   describe('Magic Link', () => {
 
     it('30. Load candidate page (GET /m/:token)', async () => {
-      const res = await httpRaw('GET', `/m/${candidateToken}`);
+      const res = await httpRaw('GET', '/m/' + candidateToken);
       assert.equal(res.status, 200);
       const html = await res.text();
       assert.ok(html.includes('Hi Alice'), 'Should greet candidate by name');
       assert.ok(html.includes('Published Welder'), 'Should show published JO');
     });
 
-    it('31. Preview page (GET /m/preview)', async () => {
-      const res = await httpRaw('GET', '/m/preview');
+    it('31. Preview page (GET /m/preview?org=1)', async () => {
+      const res = await httpRaw('GET', '/m/preview?org=1');
       assert.equal(res.status, 200);
       const html = await res.text();
-      assert.ok(html.includes('PREVIEW MODE'), 'Should show preview banner');
+      assert.ok(html.includes('PREVIEW'), 'Should show preview banner');
       assert.ok(html.includes('Published Welder'), 'Should show published jobs');
     });
   });
@@ -513,7 +531,7 @@ describe('JobLink V2 — Full E2E', () => {
     });
 
     it('34. Set template as default', async () => {
-      const r = await http('PUT', `/api/templates/${templateId}/default`);
+      const r = await http('PUT', '/api/templates/' + templateId + '/default');
       assert.equal(r.status, 200);
       assert.equal(r.data.is_default, 1);
     });
@@ -526,7 +544,7 @@ describe('JobLink V2 — Full E2E', () => {
     });
 
     it('36. Edit user (PATCH /api/users/:id)', async () => {
-      const r = await http('PATCH', `/api/users/${invitedUserId}`, { display_name: 'Updated Name' });
+      const r = await http('PATCH', '/api/users/' + invitedUserId, { display_name: 'Updated Name' });
       assert.equal(r.status, 200);
       assert.equal(r.data.display_name, 'Updated Name');
     });
@@ -539,7 +557,7 @@ describe('JobLink V2 — Full E2E', () => {
       // Verify it's retrievable
       const list = await http('GET', '/api/feedback');
       assert.equal(list.status, 200);
-      assert.ok(list.data.some(f => f.body === 'Great tool, love it!'));
+      assert.ok(list.data.some(function(f) { return f.body === 'Great tool, love it!'; }));
     });
 
     it('38. Post changelog entry', async () => {
@@ -549,7 +567,7 @@ describe('JobLink V2 — Full E2E', () => {
 
       const list = await http('GET', '/api/changelog');
       assert.equal(list.status, 200);
-      assert.ok(list.data.some(c => c.version === 'v2.1.0'));
+      assert.ok(list.data.some(function(c) { return c.version === 'v2.1.0'; }));
     });
   });
 
@@ -625,14 +643,17 @@ describe('JobLink V2 — Full E2E', () => {
       const s = await http('POST', '/api/tom/start', { path: 'help' });
       assert.equal(s.status, 200);
       assert.ok(s.data.sessionId);
-      assert.ok(s.data.text.includes('Help'), 'Should show help intro');
+      // Help now shows topic-based navigation
+      assert.ok(s.data.helpTopics, 'Should show help topics');
+      assert.ok(s.data.helpTopics.length >= 5, 'Should have multiple help topics');
     });
 
-    it('42. Ask a question', async () => {
+    it('42. Ask about blast guard via topic selection', async () => {
       const s = await http('POST', '/api/tom/start', { path: 'help' });
       const r = await http('POST', '/api/tom/message', {
         sessionId: s.data.sessionId,
-        text: 'What is the cooldown for blasts?'
+        action: 'help_topic',
+        payload: { topic: 'blast_guard' }
       });
       assert.equal(r.status, 200);
       assert.ok(
@@ -667,8 +688,8 @@ describe('JobLink V2 — Full E2E', () => {
 
     it('Interest on non-published JO fails', async () => {
       // joId2 was completed earlier, try interest on it
-      const cand = db.prepare("SELECT magic_token FROM candidates WHERE phone = '5555556666'").get();
-      const r = await http('POST', `/m/${cand.magic_token}/interest`, { job_order_id: joId2 }, { cookie: '' });
+      const cand = tenantDb.prepare("SELECT magic_token FROM candidates WHERE phone = '5555556666'").get();
+      const r = await http('POST', '/m/' + cand.magic_token + '/interest', { job_order_id: joId2 }, { cookie: '' });
       assert.equal(r.data.ok, false);
       assert.equal(r.data.error, 'job_not_available');
     });
@@ -685,7 +706,7 @@ describe('JobLink V2 — Full E2E', () => {
     it('Candidate search works', async () => {
       const r = await http('GET', '/api/candidates?q=Alice');
       assert.equal(r.status, 200);
-      assert.ok(r.data.some(c => c.first_name === 'Alice'));
+      assert.ok(r.data.some(function(c) { return c.first_name === 'Alice'; }));
     });
 
     it('Candidates list returns all', async () => {
@@ -697,7 +718,7 @@ describe('JobLink V2 — Full E2E', () => {
     it('Job orders can be filtered by status', async () => {
       const r = await http('GET', '/api/job-orders?status=Published');
       assert.equal(r.status, 200);
-      assert.ok(r.data.every(jo => jo.status === 'Published'));
+      assert.ok(r.data.every(function(jo) { return jo.status === 'Published'; }));
     });
 
     it('Blasts list endpoint works', async () => {
@@ -714,8 +735,9 @@ describe('JobLink V2 — Full E2E', () => {
       // Verify we are logged out
       const me = await http('GET', '/api/me');
       assert.equal(me.status, 401);
-      // Re-login for remaining tests
-      await http('POST', '/api/login', { username: 'admin', password: 'joblink2026' });
+      // Re-login for remaining tests (use email since that always works with fresh seed)
+      const login = await http('POST', '/api/login', { email: 'joshuafriends@gmail.com', password: 'joblink2026' });
+      assert.equal(login.status, 200, 'Re-login after logout should succeed');
     });
 
     it('Typed "yes" at blast gate is rejected', async () => {
@@ -748,7 +770,7 @@ describe('JobLink V2 — Full E2E', () => {
     });
 
     it('PATCH template body', async () => {
-      const r = await http('PATCH', `/api/templates/${templateId}`, {
+      const r = await http('PATCH', '/api/templates/' + templateId, {
         body: 'Updated: {first_name} check {link}'
       });
       assert.equal(r.status, 200);
@@ -760,21 +782,21 @@ describe('JobLink V2 — Full E2E', () => {
       const t = await http('POST', '/api/templates', {
         name: 'To Delete', body: 'Delete me {link}'
       });
-      const r = await http('DELETE', `/api/templates/${t.data.id}`);
+      const r = await http('DELETE', '/api/templates/' + t.data.id);
       assert.equal(r.status, 200);
       assert.equal(r.data.ok, true);
     });
 
     it('Cannot delete default template', async () => {
-      const r = await http('DELETE', `/api/templates/${templateId}`);
+      const r = await http('DELETE', '/api/templates/' + templateId);
       assert.equal(r.status, 400);
       assert.ok(r.data.error.includes('default'));
     });
 
     it('Invite validate endpoint', async () => {
       await http('POST', '/api/invite', { email: 'validate-test@example.com', role: 'recruiter' });
-      const user = db.prepare("SELECT invite_token FROM users WHERE email = 'validate-test@example.com'").get();
-      const r = await http('GET', `/api/invite/validate?token=${user.invite_token}`, null, { cookie: '' });
+      const user = sysDb.prepare("SELECT invite_token FROM users WHERE email = 'validate-test@example.com'").get();
+      const r = await http('GET', '/api/invite/validate?token=' + user.invite_token, null, { cookie: '' });
       assert.equal(r.status, 200);
       assert.equal(r.data.ok, true);
       assert.equal(r.data.email, 'validate-test@example.com');
@@ -782,7 +804,7 @@ describe('JobLink V2 — Full E2E', () => {
 
     it('Reset password flow', async () => {
       await http('POST', '/api/forgot-password', { email: 'joshuafriends@gmail.com' });
-      const user = db.prepare("SELECT magic_login_token FROM users WHERE email = 'joshuafriends@gmail.com'").get();
+      const user = sysDb.prepare("SELECT magic_login_token FROM users WHERE email = 'joshuafriends@gmail.com'").get();
       assert.ok(user.magic_login_token, 'Should have reset token');
 
       const r = await http('POST', '/api/reset-password', {
@@ -805,12 +827,12 @@ describe('JobLink V2 — Full E2E', () => {
     });
 
     it('Pipeline status validation rejects bad status', async () => {
-      const r = await http('PATCH', `/api/interests/${interestId}/status`, { status: 'invalid_status' });
+      const r = await http('PATCH', '/api/interests/' + interestId + '/status', { status: 'invalid_status' });
       assert.equal(r.status, 400);
     });
 
     it('JO detail includes pipeline counts', async () => {
-      const r = await http('GET', `/api/job-orders/${joId}`);
+      const r = await http('GET', '/api/job-orders/' + joId);
       assert.equal(r.status, 200);
       assert.ok('interested_count' in r.data);
       assert.ok('filled_count' in r.data);
