@@ -264,10 +264,7 @@ boot('dash').then(function() { loadDetail(); loadRecruiterOptions(); });
 
 <script>
 (function() {
-  var token = localStorage.getItem('joblink_token');
-  if (!token) return;
-  fetch('/api/categories', { headers: { 'Authorization': 'Bearer ' + token } })
-    .then(function(r) { return r.json(); })
+  api('/api/categories')
     .then(function(cats) {
       if (!Array.isArray(cats) || !cats.length) return;
       var sel = document.getElementById('fCategory');

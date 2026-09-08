@@ -22,6 +22,7 @@ const { createQboRoutes } = require("./routes/qbo");
 const { billingMiddleware } = require('./middleware/billing');
 const { createReportRoutes } = require('./routes/reports');
 const { createWebhookRoutes } = require('./routes/webhooks');
+const { createReportRoutes } = require('./routes/reports');
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
