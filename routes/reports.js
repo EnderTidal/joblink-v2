@@ -15,7 +15,7 @@ const RESUMELINE_DB = {
   host: '127.0.0.1',
   port: 5432,
   user: process.env.RESUMELINE_DB_USER || 'billyfit_admin',
-  password: process.env.RESUMELINE_DB_PASS || 'REDACTED_PG_PASSWORD',
+  password: process.env.RESUMELINE_DB_PASSWORD,
   database: 'resumeline_prod',
   max: 2,
 };
