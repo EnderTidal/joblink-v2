@@ -16,12 +16,12 @@ const RESUMELINE_DB = {
   port: 5432,
   database: "resumeline_prod",
   user: "billyfit_admin",
-  password: "REDACTED_PG_PASSWORD",
+  password: process.env.RESUMELINE_DB_PASSWORD,
 };
 
 const MATT_ORG_ID = 1;
 const RESEND_KEY = process.env.RESEND_KEY;
-const TELEGRAM_BOT_TOKEN = "REDACTED_TELEGRAM_TOKEN";
+const TELEGRAM_BOT_TOKEN = process.env.COGS_TELEGRAM_BOT_TOKEN;
 const ASTRID_CHAT_ID = "-1003928477373";
 
 function getCurrentMonth() {
