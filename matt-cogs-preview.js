@@ -20,7 +20,7 @@ const RESUMELINE_DB = {
 };
 
 const MATT_ORG_ID = 1;
-const RESEND_KEY = process.env.RESEND_KEY || "REDACTED";
+const RESEND_KEY = process.env.RESEND_KEY;
 const TELEGRAM_BOT_TOKEN = "REDACTED_TELEGRAM_TOKEN";
 const ASTRID_CHAT_ID = "-1003928477373";
 
