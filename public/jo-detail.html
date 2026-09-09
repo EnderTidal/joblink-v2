@@ -29,7 +29,7 @@
         <label class="f">Category<select name="category" id="fCategory"><!-- loaded dynamically --></select></label>
       </div>
       <div class="row2">
-        <label class="f">Pay<input name="pay" id="fPay"></label>
+        <label class="f">Pay<div style="position:relative"><span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-subtle,#64748b);font-weight:600;pointer-events:none">$</span><input name="pay" id="fPay" style="padding-left:22px"></div></label>
         <label class="f">Shift / Hours<input name="shift_hours" id="fShift"></label>
       </div>
       <div class="row2">
@@ -75,7 +75,7 @@ function renderHeader(jo) {
     '</div>' +
     '<div class="jo-meta">' +
       '<span><span class="meta-label">Category</span><span class="meta-value">' + esc(jo.category || '\u2014') + '</span></span>' +
-      '<span><span class="meta-label">Pay</span><span class="meta-value">' + esc(jo.pay || '\u2014') + '</span></span>' +
+      '<span><span class="meta-label">Pay</span><span class="meta-value">' + (jo.pay ? '$' + esc(jo.pay.replace(/^\$/,'')) : '\u2014') + '</span></span>' +
       '<span><span class="meta-label">Shift</span><span class="meta-value">' + esc(jo.shift_hours || '\u2014') + '</span></span>' +
       '<span><span class="meta-label">Location</span><span class="meta-value">' + esc(jo.city_state || '\u2014') + '</span></span>' +
       '<span><span class="meta-label">Recruiter</span><span class="meta-value">' + esc(jo.assigned_recruiter || '\u2014') + '</span></span>' +
@@ -104,7 +104,7 @@ function populateEditForm(jo) {
   document.getElementById('fTitle').value = jo.title || '';
   window._currentJo = jo;
   document.getElementById('fCategory').value = jo.category || 'Industrial';
-  document.getElementById('fPay').value = jo.pay || '';
+  document.getElementById('fPay').value = (jo.pay || '').replace(/^\$/,'');
   document.getElementById('fShift').value = jo.shift_hours || '';
   document.getElementById('fCityState').value = jo.city_state || '';
   document.getElementById('fAddress').value = jo.address || '';
@@ -145,7 +145,7 @@ async function saveEdit() {
   var data = {
     title: document.getElementById('fTitle').value,
     category: document.getElementById('fCategory').value,
-    pay: document.getElementById('fPay').value,
+    pay: document.getElementById('fPay').value.replace(/^\$/,''),
     shift_hours: document.getElementById('fShift').value,
     city_state: document.getElementById('fCityState').value,
     address: document.getElementById('fAddress').value,
