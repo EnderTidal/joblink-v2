@@ -275,7 +275,7 @@ function createAuth(sysDb) {
     const expires = new Date(Date.now() + RESET_TTL_MS).toISOString();
     updateUser(sysDb, user.id, { magic_login_token: resetToken, magic_login_expires: expires });
     const baseUrl = getBaseUrl(user.org_id, req);
-    const link = baseUrl + '/reset-password.html?token=' + resetToken;
+    const link = baseUrl + '/reset-password.html?token=' + encodeURIComponent(resetToken);
     sendEmail(String(email), 'Reset your JobLink password',
       '<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">' +
         '<h2 style="color:#3b82f6">Reset Your Password</h2>' +
@@ -309,7 +309,7 @@ function createAuth(sysDb) {
     const expires = new Date(Date.now() + MAGIC_TTL_MS).toISOString();
     updateUser(sysDb, user.id, { magic_login_token: magicToken, magic_login_expires: expires });
     const baseUrl = getBaseUrl(user.org_id, req);
-    const link = baseUrl + '/api/magic-login/verify?token=' + magicToken;
+    const link = baseUrl + '/api/magic-login/verify?token=' + encodeURIComponent(magicToken);
     sendEmail(String(email), 'Sign in to JobLink',
       '<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">' +
         '<h2 style="color:#3b82f6">Sign In to JobLink</h2>' +
