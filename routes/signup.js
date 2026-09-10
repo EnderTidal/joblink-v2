@@ -219,6 +219,35 @@ function createStripeWebhook(sysDb) {
 
     console.log('[stripe-webhook] ' + event.type);
 
+    // --- Customer scoping: ignore events for non-JobLink customers ---
+    const customerIdFromEvent = (function extractCustomer(evt) {
+      const obj = evt.data && evt.data.object;
+      if (!obj) return null;
+      // Most events have .customer directly (subscription, invoice)
+      if (obj.customer) return typeof obj.customer === 'string' ? obj.customer : obj.customer.id;
+      // checkout.session.completed may not have customer for new signups
+      return null;
+    })(event);
+
+    if (customerIdFromEvent) {
+      const ownerOrg = findOrgByStripeCustomer(sysDb, customerIdFromEvent);
+      if (!ownerOrg) {
+        // For checkout.session.completed, also check pending_signups
+        if (event.type === 'checkout.session.completed') {
+          const pending = findPendingBySession(sysDb, event.data.object.id);
+          if (!pending) {
+            console.log('[stripe-webhook] Ignoring event for non-JobLink customer ' + customerIdFromEvent + ' (type: ' + event.type + ')');
+            return res.json({ received: true });
+          }
+          // else: pending signup exists, continue processing
+        } else {
+          console.log('[stripe-webhook] Ignoring event for non-JobLink customer ' + customerIdFromEvent + ' (type: ' + event.type + ')');
+          return res.json({ received: true });
+        }
+      }
+    }
+    // --- End customer scoping ---
+
     try {
       switch (event.type) {
         case 'customer.subscription.created':
