@@ -275,7 +275,181 @@ function createStripeWebhook(sysDb) {
           break;
         }
 
-        case 'invoice.payment_failed': {
+        case 'checkout.session.completed': {
+          const session = event.data.object;
+          if (session.mode === 'subscription') {
+            const org = findOrgByStripeCustomer(sysDb, session.customer);
+            var orgName = org ? org.name : 'Unknown';
+            var sessionAmt = session.amount_total ? (session.amount_total / 100).toFixed(2) : '?';
+            console.log('[stripe-webhook] Checkout completed for ' + orgName + ' 
+          const invoice = event.data.object;
+          const org = findOrgByStripeCustomer(sysDb, invoice.customer);
+          if (!org) break;
+          updateOrgBilling(sysDb, org.id, {
+            subscription_status: 'past_due',
+          });
+          console.log('[stripe-webhook] Org ' + org.id + ' payment failed - marked past_due');
+          // Alert Josh
+          var amt = (invoice.amount_due / 100).toFixed(2);
+          var alertText = 'PAYMENT FAILED' + '\n' + 'Org: ' + (org.name || 'Unknown') + '\n' + 'Amount: ' + String.fromCharCode(36) + amt + '\n' + 'Attempt: ' + (invoice.attempt_count || 1) + '\n' + 'Invoice: ' + invoice.id;
+          var alertEmailBody = JSON.stringify({
+            from: 'JobLink <noreply@joblinkplatform.com>',
+            to: ['joshuafriends@gmail.com'],
+            subject: 'JobLink: Payment Failed - ' + (org.name || 'Unknown Org'),
+            text: alertText
+          });
+          fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.RESEND_KEY }, body: alertEmailBody }).catch(function(e) { console.error('[payment-alert]', e.message); });
+          break;
+        }
+
+        default:
+          break;
+      }
+    } catch (err) {
+      console.error('[stripe-webhook] Handler error:', err.message);
+    }
+
+    res.json({ received: true });
+  });
+
+  return router;
+}
+
+module.exports = { createSignupRoutes, createStripeWebhook };
+ + sessionAmt);
+            var checkoutAlert = JSON.stringify({
+              from: 'JobLink <josh@joblinkplatform.com>',
+              to: ['joshuafriends@gmail.com'],
+              subject: 'JobLink: New Subscription - ' + orgName,
+              text: 'NEW SUBSCRIPTION\nOrg: ' + orgName + '\nAmount: 
+          const invoice = event.data.object;
+          const org = findOrgByStripeCustomer(sysDb, invoice.customer);
+          if (!org) break;
+          updateOrgBilling(sysDb, org.id, {
+            subscription_status: 'past_due',
+          });
+          console.log('[stripe-webhook] Org ' + org.id + ' payment failed - marked past_due');
+          // Alert Josh
+          var amt = (invoice.amount_due / 100).toFixed(2);
+          var alertText = 'PAYMENT FAILED' + '\n' + 'Org: ' + (org.name || 'Unknown') + '\n' + 'Amount: ' + String.fromCharCode(36) + amt + '\n' + 'Attempt: ' + (invoice.attempt_count || 1) + '\n' + 'Invoice: ' + invoice.id;
+          var alertEmailBody = JSON.stringify({
+            from: 'JobLink <noreply@joblinkplatform.com>',
+            to: ['joshuafriends@gmail.com'],
+            subject: 'JobLink: Payment Failed - ' + (org.name || 'Unknown Org'),
+            text: alertText
+          });
+          fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.RESEND_KEY }, body: alertEmailBody }).catch(function(e) { console.error('[payment-alert]', e.message); });
+          break;
+        }
+
+        default:
+          break;
+      }
+    } catch (err) {
+      console.error('[stripe-webhook] Handler error:', err.message);
+    }
+
+    res.json({ received: true });
+  });
+
+  return router;
+}
+
+module.exports = { createSignupRoutes, createStripeWebhook };
+ + sessionAmt + '\nCustomer: ' + session.customer + '\nSession: ' + session.id
+            });
+            fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.RESEND_KEY }, body: checkoutAlert }).catch(function(e) { console.error('[payment-alert]', e.message); });
+          }
+          break;
+        }
+
+        case 'invoice.payment_succeeded': {
+          const inv = event.data.object;
+          const org = findOrgByStripeCustomer(sysDb, inv.customer);
+          if (!org) break;
+          var invAmt = (inv.amount_paid / 100).toFixed(2);
+          console.log('[stripe-webhook] Invoice paid for ' + org.name + ' 
+          const invoice = event.data.object;
+          const org = findOrgByStripeCustomer(sysDb, invoice.customer);
+          if (!org) break;
+          updateOrgBilling(sysDb, org.id, {
+            subscription_status: 'past_due',
+          });
+          console.log('[stripe-webhook] Org ' + org.id + ' payment failed - marked past_due');
+          // Alert Josh
+          var amt = (invoice.amount_due / 100).toFixed(2);
+          var alertText = 'PAYMENT FAILED' + '\n' + 'Org: ' + (org.name || 'Unknown') + '\n' + 'Amount: ' + String.fromCharCode(36) + amt + '\n' + 'Attempt: ' + (invoice.attempt_count || 1) + '\n' + 'Invoice: ' + invoice.id;
+          var alertEmailBody = JSON.stringify({
+            from: 'JobLink <noreply@joblinkplatform.com>',
+            to: ['joshuafriends@gmail.com'],
+            subject: 'JobLink: Payment Failed - ' + (org.name || 'Unknown Org'),
+            text: alertText
+          });
+          fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.RESEND_KEY }, body: alertEmailBody }).catch(function(e) { console.error('[payment-alert]', e.message); });
+          break;
+        }
+
+        default:
+          break;
+      }
+    } catch (err) {
+      console.error('[stripe-webhook] Handler error:', err.message);
+    }
+
+    res.json({ received: true });
+  });
+
+  return router;
+}
+
+module.exports = { createSignupRoutes, createStripeWebhook };
+ + invAmt);
+          var paidAlert = JSON.stringify({
+            from: 'JobLink <josh@joblinkplatform.com>',
+            to: ['joshuafriends@gmail.com'],
+            subject: 'JobLink: Invoice Paid - ' + org.name,
+            text: 'INVOICE PAID\nOrg: ' + org.name + '\nAmount: 
+          const invoice = event.data.object;
+          const org = findOrgByStripeCustomer(sysDb, invoice.customer);
+          if (!org) break;
+          updateOrgBilling(sysDb, org.id, {
+            subscription_status: 'past_due',
+          });
+          console.log('[stripe-webhook] Org ' + org.id + ' payment failed - marked past_due');
+          // Alert Josh
+          var amt = (invoice.amount_due / 100).toFixed(2);
+          var alertText = 'PAYMENT FAILED' + '\n' + 'Org: ' + (org.name || 'Unknown') + '\n' + 'Amount: ' + String.fromCharCode(36) + amt + '\n' + 'Attempt: ' + (invoice.attempt_count || 1) + '\n' + 'Invoice: ' + invoice.id;
+          var alertEmailBody = JSON.stringify({
+            from: 'JobLink <noreply@joblinkplatform.com>',
+            to: ['joshuafriends@gmail.com'],
+            subject: 'JobLink: Payment Failed - ' + (org.name || 'Unknown Org'),
+            text: alertText
+          });
+          fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.RESEND_KEY }, body: alertEmailBody }).catch(function(e) { console.error('[payment-alert]', e.message); });
+          break;
+        }
+
+        default:
+          break;
+      }
+    } catch (err) {
+      console.error('[stripe-webhook] Handler error:', err.message);
+    }
+
+    res.json({ received: true });
+  });
+
+  return router;
+}
+
+module.exports = { createSignupRoutes, createStripeWebhook };
+ + invAmt + '\nType: ' + (inv.billing_reason || 'unknown') + '\nInvoice: ' + inv.id
+          });
+          fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.RESEND_KEY }, body: paidAlert }).catch(function(e) { console.error('[payment-alert]', e.message); });
+          break;
+        }
+
+                case 'invoice.payment_failed': {
           const invoice = event.data.object;
           const org = findOrgByStripeCustomer(sysDb, invoice.customer);
           if (!org) break;
