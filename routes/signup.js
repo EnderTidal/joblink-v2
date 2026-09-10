@@ -298,12 +298,21 @@ function createStripeWebhook(sysDb) {
           const org = findOrgByStripeCustomer(sysDb, inv.customer);
           if (!org) break;
           var invAmt = (inv.amount_paid / 100).toFixed(2);
+          var lineItems = '';
+          if (inv.lines && inv.lines.data) {
+            inv.lines.data.forEach(function(line) {
+              var desc = line.description || 'Line item';
+              var amt = (line.amount / 100).toFixed(2);
+              lineItems += '  ' + desc + ': ' + String.fromCharCode(36) + amt + '\n';
+            });
+          }
           console.log('[stripe-webhook] Invoice paid for ' + org.name + ' ' + String.fromCharCode(36) + invAmt);
+          var paidText = 'INVOICE PAID\nOrg: ' + org.name + '\nTotal: ' + String.fromCharCode(36) + invAmt + '\n' + (lineItems || '') + 'Type: ' + (inv.billing_reason || 'unknown') + '\nInvoice: ' + inv.id;
           var paidAlert = JSON.stringify({
             from: 'JobLink <josh@joblinkplatform.com>',
             to: ['joshuafriends@gmail.com'],
-            subject: 'JobLink: Invoice Paid - ' + org.name,
-            text: 'INVOICE PAID\nOrg: ' + org.name + '\nAmount: ' + String.fromCharCode(36) + invAmt + '\nType: ' + (inv.billing_reason || 'unknown') + '\nInvoice: ' + inv.id
+            subject: 'JobLink: Invoice Paid - ' + org.name + ' (' + String.fromCharCode(36) + invAmt + ')',
+            text: paidText
           });
           fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.RESEND_KEY }, body: paidAlert }).catch(function(e) { console.error('[payment-alert]', e.message); });
           break;
