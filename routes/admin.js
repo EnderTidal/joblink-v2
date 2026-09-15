@@ -154,7 +154,7 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
       // Log events for all interests being deleted
       const interests = req.db.prepare("SELECT phone, job_order_id, status FROM interests WHERE job_order_id = ?").all(id);
       for (const interest of interests) {
-        logInterestEvent(req.db, interest.phone, interest.job_order_id, interest.status, 'deleted', req.user?.username || 'admin');
+        logInterestEvent(req.db, interest.phone, interest.job_order_id, interest.status, 'deleted', req.user?.display_name || req.user?.username || 'admin');
       }
       req.db.prepare("DELETE FROM interests WHERE job_order_id = ?").run(id);
       req.db.prepare("DELETE FROM job_orders WHERE id = ?").run(id);
@@ -219,7 +219,7 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
     const fromStatus = interest.status;
     req.db.prepare('UPDATE interests SET status = ? WHERE id = ?').run(status, id);
     // Log the status transition
-    logInterestEvent(req.db, interest.phone, interest.job_order_id, fromStatus, status, req.user?.username || null);
+    logInterestEvent(req.db, interest.phone, interest.job_order_id, fromStatus, status, req.user?.display_name || req.user?.username || null);
     res.json({ ok: true, id, status });
   });
 
@@ -660,7 +660,7 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
   router.post('/api/feedback', (req, res) => {
     const { body, type } = req.body || {};
     if (!body) return res.status(400).json({ error: 'body required' });
-    const author = req.user?.username || null;
+    const author = req.user?.display_name || req.user?.username || null;
     const fbType = type || 'general';
     req.db.prepare('INSERT INTO feedback (author, body, type) VALUES (?, ?, ?)').run(author, String(body), fbType);
     sendFeedbackEmail(author, body);

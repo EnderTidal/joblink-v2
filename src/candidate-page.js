@@ -26,7 +26,7 @@ function markInterest(db, candidate, jobOrderId) {
       'INSERT OR IGNORE INTO interests (phone, job_order_id, blast_id) VALUES (?, ?, ?)',
     ).run(candidate.phone, jobOrderId, blast ? blast.id : null);
     // Log the new interest event
-    logInterestEvent(db, candidate.phone, jobOrderId, null, 'interested', 'candidate');
+    logInterestEvent(db, candidate.phone, jobOrderId, null, 'interested', (candidate.first_name || '') + ' ' + (candidate.last_name || '') + ' (self)');
   }
   return { ok: true };
 }

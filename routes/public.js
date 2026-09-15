@@ -77,7 +77,7 @@ function createPublicRoutes(sysDb) {
       // Log the removal event before deleting
       const existing = db.prepare('SELECT status FROM interests WHERE phone = ? AND job_order_id = ?').get(candidate.phone, joId);
       if (existing) {
-        logInterestEvent(db, candidate.phone, joId, existing.status, 'withdrawn', 'candidate');
+        logInterestEvent(db, candidate.phone, joId, existing.status, 'withdrawn', (candidate.first_name || '') + ' ' + (candidate.last_name || '') + ' (self)');
       }
       db.prepare('DELETE FROM interests WHERE phone = ? AND job_order_id = ?').run(candidate.phone, joId);
       res.json({ ok: true });
@@ -110,7 +110,7 @@ function createPublicRoutes(sysDb) {
     // Log the removal event before deleting
     const existing = db.prepare('SELECT status FROM interests WHERE phone = ? AND job_order_id = ?').get(candidate.phone, joId);
     if (existing) {
-      logInterestEvent(db, candidate.phone, joId, existing.status, 'withdrawn', 'candidate');
+      logInterestEvent(db, candidate.phone, joId, existing.status, 'withdrawn', (candidate.first_name || '') + ' ' + (candidate.last_name || '') + ' (self)');
     }
     db.prepare('DELETE FROM interests WHERE phone = ? AND job_order_id = ?').run(candidate.phone, joId);
     res.json({ ok: true });
