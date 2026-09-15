@@ -313,7 +313,48 @@ function checkTrialReminders() {
 }
 
 if (require.main === module) {
-  app.listen(PORT, () => {
+  
+// ---- Scheduled Blast Runner (checks every 60 seconds) ----
+setInterval(async () => {
+  try {
+    const { getTenantDb } = require('./src/tenant');
+    const { executeBlast } = require('./src/blast');
+    const { getProvider } = require('./src/messaging');
+    const dataDir = process.env.DATA_DIR || require('path').join(__dirname, 'data');
+    const orgFiles = require('fs').readdirSync(dataDir).filter(f => /^org-\d+\.db$/.test(f));
+    const now = new Date().toISOString();
+    for (const file of orgFiles) {
+      const orgId = parseInt(file.match(/org-(\d+)/)[1]);
+      try {
+        const db = getTenantDb(orgId);
+        let due;
+        try { due = db.prepare("SELECT * FROM scheduled_blasts WHERE status = 'pending' AND send_at <= ?").all(now); } catch { continue; }
+        for (const blast of due) {
+          try {
+            const plan = JSON.parse(blast.plan_json);
+            const numberOverride = blast.from_number ? JSON.parse(blast.from_number) : null;
+            const provider = getProvider(db, numberOverride);
+            await executeBlast(db, plan, {
+              templateId: blast.template_id,
+              templateBody: blast.template_body,
+              provider,
+              sentBy: blast.sent_by,
+              recruiterId: blast.recruiter_id,
+              recruiterUsername: blast.recruiter_username,
+            });
+            db.prepare("UPDATE scheduled_blasts SET status = 'sent', sent_at_actual = ? WHERE id = ?").run(new Date().toISOString(), blast.id);
+            console.log('[scheduler] Org ' + orgId + ' blast #' + blast.id + ' sent');
+          } catch (e) {
+            db.prepare("UPDATE scheduled_blasts SET status = 'failed', error = ? WHERE id = ?").run(e.message, blast.id);
+            console.error('[scheduler] Org ' + orgId + ' blast #' + blast.id + ' failed:', e.message);
+          }
+        }
+      } catch { /* skip this org */ }
+    }
+  } catch (e) { console.error('[scheduler] Error:', e.message); }
+}, 60_000);
+
+app.listen(PORT, () => {
     console.log('JobLink V2.0 (multi-tenant) running -> http://localhost:' + PORT);
     try {
       const db1 = getTenantDb(1);

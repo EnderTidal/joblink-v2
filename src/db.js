@@ -63,6 +63,24 @@ CREATE TABLE IF NOT EXISTS blast_recipients (
   PRIMARY KEY (blast_id, phone)
 );
 
+CREATE TABLE IF NOT EXISTS scheduled_blasts (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  send_at      TEXT NOT NULL,
+  plan_json    TEXT NOT NULL,
+  template_id  INTEGER,
+  template_body TEXT,
+  category     TEXT,
+  sent_by      TEXT,
+  recruiter_id TEXT,
+  recruiter_username TEXT,
+  from_number  TEXT,
+  status       TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sent','failed','cancelled')),
+  created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  sent_at_actual TEXT,
+  error        TEXT
+);
+
+
 CREATE TABLE IF NOT EXISTS interests (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   phone        TEXT NOT NULL REFERENCES candidates(phone),

@@ -762,6 +762,30 @@ function createTom(db) {
           confirmButton: { action: 'confirm_send', label: `Send to ${s.data.plan.sendable.length} people` },
         });
       }
+      
+      if (action === 'schedule_send') {
+        if (!s.data.plan.sendable.length) return reply(s, 'Nobody to send to \u2014 everyone was skipped.');
+        const sendAt = extra?.send_at;
+        if (!sendAt) return reply(s, 'No schedule time provided.');
+        const numberOverride = s.data.selectedFromNumber ? resolveNumber(db, s.data.selectedFromNumber) : null;
+        const recruiterId = s.data.recruiterId || null;
+        const recruiterUsername = s.data.recruiterUsername || null;
+        db.prepare(`INSERT INTO scheduled_blasts (send_at, plan_json, template_id, template_body, category, sent_by, recruiter_id, recruiter_username, from_number)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+          sendAt,
+          JSON.stringify(s.data.plan),
+          s.data.template.id,
+          s.data.template.body,
+          s.data.category || '',
+          user || s.user || null,
+          recruiterId,
+          recruiterUsername,
+          numberOverride ? JSON.stringify(numberOverride) : null
+        );
+        s.state = 'ask_another';
+        const scheduledTime = new Date(sendAt).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+        return reply(s, `\u23F0 Blast scheduled for ${scheduledTime} Central.\n${s.data.plan.sendable.length} candidates will receive the blast at that time.\n\nSend another? (yes / no)`);
+      }
       return reply(s, 'Press the Send button when you\'re ready, or start a new conversation to cancel.');
     }
 

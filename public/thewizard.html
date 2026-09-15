@@ -1631,10 +1631,50 @@ function showBlastForm(data) {
   var actions = document.createElement('div');
   actions.className = 'bf-actions';
 
+  // --- Schedule toggle (before Preview Blast) ---
+  var schedSection = document.createElement('div');
+  schedSection.style.cssText = 'border-top:1px solid var(--border);margin:8px 0 4px;padding-top:4px;';
+  schedSection.innerHTML = '<span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);">Scheduling</span>';
+  var schedRow = document.createElement('div');
+  schedRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin:10px 0 6px;';
+  var schedToggle = document.createElement('input');
+  schedToggle.type = 'checkbox';
+  schedToggle.id = 'scheduleBlastToggle';
+  schedToggle.style.cssText = 'width:18px;height:18px;cursor:pointer;';
+  var schedLbl = document.createElement('label');
+  schedLbl.htmlFor = 'scheduleBlastToggle';
+  schedLbl.textContent = 'Schedule for later instead of sending now';
+  schedLbl.style.cssText = 'font-size:14px;cursor:pointer;';
+  schedRow.appendChild(schedToggle);
+  schedRow.appendChild(schedLbl);
+  var schedPickerRow = document.createElement('div');
+  schedPickerRow.style.cssText = 'display:none;margin:8px 0 12px;';
+  schedPickerRow.innerHTML = '<label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Send at</label><input type="datetime-local" id="schedDateTime" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);">';
+  schedToggle.addEventListener('change', function() {
+    schedPickerRow.style.display = this.checked ? 'block' : 'none';
+    var pb = document.querySelector('.bf-actions .btn:first-child');
+    if (pb) pb.textContent = this.checked ? '\u23F0 Schedule Blast' : 'Preview Blast';
+  });
+  schedSection.appendChild(schedRow);
+  schedSection.appendChild(schedPickerRow);
+  panel.appendChild(schedSection);
+
   var previewBtn = document.createElement('button');
   previewBtn.className = 'btn';
   previewBtn.textContent = 'Preview Blast';
-  previewBtn.addEventListener('click', function() { submitBlastForm(); });
+  previewBtn.addEventListener('click', function() {
+    var schedOn = document.getElementById('scheduleBlastToggle');
+    if (schedOn && schedOn.checked) {
+      var dt = document.getElementById('schedDateTime').value;
+      if (!dt) { alert('Please select a date and time for the scheduled blast.'); return; }
+      // Submit the form with schedule flag
+      previewBtn.disabled = true;
+      previewBtn.textContent = 'Scheduling...';
+      submitBlastForm({ schedule: true, send_at: new Date(dt).toISOString() });
+    } else {
+      submitBlastForm();
+    }
+  });
 
   var startOverBtn = document.createElement('button');
   startOverBtn.className = 'btn text-link';
