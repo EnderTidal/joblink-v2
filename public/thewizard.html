@@ -329,6 +329,8 @@
 
 <script src="/app.js?v=5"></script>
 <script>
+
+    function colLetter(i) { let s = ''; while (i >= 0) { s = String.fromCharCode(65 + (i % 26)) + s; i = Math.floor(i / 26) - 1; } return s; }
 var session = null;
 var currentPath = null;
 var joFormActive = false;
@@ -861,7 +863,7 @@ function showColumnMapPanel(data) {
   headers.forEach(function(h, i) {
     var o = document.createElement('option');
     o.value = i;
-    o.textContent = h || '(Column ' + (i + 1) + ')';
+    o.textContent = h || '(Column ' + colLetter(i) + ')';
     if (nameCol !== null && i === nameCol) o.selected = true;
     nameSel.appendChild(o);
   });
@@ -914,7 +916,7 @@ function showColumnMapPanel(data) {
   headers.forEach(function(h, i) {
     var o = document.createElement('option');
     o.value = i;
-    o.textContent = h || '(Column ' + (i + 1) + ')';
+    o.textContent = h || '(Column ' + colLetter(i) + ')';
     if (firstCol !== null && i === firstCol) o.selected = true;
     firstSel.appendChild(o);
   });
@@ -929,7 +931,7 @@ function showColumnMapPanel(data) {
   headers.forEach(function(h, i) {
     var o = document.createElement('option');
     o.value = i;
-    o.textContent = h || '(Column ' + (i + 1) + ')';
+    o.textContent = h || '(Column ' + colLetter(i) + ')';
     if (lastCol !== null && i === lastCol) o.selected = true;
     lastSel.appendChild(o);
   });
@@ -954,7 +956,7 @@ function showColumnMapPanel(data) {
   headers.forEach(function(h, i) {
     var o = document.createElement('option');
     o.value = i;
-    o.textContent = h || '(Column ' + (i + 1) + ')';
+    o.textContent = h || '(Column ' + colLetter(i) + ')';
     if (phoneCol !== null && i === phoneCol) o.selected = true;
     phoneSel.appendChild(o);
   });
@@ -1139,7 +1141,7 @@ function showExclusionMapPanel(data) {
   headers.forEach(function(h, i) {
     var o = document.createElement('option');
     o.value = i;
-    o.textContent = h || '(Column ' + (i + 1) + ')';
+    o.textContent = h || '(Column ' + colLetter(i) + ')';
     if (suggestedPhoneCol !== null && i === suggestedPhoneCol) o.selected = true;
     phoneSel.appendChild(o);
   });
