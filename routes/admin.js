@@ -176,9 +176,15 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
     ).get(id);
     if (!jo) return res.status(404).json({ error: 'not_found' });
     const allInterests = req.db.prepare(
-      `SELECT i.id AS interest_id, i.status AS pipeline_status, c.phone, c.first_name, c.last_name, c.current_category, i.created_at AS interest_date
+      `SELECT i.id AS interest_id, i.status AS pipeline_status, c.phone, c.first_name, c.last_name, c.current_category, i.created_at AS interest_date,
+         ie.changed_by AS last_changed_by, ie.changed_at AS last_changed_at
        FROM interests i
        JOIN candidates c ON c.phone = i.phone
+       LEFT JOIN (
+         SELECT phone, job_order_id, changed_by, changed_at,
+           ROW_NUMBER() OVER (PARTITION BY phone, job_order_id ORDER BY changed_at DESC) AS rn
+         FROM interest_events
+       ) ie ON ie.phone = c.phone AND ie.job_order_id = i.job_order_id AND ie.rn = 1
        WHERE i.job_order_id = ?
        ORDER BY i.created_at DESC`
     ).all(id);

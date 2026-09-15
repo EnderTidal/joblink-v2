@@ -28,6 +28,14 @@
   .cat-chip.Skilled { color:var(--amber); background:var(--amber-soft); }
   .jo-title-link { color: var(--brand); cursor: pointer; }
   .pipeline-row:hover .jo-title-link { text-decoration: underline; }
+
+  .filter-chip-bar { padding:8px 22px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; background:var(--bg-surface, #fffbe6); border-bottom:1px solid var(--border); }
+  .filter-chip-bar.hidden { display:none; }
+  .filter-chip { display:inline-flex; align-items:center; gap:6px; background:#fef08a; color:#713f12; font-size:13px; font-weight:600; padding:4px 10px; border-radius:14px; }
+  .filter-chip .chip-x { cursor:pointer; font-size:15px; line-height:1; opacity:.6; }
+  .filter-chip .chip-x:hover { opacity:1; }
+  .filter-chip-bar .clear-all { font-size:12px; color:var(--text-muted); cursor:pointer; margin-left:auto; text-decoration:underline; }
+  .filter-chip-bar .clear-all:hover { color:var(--text); }
 </style>
 </head>
 <body>
@@ -91,7 +99,7 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input id="pipelineSearch" placeholder="Search title or company..." oninput="onSearch(this.value)">
       </div>
-<select id="recruiterFilter" onchange="recruiterFilter=this.value; loadRows()" class="sort-select" style="min-width:140px">
+<select id="recruiterFilter" onchange="recruiterFilter=this.value; loadRows(); updateFilterChips()" class="sort-select" style="min-width:140px">
         <option value="">All recruiters</option>
       </select>
       <select onchange="sortBy(this.value)" class="sort-select">
@@ -100,13 +108,16 @@
         <option value="category">Sort: Category</option>
         <option value="pay">Sort: Pay Rate</option>
       </select>
-      <select id="pipelineFilter" onchange="pipelineFilter=this.value; renderTable()" class="sort-select" style="min-width:150px">
+      <select id="pipelineFilter" onchange="pipelineFilter=this.value; renderTable(); updateFilterChips()" class="sort-select" style="min-width:150px">
         <option value="">Pipeline: All</option>
         <option value="has_interested">Has Interested</option>
         <option value="has_yeslisted">Has Yes-Listed</option>
         <option value="has_confirmed">Has Confirmed</option>
       </select>
     </div>
+
+    <!-- Active filter chips -->
+    <div id="filterChipBar" class="filter-chip-bar hidden"></div>
 
     <!-- Table head (CSS grid) -->
     <div class="panel-thead" id="sortableHeader">
@@ -298,7 +309,7 @@ function toggleCompleted() {
   document.getElementById('completedBody').classList.toggle('open');
 }
 
-function onSearch(v) {
+function onSearch(v) { updateFilterChips();
   searchQuery = v;
   renderTable();
 }
@@ -355,11 +366,11 @@ function wireFilters(id, setter, storageKey) {
     });
   });
 }
-wireFilters('statusFilters', function(v) { statusFilter = v; }, 'jl_filter_status');
+wireFilters('statusFilters', function(v) { statusFilter = v; updateFilterChips(); }, 'jl_filter_status');
 document.getElementById('catFilterSelect').addEventListener('change', function() {
     categoryFilter = this.value;
     localStorage.setItem('jl_filter_category', this.value);
-    loadRows();
+    loadRows(); updateFilterChips();
   });
 
 // ---- Pipeline action buttons for each status ----
@@ -392,12 +403,14 @@ function renderPipelineSection(title, badgeClass, candidates) {
   html += '<h3>' + title + ' <span class="pipeline-badge ' + badgeClass + '">' + candidates.length + '</span></h3>';
   html += '<span style="color:var(--text-muted);font-size:.82rem">\u25BC</span></div>';
   html += '<div class="pipeline-section-body open">';
-  html += '<table><thead><tr><th>Name</th><th>Phone</th><th>Category</th><th>Date</th><th>Actions</th></tr></thead><tbody>';
+  html += '<table><thead><tr><th>Name</th><th>Phone</th><th>Category</th><th>Date</th><th>Moved by</th><th>Actions</th></tr></thead><tbody>';
   candidates.forEach(function(c) {
     html += '<tr><td>' + esc(c.first_name) + ' ' + esc(c.last_name) + '</td>';
     html += '<td>' + esc(c.phone_display) + '</td>';
     html += '<td>' + esc(c.current_category || '\u2014') + '</td>';
     html += '<td>' + new Date(c.interest_date).toLocaleDateString() + '</td>';
+    var movedBy = c.last_changed_by ? ('<span style="font-size:.82rem;color:var(--text-muted)">' + esc(c.last_changed_by) + '<br>' + (c.last_changed_at ? new Date(c.last_changed_at).toLocaleDateString() + ' ' + new Date(c.last_changed_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '') + '</span>') : '<span style="font-size:.82rem;color:var(--text-muted)">\u2014</span>';
+    html += '<td>' + movedBy + '</td>';
     html += '<td>' + pipelineButtons(c) + '</td></tr>';
   });
   html += '</tbody></table></div></div>';
@@ -609,7 +622,36 @@ var _pipelineSel = document.getElementById('pipelineFilter');
 if (_pipelineSel) _pipelineSel.addEventListener('change', function() { localStorage.setItem('jl_filter_pipeline', this.value); });
 document.getElementById('pipelineSearch').addEventListener('input', function() { localStorage.setItem('jl_filter_search', this.value); });
 
-boot('dash').then(async function() { loadStats(); await loadRecruiterFilter(); restoreFilters(); loadRows(); loadBlasts(); });
+
+function updateFilterChips() {
+  var bar = document.getElementById('filterChipBar');
+  if (!bar) return;
+  var chips = [];
+  if (statusFilter) chips.push({ label: 'Status: ' + statusFilter, clear: function() { statusFilter = ''; localStorage.removeItem('jl_filter_status'); document.querySelectorAll('#statusFilters button').forEach(function(b){b.classList.toggle('on', b.dataset.v==='');}); loadRows(); updateFilterChips(); }});
+  if (categoryFilter) { var catSel = document.getElementById('catFilterSelect'); var catLabel = catSel ? catSel.options[catSel.selectedIndex].text : categoryFilter; chips.push({ label: 'Category: ' + catLabel, clear: function() { categoryFilter = ''; localStorage.removeItem('jl_filter_category'); var s = document.getElementById('catFilterSelect'); if(s) s.value=''; loadRows(); updateFilterChips(); }}); }
+  if (recruiterFilter) { var rSel = document.getElementById('recruiterFilter'); var rLabel = rSel ? rSel.options[rSel.selectedIndex].text : recruiterFilter; chips.push({ label: 'Recruiter: ' + rLabel, clear: function() { recruiterFilter = ''; localStorage.removeItem('jl_filter_recruiter'); var s = document.getElementById('recruiterFilter'); if(s) s.value=''; loadRows(); updateFilterChips(); }}); }
+  if (pipelineFilter) { var pSel = document.getElementById('pipelineFilter'); var pLabel = pSel ? pSel.options[pSel.selectedIndex].text : pipelineFilter; chips.push({ label: pLabel, clear: function() { pipelineFilter = ''; localStorage.removeItem('jl_filter_pipeline'); var s = document.getElementById('pipelineFilter'); if(s) s.value=''; renderTable(); updateFilterChips(); }}); }
+  if (searchQuery) chips.push({ label: 'Search: "' + searchQuery + '"', clear: function() { searchQuery = ''; localStorage.removeItem('jl_filter_search'); document.getElementById('pipelineSearch').value = ''; renderTable(); updateFilterChips(); }});
+  if (chips.length === 0) { bar.classList.add('hidden'); bar.innerHTML = ''; return; }
+  bar.classList.remove('hidden');
+  bar.innerHTML = '';
+  chips.forEach(function(c) {
+    var chip = document.createElement('span');
+    chip.className = 'filter-chip';
+    chip.innerHTML = c.label + ' <span class="chip-x">&times;</span>';
+    chip.querySelector('.chip-x').onclick = c.clear;
+    bar.appendChild(chip);
+  });
+  if (chips.length > 1) {
+    var clearAll = document.createElement('span');
+    clearAll.className = 'clear-all';
+    clearAll.textContent = 'Clear all';
+    clearAll.onclick = function() { chips.forEach(function(c) { c.clear(); }); };
+    bar.appendChild(clearAll);
+  }
+}
+
+boot('dash').then(async function() { loadStats(); await loadRecruiterFilter(); restoreFilters(); loadRows(); updateFilterChips(); loadBlasts(); });
 </script>
 
 <script>

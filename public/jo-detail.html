@@ -199,12 +199,14 @@ function renderSection(key, title, badgeCls, sectionCls, candidates) {
   if (count === 0) {
     html += '<p class="empty-msg">No candidates in this stage.</p>';
   } else {
-    html += '<table><thead><tr><th>Name</th><th>Phone</th><th>Category</th><th>Date</th><th>Actions</th></tr></thead><tbody>';
+    html += '<table><thead><tr><th>Name</th><th>Phone</th><th>Category</th><th>Date</th><th>Moved by</th><th>Actions</th></tr></thead><tbody>';
     candidates.forEach(function(c) {
       html += '<tr><td>' + esc(c.first_name) + ' ' + esc(c.last_name) + '</td>';
       html += '<td>' + esc(c.phone_display) + '</td>';
       html += '<td>' + esc(c.current_category || '\u2014') + '</td>';
       html += '<td>' + new Date(c.interest_date).toLocaleDateString() + '</td>';
+      var movedBy = c.last_changed_by ? ('<span style="font-size:.82rem;color:var(--text-muted)">' + esc(c.last_changed_by) + '<br>' + (c.last_changed_at ? new Date(c.last_changed_at).toLocaleDateString() + ' ' + new Date(c.last_changed_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '') + '</span>') : '<span style="font-size:.82rem;color:var(--text-muted)">\u2014</span>';
+      html += '<td>' + movedBy + '</td>';
       html += '<td class="act-group">' + pipelineButtons(c) + '</td></tr>';
     });
     html += '</tbody></table>';
