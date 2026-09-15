@@ -7,8 +7,8 @@ const path = require("path");
 const { Client } = require("pg");
 const rateLimit = require("express-rate-limit");
 
-const QBO_CLIENT_ID = process.env.QBO_CLIENT_ID || "aFCjZChe729kORQamKKZehX3APXwgSodAWTAnoHk";
-const QBO_CLIENT_SECRET = process.env.QBO_CLIENT_SECRET || "ABb4cbjzdI4hVwcJI1Fqm61w46s3fcNy4Ze1ZHa2x8H28ifmAw";
+const QBO_CLIENT_ID = process.env.QBO_CLIENT_ID || "ABb4cbjzdI4hVwcJI1Fqm61w46s3fcNy4Ze1ZHa2x8H28ifmAw";
+const QBO_CLIENT_SECRET = process.env.QBO_CLIENT_SECRET || "aFCjZChe729kORQamKKZehX3APXwgSodAWTAnoHk";
 const QBO_REALM_ID = process.env.QBO_REALM_ID || "9341457804886708";
 const QBO_REDIRECT_URI = "https://app.joblinkplatform.com/api/qbo-callback";
 const TOKEN_FILE = path.join(__dirname, "..", "data", "qbo-tokens.json");
