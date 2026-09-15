@@ -316,6 +316,7 @@ if (require.main === module) {
   
 // ---- Scheduled Blast Runner (checks every 60 seconds) ----
 setInterval(async () => {
+  console.log("[scheduler] tick");
   try {
     const { getTenantDb } = require('./src/tenant');
     const { executeBlast } = require('./src/blast');
@@ -331,7 +332,7 @@ setInterval(async () => {
         try { due = db.prepare("SELECT * FROM scheduled_blasts WHERE status = 'pending' AND send_at <= ?").all(now); } catch { continue; }
         for (const blast of due) {
           try {
-            const plan = JSON.parse(blast.plan_json);
+            const plan = JSON.parse(blast.plan_json); plan.skippedCooldown = plan.skippedCooldown || []; plan.skippedDnc = plan.skippedDnc || []; plan.category = plan.category || blast.category || '';
             const numberOverride = blast.from_number ? JSON.parse(blast.from_number) : null;
             const provider = getProvider(db, numberOverride);
             await executeBlast(db, plan, {
