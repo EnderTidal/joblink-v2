@@ -76,7 +76,7 @@ function create(config) {
     async assignAndCloseNewConversations(recruiterId, preBlastIds) {
       try {
         const pre = preBlastIds || new Set();
-        const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=1000&status=open', null);
+        const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=1000', null);
         const allOpen = (result?.data || []).filter(c => c.status === 'open');
         const newConvos = allOpen.filter(c => !pre.has(c.id));
         console.log("[whippy] assignAndClose: total open:", allOpen.length, "preBlast:", pre.size, "new:", newConvos.length, "recruiterId:", recruiterId);
