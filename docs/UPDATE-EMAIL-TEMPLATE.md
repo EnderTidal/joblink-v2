@@ -99,3 +99,10 @@ fetch('https://api.resend.com/emails', {
 - `JobLink Update — Dark Mode + Filter Chips`
 
 Keep subjects under 60 characters when possible. Lead with "JobLink Update" for consistency.
+
+## Sending Rules
+
+1. **Always send separate emails** — one per recipient. Never put multiple customers in the To field (they shouldn't see each other's addresses).
+2. **CC Josh and Matt on every customer email** — joshuafriends@gmail.com + matt.tibbetts@expresspros.com
+3. **Reply-to should work** — use notifications@joblinkplatform.com as sender, which should forward replies appropriately
+4. **Send to admins first** — recruiters get updates from their admin, not from us directly (unless told otherwise)
