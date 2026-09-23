@@ -173,10 +173,12 @@ function pipelineButtons(c) {
   if (s === 'interested') {
     btns += '<button class="row-btn btn-yeslist" onclick="move(' + c.interest_id + ',\'yes_listed\')">Yes-List</button>';
     btns += '<button class="row-btn btn-ruleout" onclick="move(' + c.interest_id + ',\'ruled_out\')">Rule Out</button>';
+    btns += '<button class="row-btn" style="background:#b45309;color:#fff;border-color:#b45309" onclick="discontinue(\'' + c.phone + '\',\'' + esc(c.first_name + ' ' + c.last_name) + '\')">Rule Out All</button>';
   } else if (s === 'yes_listed') {
     btns += '<button class="row-btn btn-confirm" onclick="move(' + c.interest_id + ',\'confirmed\')">Confirm</button>';
     btns += '<button class="row-btn btn-restore" onclick="move(' + c.interest_id + ',\'interested\')">Back</button>';
     btns += '<button class="row-btn btn-ruleout" onclick="move(' + c.interest_id + ',\'ruled_out\')">Rule Out</button>';
+    btns += '<button class="row-btn" style="background:#b45309;color:#fff;border-color:#b45309" onclick="discontinue(\'' + c.phone + '\',\'' + esc(c.first_name + ' ' + c.last_name) + '\')">Rule Out All</button>';
   } else if (s === 'confirmed') {
     btns += '<button class="row-btn btn-fill" onclick="move(' + c.interest_id + ',\'filled\')">Fill</button>';
     btns += '<button class="row-btn btn-restore" onclick="move(' + c.interest_id + ',\'yes_listed\')">Back</button>';
@@ -224,6 +226,16 @@ function renderPipeline(jo) {
   html += renderSection('filled', 'Filled', 'badge-filled', 'section-filled', p.filled);
   html += renderSection('ruled_out', 'Ruled Out', 'badge-ruledout', 'section-ruledout', p.ruled_out);
   document.getElementById('pipeline').innerHTML = html;
+}
+
+async function discontinue(phone, name) {
+  if (!confirm('Rule out ' + name + ' from ALL job orders?\n\nThis will move them to Ruled Out on every JO they expressed interest in. You can Restore them individually on any JO.')) return;
+  try {
+    var r = await api('/api/candidates/' + encodeURIComponent(phone) + '/discontinue', { method: 'POST' });
+    if (r.error) { toast('Error: ' + r.error); return; }
+    toast(name + ' ruled out on ' + r.interests_ruled_out + ' job order(s). Use Restore on any JO to undo.', 'success');
+    loadDetail();
+  } catch(e) { toast('Error: ' + e.message); }
 }
 
 async function move(interestId, newStatus) {

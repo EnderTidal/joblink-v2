@@ -208,6 +208,37 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
     });
   });
 
+  
+  // ---- Discontinue: rule out ALL interests + regenerate magic token ----
+  router.post('/api/candidates/:phone/discontinue', (req, res) => {
+    const phone = req.params.phone;
+    const candidate = req.db.prepare('SELECT * FROM candidates WHERE phone = ?').get(phone);
+    if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
+
+    const changedBy = req.user?.display_name || req.user?.username || 'admin';
+
+    // 1. Rule out all non-terminal interests across ALL job orders
+    const activeInterests = req.db.prepare(
+      "SELECT id, phone, job_order_id, status FROM interests WHERE phone = ? AND status NOT IN ('ruled_out', 'filled')"
+    ).all(phone);
+
+    const updateStmt = req.db.prepare("UPDATE interests SET status = 'ruled_out' WHERE id = ?");
+    for (const interest of activeInterests) {
+      updateStmt.run(interest.id);
+      logInterestEvent(req.db, interest.phone, interest.job_order_id, interest.status, 'ruled_out', changedBy + ' (discontinue)');
+    }
+
+    console.log('[rule-out-all]', phone, '(' + candidate.first_name + ' ' + candidate.last_name + ') ruled out everywhere by', changedBy, '—', activeInterests.length, 'interests');
+
+    res.json({
+      success: true,
+      phone: phone,
+      name: candidate.first_name + ' ' + candidate.last_name,
+      interests_ruled_out: activeInterests.length
+    });
+  });
+
+
   // ---- Pipeline Actions: move candidate through statuses ----
   router.patch('/api/interests/:id/status', (req, res) => {
     const id = Number(req.params.id);

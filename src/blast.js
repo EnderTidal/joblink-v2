@@ -45,13 +45,15 @@ function renderMessage(templateBody, candidate, baseUrl, orgSlug) {
  * Build a blast plan: given selected phones (already upserted + subset-selected),
  * apply Blast Guard and return everything the preview needs.
  */
-function planBlast(db, { phones, category, now = new Date() }) {
+function planBlast(db, { phones, category, now = new Date(), skipBlastGuard = false }) {
   const validCats = getCategories(db);
   if (!validCats.includes(category)) throw new Error(`Invalid category: ${category}`);
   const cooldownHours = getCooldownHours(db);
   const get = db.prepare('SELECT * FROM candidates WHERE phone = ?');
   const candidates = phones.map((p) => get.get(p)).filter(Boolean);
-  const { sendable, skipped } = applyBlastGuard(candidates, now, cooldownHours);
+  const { sendable, skipped } = skipBlastGuard
+    ? { sendable: candidates.filter(c => !c.do_not_contact), skipped: candidates.filter(c => c.do_not_contact).map(c => ({ ...c, skip_reason: 'do_not_contact' })) }
+    : applyBlastGuard(candidates, now, cooldownHours);
   return {
     category,
     cooldownHours,

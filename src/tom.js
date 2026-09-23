@@ -625,6 +625,7 @@ function createTom(db) {
         const templateBody = payload?.templateBody || '';
         const recruiterId = payload?.recruiterId ? Number(payload.recruiterId) : null;
         const selectedFromNumber = payload?.fromNumber || null;
+        const skipBlastGuard = payload?.skipBlastGuard === true;
 
         if (!getCategories(db).includes(category)) {
           return reply(s, 'Select a category before previewing.', { showBlastForm: true, keepForm: true });
@@ -656,7 +657,7 @@ function createTom(db) {
         s.data.recruiterId = recruiterId;
         s.data.selectedFromNumber = selectedFromNumber;
 
-        const plan = planBlast(db, { phones: selected.map(c => c.phone), category });
+        const plan = planBlast(db, { phones: selected.map(c => c.phone), category, skipBlastGuard });
         s.data.plan = plan;
 
         const sample = plan.sendable[0]
@@ -689,6 +690,7 @@ function createTom(db) {
           `Sample message: "${sample}"\n\n` +
           `${plan.sendable.length} will be sent${skippedBits.length ? ', ' + skippedBits.join(', ') : ''}.\n` +
           (recruiterUsername ? `Recruiter: ${recruiterUsername}\n` : '') +
+          (skipBlastGuard ? `⚠️ BLAST GUARD OVERRIDDEN — cooldown skipped\n` : '') +
           '\nPress the Send button to send. You can safely close this tab after \u2014 your blast will continue in the background.',
           {
             confirmButton: { action: 'confirm_send', label: `Send to ${plan.sendable.length} people` },

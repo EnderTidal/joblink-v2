@@ -1633,6 +1633,15 @@ function showBlastForm(data) {
   var actions = document.createElement('div');
   actions.className = 'bf-actions';
 
+  // --- Blast Guard Override toggle ---
+  var guardDiv = document.createElement('div');
+  guardDiv.id = 'blastGuardOverride';
+  guardDiv.style.cssText = 'margin-top:12px;padding:12px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px';
+  guardDiv.innerHTML = '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px">' +
+    '<input type="checkbox" id="skipBlastGuard" style="width:16px;height:16px;accent-color:#dc2626" onchange="if(this.checked && !confirm(\'Override blast guard?\\n\\nThis will include candidates who were blasted recently (within the 72-hour cooldown). DNC candidates are still excluded.\')) { this.checked = false; }">' +
+    '<span><strong>Override blast guard</strong> \u2014 send to ALL selected, including recently blasted</span></label>';
+  actions.appendChild(guardDiv);
+
   // --- Schedule toggle (before Preview Blast) ---
   var schedSection = document.createElement('div');
   schedSection.style.cssText = 'border-top:1px solid var(--border);margin:8px 0 4px;padding-top:4px;';
@@ -1765,6 +1774,7 @@ function getBlastFormValues() {
     templateBody: templateBody,
     recruiterId: recruiterId || null,
     fromNumber: fromNumber || null,
+    skipBlastGuard: document.getElementById('skipBlastGuard') ? document.getElementById('skipBlastGuard').checked : false,
   };
 }
 
