@@ -77,7 +77,7 @@ fetch('https://api.resend.com/emails', {
     <!-- Footer -->
     <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0" />
     <p style="color:#6b7280;font-size:13px;margin:0">
-      Questions? Reply to this email or reach out to your account manager.
+      Questions? Reply to this email.
     </p>
   </div>
 
