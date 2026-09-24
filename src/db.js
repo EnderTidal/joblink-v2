@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS blasts (
 CREATE TABLE IF NOT EXISTS blast_recipients (
   blast_id  INTEGER NOT NULL REFERENCES blasts(id),
   phone     TEXT NOT NULL,
-  status    TEXT NOT NULL CHECK (status IN ('sent','skipped_cooldown','skipped_dnc','failed')),
+  status    TEXT NOT NULL CHECK (status IN ('sent','skipped_cooldown','skipped_dnc','skipped_exclusion','failed')),
   error     TEXT,
   PRIMARY KEY (blast_id, phone)
 );
@@ -236,6 +236,34 @@ function openDb(filePath) {
   } catch { /* migration already done */ }
   // Seed defaults (INSERT OR IGNORE keeps this idempotent)
   // Migration: add type column to feedback table
+  // Migration: blast_sessions table for persistent Tom session storage
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS blast_sessions (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL,
+      data TEXT NOT NULL DEFAULT '{}',
+      state TEXT NOT NULL DEFAULT 'start',
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`);
+  } catch { /* already exists */ }
+  // Migration: widen blast_recipients.status CHECK to include skipped_exclusion
+  try {
+    const hasSE = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='blast_recipients'").get();
+    if (hasSE && !hasSE.sql.includes('skipped_exclusion')) {
+      db.exec('PRAGMA foreign_keys = OFF');
+      db.exec(`CREATE TABLE IF NOT EXISTS blast_recipients_new (
+        blast_id  INTEGER NOT NULL REFERENCES blasts(id),
+        phone     TEXT NOT NULL,
+        status    TEXT NOT NULL CHECK (status IN ('sent','skipped_cooldown','skipped_dnc','skipped_exclusion','failed')),
+        error     TEXT,
+        PRIMARY KEY (blast_id, phone)
+      )`);
+      db.exec('INSERT INTO blast_recipients_new SELECT * FROM blast_recipients');
+      db.exec('DROP TABLE blast_recipients');
+      db.exec('ALTER TABLE blast_recipients_new RENAME TO blast_recipients');
+      db.exec('PRAGMA foreign_keys = ON');
+    }
+  } catch (e) { console.warn('[db migration] blast_recipients CHECK update failed:', e.message); }
   try { db.exec("ALTER TABLE feedback ADD COLUMN type TEXT NOT NULL DEFAULT 'general'"  ); } catch { /* already exists */ }
   const seed = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) seed.run(k, v);

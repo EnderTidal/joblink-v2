@@ -137,13 +137,32 @@ function sortContacts(contacts, sortBy) {
 function createTom(db) {
   const sessions = new Map();
 
+  // Cleanup stale sessions on startup (>24h)
+  try {
+    db.prepare("DELETE FROM blast_sessions WHERE updated_at < datetime('now', '-24 hours')").run();
+  } catch { /* table may not exist yet on first boot before migration */ }
+
   function newSession(path, user, displayName) {
     if (!PATHS.includes(path)) throw new Error('Unknown path');
     const id = crypto.randomBytes(12).toString('base64url');
     const s = { id, path, user: user || null, displayName: displayName || user || null, state: 'start', data: {}, createdAt: Date.now() };
     sessions.set(id, s);
+    // Persist to DB (store path in data for restore)
+    try {
+      const dataWithPath = { ...s.data, _path: s.path };
+      db.prepare("INSERT OR REPLACE INTO blast_sessions (id, company_id, data, state, updated_at) VALUES (?, ?, ?, ?, datetime('now'))")
+        .run(id, String(user || ''), JSON.stringify(dataWithPath), s.state);
+    } catch { /* best-effort */ }
+    // Evict expired from in-memory Map
     for (const [k, v] of sessions) if (Date.now() - v.createdAt > SESSION_TTL_MS) sessions.delete(k);
     return s;
+  }
+
+  function persistSession(s) {
+    try {
+      db.prepare("UPDATE blast_sessions SET data = ?, state = ?, updated_at = datetime('now') WHERE id = ?")
+        .run(JSON.stringify(s.data), s.state, s.id);
+    } catch { /* best-effort */ }
   }
 
   function reply(session, text, extra = {}) {
@@ -153,7 +172,7 @@ function createTom(db) {
   // ---------- path: job_order ----------
   async function startJobOrder(s) {
     s.state = 'await_input';
-    return reply(s, `Let's create a Job Order.\n\nDrag and drop a .docx or .txt file with the job details, or start with a blank form below.`, { showBlankFormLink: true });
+    persistSession(s); return reply(s, `Let's create a Job Order.\n\nDrag and drop a .docx or .txt file with the job details, or start with a blank form below.`, { showBlankFormLink: true });
   }
 
   async function handleJobOrder(s, { text, action, payload, file }) {
@@ -164,17 +183,17 @@ function createTom(db) {
           city_state: '', requirements: '', description: '', company: '', status: 'Unpublished',
         };
         s.state = 'review';
-        return reply(s, '', { showForm: true, draft: s.data.draft, warnings: [] });
+        persistSession(s); return reply(s, '', { showForm: true, draft: s.data.draft, warnings: [] });
       }
 
       let docText = text || '';
       if (file) docText = await extractText(file.buffer, file.originalname);
-      if (!docText.trim()) return reply(s, 'Drop a .docx or .txt file with the job details, or use the blank form below.', { showBlankFormLink: true });
+      if (!docText.trim()) persistSession(s); return reply(s, 'Drop a .docx or .txt file with the job details, or use the blank form below.', { showBlankFormLink: true });
       const parsed = await parseJobOrderText(docText);
-      if (!parsed.fields) return reply(s, 'That document looks empty \u2014 try again?', { showBlankFormLink: true });
+      if (!parsed.fields) persistSession(s); return reply(s, 'That document looks empty \u2014 try again?', { showBlankFormLink: true });
       s.data.draft = parsed.fields;
       s.state = 'review';
-      return reply(s, '', { showForm: true, draft: s.data.draft, warnings: parsed.warnings, fields: JOB_ORDER_FIELDS });
+      persistSession(s); return reply(s, '', { showForm: true, draft: s.data.draft, warnings: parsed.warnings, fields: JOB_ORDER_FIELDS });
     }
 
     if (s.state === 'review') {
@@ -193,41 +212,41 @@ function createTom(db) {
         const v = validateJobOrder(draft);
         if (!v.ok) {
           const errors = [...v.missing.map((m) => `missing ${m}`), ...v.errors];
-          return reply(s, `Can't save yet \u2014 ${errors.join('; ')}.`,
+          persistSession(s); return reply(s, `Can't save yet \u2014 ${errors.join('; ')}.`,
             { showForm: true, draft, warnings: errors });
         }
         if (!draft.assigned_recruiter) draft.assigned_recruiter = s.displayName || s.user || '';
         const id = createJobOrder(db, draft);
         s.state = 'ask_another';
         if (action === 'publish') {
-          return reply(s, `\u2705 Published job order #${id}: ${draft.title} (${draft.category}). It's live on the job board now.\n\nWant to create another? (yes / no)`);
+          persistSession(s); return reply(s, `\u2705 Published job order #${id}: ${draft.title} (${draft.category}). It's live on the job board now.\n\nWant to create another? (yes / no)`);
         }
-        return reply(s, `\uD83D\uDCBE Saved job order #${id}: ${draft.title} (${draft.status}). You can publish it later from the Dashboard.\n\nWant to create another? (yes / no)`);
+        persistSession(s); return reply(s, `\uD83D\uDCBE Saved job order #${id}: ${draft.title} (${draft.status}). You can publish it later from the Dashboard.\n\nWant to create another? (yes / no)`);
       }
 
       if (action === 'edit_field' && payload?.field) {
         draft[payload.field] = String(payload.value ?? '').trim();
-        return reply(s, `Updated.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: [] });
+        persistSession(s); return reply(s, `Updated.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: [] });
       }
 
       const t = String(text || '').trim();
       if (/\b(publish|go live|publish it|ship it|looks good|good to go|make it live)\b/i.test(t)) {
         draft.status = 'Published';
         const v = validateJobOrder(draft);
-        if (!v.ok) return reply(s, `Can't publish yet \u2014 ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: v.missing });
+        if (!v.ok) persistSession(s); return reply(s, `Can't publish yet \u2014 ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: v.missing });
         if (!draft.assigned_recruiter) draft.assigned_recruiter = s.displayName || s.user || '';
         const id = createJobOrder(db, draft);
         s.state = 'ask_another';
-        return reply(s, `\u2705 Published job order #${id}: ${draft.title} (${draft.category}). It's live on the job board now.\n\nWant to create another? (yes / no)`);
+        persistSession(s); return reply(s, `\u2705 Published job order #${id}: ${draft.title} (${draft.category}). It's live on the job board now.\n\nWant to create another? (yes / no)`);
       }
       if (/\b(done|save|keep it|finish|save it)\b/i.test(t)) {
         draft.status = draft.status === 'Published' ? 'Published' : 'Unpublished';
         const v = validateJobOrder(draft);
-        if (!v.ok) return reply(s, `Almost \u2014 ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: v.missing });
+        if (!v.ok) persistSession(s); return reply(s, `Almost \u2014 ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: v.missing });
         if (!draft.assigned_recruiter) draft.assigned_recruiter = s.displayName || s.user || '';
         const id = createJobOrder(db, draft);
         s.state = 'ask_another';
-        return reply(s, `\uD83D\uDCBE Saved job order #${id}: ${draft.title} (${draft.status}). You can publish it later from the Dashboard.\n\nWant to create another? (yes / no)`);
+        persistSession(s); return reply(s, `\uD83D\uDCBE Saved job order #${id}: ${draft.title} (${draft.status}). You can publish it later from the Dashboard.\n\nWant to create another? (yes / no)`);
       }
       const edit = parseFieldEdit(t);
       if (edit) {
@@ -235,30 +254,30 @@ function createTom(db) {
           const dynCats = getCategories(db);
           const cat = dynCats.find((c) => c.toLowerCase() === edit.value.toLowerCase().replace(/s$/, ''))
             || dynCats.find((c) => edit.value.toLowerCase().includes(c.toLowerCase()));
-          if (!cat) return reply(s, `Category has to be one of: ${dynCats.join(', ')}.`, { showForm: true, draft, warnings: [] });
+          if (!cat) persistSession(s); return reply(s, `Category has to be one of: ${dynCats.join(', ')}.`, { showForm: true, draft, warnings: [] });
           draft.category = cat;
         } else if (edit.field === 'status') {
-          return reply(s, 'Say "publish" to publish, or "done" to save unpublished \u2014 status changes go through those.', { showForm: true, draft, warnings: [] });
+          persistSession(s); return reply(s, 'Say "publish" to publish, or "done" to save unpublished \u2014 status changes go through those.', { showForm: true, draft, warnings: [] });
         } else {
           draft[edit.field] = edit.value;
         }
-        return reply(s, `Updated.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: [] });
+        persistSession(s); return reply(s, `Updated.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: [] });
       }
-      return reply(s, 'Edit fields in the form, or use "publish" / "Save as Draft" buttons.', { showForm: true, draft, warnings: [] });
+      persistSession(s); return reply(s, 'Edit fields in the form, or use "publish" / "Save as Draft" buttons.', { showForm: true, draft, warnings: [] });
     }
 
     if (s.state === 'ask_another') {
       if (/^y/i.test(String(text || ''))) { s.data = {}; return startJobOrder(s); }
       s.state = 'ended';
-      return reply(s, 'All set. Start a new conversation any time you need another job order.');
+      persistSession(s); return reply(s, 'All set. Start a new conversation any time you need another job order.');
     }
-    return reply(s, 'This conversation has ended \u2014 start a new one from the buttons above.');
+    persistSession(s); return reply(s, 'This conversation has ended \u2014 start a new one from the buttons above.');
   }
 
   // ---------- path: blast ----------
   async function startBlast(s) {
     s.state = 'await_contacts';
-    return reply(s,
+    persistSession(s); return reply(s,
       'Let\'s send a Magic Blast. Upload a contact list (.csv or Excel), or type contacts one per line like:\n\n' +
       'John Smith 555-123-4567\nJane Doe (555) 987-6543');
   }
@@ -296,7 +315,7 @@ function createTom(db) {
       if (!file && String(text || '').trim()) {
         const parsed = parseManualContacts(text);
         if (!parsed.contacts.length) {
-          return reply(s, `I couldn't find any valid phone numbers in that${parsed.invalid.length ? ` (${parsed.invalid.length} rows had unusable numbers)` : ''}. Try again?`);
+          persistSession(s); return reply(s, `I couldn't find any valid phone numbers in that${parsed.invalid.length ? ` (${parsed.invalid.length} rows had unusable numbers)` : ''}. Try again?`);
         }
         const counts = upsertCandidates(db, parsed.contacts);
         s.data.contacts = parsed.contacts;
@@ -318,7 +337,7 @@ function createTom(db) {
         }
         const estimatedSendable = parsed.contacts.length - inCooldown - inDnc;
         const formData = loadBlastFormData(null);
-        return reply(s, '', {
+        persistSession(s); return reply(s, '', {
           showBlastForm: true,
           contactCount: parsed.contacts.length,
           estimatedSendable,
@@ -345,12 +364,12 @@ function createTom(db) {
       if (file) {
         const headerPreview = parseHeadersOnly(file.buffer, file.originalname);
         if (!headerPreview.headers.length) {
-          return reply(s, 'Could not read any headers from that file. Try a different file?');
+          persistSession(s); return reply(s, 'Could not read any headers from that file. Try a different file?');
         }
         s.data.fileBuffer = file.buffer.toString('base64');
         s.data.fileName = file.originalname;
         s.state = 'await_column_map';
-        return reply(s, '', {
+        persistSession(s); return reply(s, '', {
           showColumnMap: true,
           headers: headerPreview.headers,
           sampleRows: headerPreview.sampleRows,
@@ -358,7 +377,7 @@ function createTom(db) {
           totalRows: headerPreview.totalRows,
         });
       }
-      return reply(s, 'Upload a contact list or type contacts to get started.');
+      persistSession(s); return reply(s, 'Upload a contact list or type contacts to get started.');
     }
 
     // ---------- state: await_column_map ----------
@@ -374,13 +393,13 @@ function createTom(db) {
       if (action === 'confirm_auto') {
         // Auto-detect accepted: parse + skip exclusion → straight to blast settings
         const columnMap = payload && payload.columnMap;
-        if (!columnMap) return reply(s, 'Please confirm your column mapping.', { showColumnMap: true, keepForm: true });
+        if (!columnMap) persistSession(s); return reply(s, 'Please confirm your column mapping.', { showColumnMap: true, keepForm: true });
         const hasPhone = Object.values(columnMap).some(v => v === 'phone');
-        if (!hasPhone) return reply(s, 'You must map at least one column to Phone.', { showColumnMap: true, keepForm: true });
+        if (!hasPhone) persistSession(s); return reply(s, 'You must map at least one column to Phone.', { showColumnMap: true, keepForm: true });
         const buf = Buffer.from(s.data.fileBuffer, 'base64');
         const parsed = parseContactFileWithMap(buf, columnMap, s.data.fileName);
         if (!parsed.contacts.length) {
-          return reply(s, 'No valid contacts found with that mapping. Try adjusting your column assignments.', { showColumnMap: true, keepForm: true });
+          persistSession(s); return reply(s, 'No valid contacts found with that mapping. Try adjusting your column assignments.', { showColumnMap: true, keepForm: true });
         }
         const counts = upsertCandidates(db, parsed.contacts);
         s.data.contacts = parsed.contacts;
@@ -390,7 +409,7 @@ function createTom(db) {
         s.data.exclusionPhones = [];
         // Route to exclusion upload step (user can skip if not needed)
         s.state = 'await_exclusion';
-        return reply(s, '', {
+        persistSession(s); return reply(s, '', {
           showExclusionUpload: true,
           contactCount: parsed.contacts.length,
           invalidCount: parsed.invalid.length,
@@ -409,7 +428,7 @@ function createTom(db) {
         }
         const estimatedSendable = s.data.contacts.length - inCooldown - inDnc;
         const formData = loadBlastFormData(null);
-        return reply(s, '', {
+        persistSession(s); return reply(s, '', {
           showBlastForm: true,
           contactCount: s.data.contacts.length,
           estimatedSendable,
@@ -434,13 +453,13 @@ function createTom(db) {
       }
       if (action === 'confirm_column_map') {
         const columnMap = payload && payload.columnMap;
-        if (!columnMap) return reply(s, 'Please confirm your column mapping.', { showColumnMap: true, keepForm: true });
+        if (!columnMap) persistSession(s); return reply(s, 'Please confirm your column mapping.', { showColumnMap: true, keepForm: true });
         const hasPhone = Object.values(columnMap).some(v => v === 'phone');
-        if (!hasPhone) return reply(s, 'You must map at least one column to Phone.', { showColumnMap: true, keepForm: true });
+        if (!hasPhone) persistSession(s); return reply(s, 'You must map at least one column to Phone.', { showColumnMap: true, keepForm: true });
         const buf = Buffer.from(s.data.fileBuffer, 'base64');
         const parsed = parseContactFileWithMap(buf, columnMap, s.data.fileName);
         if (!parsed.contacts.length) {
-          return reply(s, 'No valid contacts found with that mapping. Try adjusting your column assignments.', { showColumnMap: true, keepForm: true });
+          persistSession(s); return reply(s, 'No valid contacts found with that mapping. Try adjusting your column assignments.', { showColumnMap: true, keepForm: true });
         }
         const counts = upsertCandidates(db, parsed.contacts);
         s.data.contacts = parsed.contacts;
@@ -449,13 +468,13 @@ function createTom(db) {
         s.data.hasLastContacted = parsed.contacts.some(c => c.lastContacted);
         // Move to exclusion list step
         s.state = 'await_exclusion';
-        return reply(s, '', {
+        persistSession(s); return reply(s, '', {
           showExclusionUpload: true,
           contactCount: parsed.contacts.length,
           invalidCount: parsed.invalid.length,
         });
       }
-      return reply(s, 'Please confirm your column mapping or start over.');
+      persistSession(s); return reply(s, 'Please confirm your column mapping or start over.');
     }
 
     // ---------- state: await_exclusion ----------
@@ -464,7 +483,7 @@ function createTom(db) {
         s.state = 'await_column_map';
         const buf = Buffer.from(s.data.fileBuffer, 'base64');
         const headerPreview = parseHeadersOnly(buf, s.data.fileName);
-        return reply(s, '', {
+        persistSession(s); return reply(s, '', {
           showColumnMap: true,
           headers: headerPreview.headers,
           sampleRows: headerPreview.sampleRows,
@@ -478,6 +497,7 @@ function createTom(db) {
       }
       if (action === 'skip_exclusion') {
         s.data.exclusionPhones = [];
+        s.data.excludedPhones = [];
         s.state = 'blast_form';
         const _totalPool = db.prepare('SELECT COUNT(*) AS n FROM candidates').get().n;
         const cooldownHrs = getCooldownHours(db);
@@ -493,7 +513,7 @@ function createTom(db) {
         }
         const estimatedSendable = s.data.contacts.length - inCooldown - inDnc;
         const formData = loadBlastFormData(null);
-        return reply(s, '', {
+        persistSession(s); return reply(s, '', {
           showBlastForm: true,
           contactCount: s.data.contacts.length,
           estimatedSendable,
@@ -519,12 +539,13 @@ function createTom(db) {
       // confirm_exclusion_auto: user accepts auto-detected phone column
       if (action === 'confirm_exclusion_auto' || action === 'confirm_exclusion_map') {
         const phoneColIdx = payload && payload.phoneCol;
-        if (phoneColIdx === undefined || phoneColIdx === null) return reply(s, 'Please select which column has the phone numbers.', { showExclusionMap: true });
+        if (phoneColIdx === undefined || phoneColIdx === null) persistSession(s); return reply(s, 'Please select which column has the phone numbers.', { showExclusionMap: true });
         const buf = Buffer.from(s.data.exclusionFileBuffer, 'base64');
         const excResult = parseExclusionFile(buf, s.data.exclusionFileName, parseInt(phoneColIdx));
         s.data.exclusionPhones = excResult.phones;
         const exclSet = new Set(excResult.phones);
         const originalCount = s.data.contacts.length;
+        s.data.excludedPhones = s.data.contacts.filter(c => exclSet.has(c.phone)).map(c => c.phone);
         s.data.contacts = s.data.contacts.filter(c => !exclSet.has(c.phone));
         s.data.excludedCount = originalCount - s.data.contacts.length;
         s.data.exclusionTotal = excResult.count;
@@ -544,7 +565,7 @@ function createTom(db) {
         }
         const estimatedSendable = s.data.contacts.length - inCooldown - inDnc;
         const formData = loadBlastFormData(null);
-        return reply(s, '', {
+        persistSession(s); return reply(s, '', {
           showBlastForm: true,
           contactCount: s.data.contacts.length,
           estimatedSendable,
@@ -579,7 +600,7 @@ function createTom(db) {
             if (role === 'phone') { suggestedPhoneCol = parseInt(idx); break; }
           }
         }
-        return reply(s, '', {
+        persistSession(s); return reply(s, '', {
           showExclusionMap: true,
           headers: headerPreview.headers,
           sampleRows: headerPreview.sampleRows,
@@ -588,13 +609,13 @@ function createTom(db) {
           exclusionFileName: file.originalname,
         });
       }
-      return reply(s, 'Upload an exclusion list or click Skip to continue.');
+      persistSession(s); return reply(s, 'Upload an exclusion list or click Skip to continue.');
     }
 
     if (s.state === 'blast_form') {
       if (action === 'back_to_exclusion') {
         s.state = 'await_exclusion';
-        return reply(s, '', {
+        persistSession(s); return reply(s, '', {
           showExclusionUpload: true,
           contactCount: s.data.contacts.length,
           invalidCount: s.data.invalidCount || 0,
@@ -609,11 +630,11 @@ function createTom(db) {
         const name = String(payload?.name || '').trim();
         const body = String(payload?.body || '').trim();
         const category = payload?.category || null;
-        if (!name || !body) return reply(s, 'Template needs a name and body.', { showBlastForm: true, keepForm: true });
+        if (!name || !body) persistSession(s); return reply(s, 'Template needs a name and body.', { showBlastForm: true, keepForm: true });
         const r = db.prepare('INSERT INTO templates (name, body, category) VALUES (?, ?, ?)').run(name, body, category || null);
         const newTemplate = db.prepare('SELECT * FROM templates WHERE id = ?').get(Number(r.lastInsertRowid));
         const allTemplates = db.prepare('SELECT * FROM templates ORDER BY is_default DESC, id').all();
-        return reply(s, '', {
+        persistSession(s); return reply(s, '', {
           showBlastForm: true,
           keepForm: true,
           savedTemplate: { id: newTemplate.id, name: newTemplate.name, body: newTemplate.body, category: newTemplate.category || '', is_default: !!newTemplate.is_default },
@@ -633,10 +654,10 @@ function createTom(db) {
         const skipBlastGuard = payload?.skipBlastGuard === true;
 
         if (!getCategories(db).includes(category)) {
-          return reply(s, 'Select a category before previewing.', { showBlastForm: true, keepForm: true });
+          persistSession(s); return reply(s, 'Select a category before previewing.', { showBlastForm: true, keepForm: true });
         }
         if (!templateBody.trim()) {
-          return reply(s, 'Template message cannot be empty.', { showBlastForm: true, keepForm: true });
+          persistSession(s); return reply(s, 'Template message cannot be empty.', { showBlastForm: true, keepForm: true });
         }
 
         let selected = sortContacts(s.data.contacts, sortBy);
@@ -663,6 +684,7 @@ function createTom(db) {
         s.data.selectedFromNumber = selectedFromNumber;
 
         const plan = planBlast(db, { phones: selected.map(c => c.phone), category, skipBlastGuard });
+        plan.skippedExclusion = s.data.excludedPhones || [];
         s.data.plan = plan;
 
         const sample = plan.sendable[0]
@@ -671,6 +693,7 @@ function createTom(db) {
         const skippedBits = [];
         if (plan.skippedCooldown.length) skippedBits.push(`${plan.skippedCooldown.length} skipped (cooldown)`);
         if (plan.skippedDnc.length) skippedBits.push(`${plan.skippedDnc.length} skipped (do not contact)`);
+        if (plan.skippedExclusion && plan.skippedExclusion.length) skippedBits.push(`${plan.skippedExclusion.length} skipped (exclusion list)`);
 
         let recruiterUsername = null;
         if (recruiterId) {
@@ -689,7 +712,7 @@ function createTom(db) {
         s.data.recruiterUsername = recruiterUsername;
 
         s.state = 'preview';
-        return reply(s,
+        persistSession(s); return reply(s,
           `Blast preview \u2014 ${category}\n` +
           `Template: ${s.data.template.name}\n` +
           `Sample message: "${sample}"\n\n` +
@@ -699,18 +722,24 @@ function createTom(db) {
           '\nPress the Send button to send. You can safely close this tab after \u2014 your blast will continue in the background.',
           {
             confirmButton: { action: 'confirm_send', label: `Send to ${plan.sendable.length} people` },
-            plan: { sendable: plan.sendable.map(c => ({ first_name: c.first_name, last_name: c.last_name, phone: c.phone })) },
+            plan: {
+              sendable: plan.sendable.map(c => ({ first_name: c.first_name, last_name: c.last_name, phone: c.phone })),
+              skippedExclusion: (plan.skippedExclusion || []).map(phone => {
+                const cand = db.prepare('SELECT first_name, last_name, phone FROM candidates WHERE phone = ?').get(phone);
+                return cand ? { first_name: cand.first_name, last_name: cand.last_name, phone: cand.phone } : { first_name: '', last_name: '', phone };
+              }),
+            },
           });
       }
 
-      return reply(s, 'Use the blast settings form to configure your blast, then click Preview Blast.', { showBlastForm: true, keepForm: true });
+      persistSession(s); return reply(s, 'Use the blast settings form to configure your blast, then click Preview Blast.', { showBlastForm: true, keepForm: true });
     }
 
     if (s.state === 'preview') {
       if (action === 'back_to_form') {
         s.state = 'blast_form';
         const formData = loadBlastFormData(s.data.category);
-        return reply(s, '', {
+        persistSession(s); return reply(s, '', {
           showBlastForm: true,
           contactCount: s.data.contacts.length,
           invalidCount: s.data.invalidCount || 0,
@@ -728,7 +757,7 @@ function createTom(db) {
       }
 
       if (action === 'confirm_send') {
-        if (!s.data.plan.sendable.length) return reply(s, 'Nobody to send to \u2014 everyone was skipped.');
+        if (!s.data.plan.sendable.length) persistSession(s); return reply(s, 'Nobody to send to \u2014 everyone was skipped.');
         s.state = 'sending';
         // Resolve multi-number: pass selected fromNumber override to provider
         const numberOverride = s.data.selectedFromNumber ? resolveNumber(db, s.data.selectedFromNumber) : null;
@@ -762,18 +791,18 @@ function createTom(db) {
           '\u2022 Import more contacts \u2014 the bigger your pool, the more interest you\u2019ll get\n' +
           '\u2022 Try different categories \u2014 Industrial and Skilled Trade respond differently\n' +
           '\u2022 Blast again in 72 hours \u2014 candidates who missed it the first time may respond';
-        return reply(s, `\u2705 Blast #${result.blastId} complete: ${bits.join(', ')}.${recruiterNote}${mockNote}${tips}\n\nSend another? (yes / no)`);
+        persistSession(s); return reply(s, `\u2705 Blast #${result.blastId} complete: ${bits.join(', ')}.${recruiterNote}${mockNote}${tips}\n\nSend another? (yes / no)`);
       }
       if (/\b(yes|send|confirm|go|do it)\b/i.test(String(text || ''))) {
-        return reply(s, BLAST_CONFIRM_REJECTION, {
+        persistSession(s); return reply(s, BLAST_CONFIRM_REJECTION, {
           confirmButton: { action: 'confirm_send', label: `Send to ${s.data.plan.sendable.length} people` },
         });
       }
       
       if (action === 'schedule_send') {
-        if (!s.data.plan.sendable.length) return reply(s, 'Nobody to send to \u2014 everyone was skipped.');
+        if (!s.data.plan.sendable.length) persistSession(s); return reply(s, 'Nobody to send to \u2014 everyone was skipped.');
         const sendAt = extra?.send_at;
-        if (!sendAt) return reply(s, 'No schedule time provided.');
+        if (!sendAt) persistSession(s); return reply(s, 'No schedule time provided.');
         const numberOverride = s.data.selectedFromNumber ? resolveNumber(db, s.data.selectedFromNumber) : null;
         const recruiterId = s.data.recruiterId || null;
         const recruiterUsername = s.data.recruiterUsername || null;
@@ -791,17 +820,17 @@ function createTom(db) {
         );
         s.state = 'ask_another';
         const scheduledTime = new Date(sendAt).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
-        return reply(s, `\u23F0 Blast scheduled for ${scheduledTime} Central.\n${s.data.plan.sendable.length} candidates will receive the blast at that time.\n\nSend another? (yes / no)`);
+        persistSession(s); return reply(s, `\u23F0 Blast scheduled for ${scheduledTime} Central.\n${s.data.plan.sendable.length} candidates will receive the blast at that time.\n\nSend another? (yes / no)`);
       }
-      return reply(s, 'Press the Send button when you\'re ready, or start a new conversation to cancel.');
+      persistSession(s); return reply(s, 'Press the Send button when you\'re ready, or start a new conversation to cancel.');
     }
 
     if (s.state === 'ask_another') {
       if (/^y/i.test(String(text || ''))) { s.data = {}; return startBlast(s); }
       s.state = 'ended';
-      return reply(s, 'Done. Start a new conversation any time.');
+      persistSession(s); return reply(s, 'Done. Start a new conversation any time.');
     }
-    return reply(s, 'This conversation has ended \u2014 start a new one from the buttons above.');
+    persistSession(s); return reply(s, 'This conversation has ended \u2014 start a new one from the buttons above.');
   }
 
   // ---------- path: review ----------
@@ -809,7 +838,7 @@ function createTom(db) {
     s.state = 'report';
     const orgTz = (db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get() || {}).value || 'America/Chicago';
     const blasts = listBlasts(db, 20);
-    if (!blasts.length) return reply(s, 'No magic blasts yet. Once you send one, its results show up here.', { blasts: [], timezone: orgTz });
+    if (!blasts.length) persistSession(s); return reply(s, 'No magic blasts yet. Once you send one, its results show up here.', { blasts: [], timezone: orgTz });
     const lines = blasts.map((b) => {
       const d = new Date(b.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: orgTz });
       const bits = [`${b.sent_count} sent`];
@@ -819,7 +848,7 @@ function createTom(db) {
       bits.push(`${b.interested_count} interested`);
       return `#${b.id} \u00B7 ${d} \u00B7 ${b.category}${b.sent_by ? ' \u00B7 by ' + b.sent_by : ''} \u2014 ${bits.join(', ')}`;
     });
-    return reply(s, `Recent Magic Blasts:\n\n${lines.join('\n')}`, { blasts, timezone: orgTz });
+    persistSession(s); return reply(s, `Recent Magic Blasts:\n\n${lines.join('\n')}`, { blasts, timezone: orgTz });
   }
 
   // ---------- routing ----------
@@ -829,7 +858,7 @@ function createTom(db) {
     if (path === 'blast') return startBlast(s);
     if (path === 'review') return startReview(s);
     s.state = 'help_topics';
-    return reply(s, '\ud83d\udcfa Watch the full walkthrough: https://www.loom.com/share/e4e782f6d42647438af99a84c6ecfb4a\n\nPick a topic to learn more:', {
+    persistSession(s); return reply(s, '\ud83d\udcfa Watch the full walkthrough: https://www.loom.com/share/e4e782f6d42647438af99a84c6ecfb4a\n\nPick a topic to learn more:', {
       helpTopics: [
         { key: 'job_orders', label: 'Job Orders & Editing' },
         { key: 'blasts', label: 'Magic Blasts & Templates' },
@@ -846,7 +875,21 @@ function createTom(db) {
   }
 
   async function message(sessionId, input) {
-    const s = sessions.get(sessionId);
+    let s = sessions.get(sessionId);
+    if (!s) {
+      // Try to restore from DB
+      try {
+        const row = db.prepare('SELECT * FROM blast_sessions WHERE id = ?').get(sessionId);
+        if (row) {
+          const data = JSON.parse(row.data || '{}');
+          const restoredPath = data._path || 'blast';
+          delete data._path;
+          s = { id: row.id, path: restoredPath, user: row.company_id || null,
+                displayName: row.company_id || null, state: row.state, data, createdAt: Date.now() };
+          sessions.set(sessionId, s);
+        }
+      } catch { /* best-effort */ }
+    }
     if (!s) return { error: 'session_not_found', text: 'That conversation expired \u2014 start a new one from the buttons above.' };
     if (s.path === 'help') {
       if (input.action === 'help_topic') {
@@ -863,7 +906,7 @@ function createTom(db) {
           troubleshoot: '"Blast failed" usually means Whippy is not connected or your API key expired \u2014 check Admin \u2192 Settings. "No candidates matched" means the wrong category was selected or all candidates are in cooldown.',
         };
         const answer = topicAnswers[input.payload?.topic] || 'Pick a topic from the list above.';
-        return reply(s, answer, {
+        persistSession(s); return reply(s, answer, {
           helpTopics: [
             { key: 'job_orders', label: 'Job Orders & Editing' },
             { key: 'blasts', label: 'Magic Blasts & Templates' },
@@ -879,7 +922,7 @@ function createTom(db) {
         });
       }
       // If somehow free text arrives, redirect to topics
-      return reply(s, 'Pick a topic below to learn more:', {
+      persistSession(s); return reply(s, 'Pick a topic below to learn more:', {
         helpTopics: [
           { key: 'job_orders', label: 'Job Orders & Editing' },
           { key: 'blasts', label: 'Magic Blasts & Templates' },

@@ -87,6 +87,7 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
   );
   for (const s of plan.skippedCooldown) recRecipient.run(blastId, s.phone, 'skipped_cooldown', null);
   for (const s of plan.skippedDnc) recRecipient.run(blastId, s.phone, 'skipped_dnc', null);
+  for (const phone of (plan.skippedExclusion || [])) recRecipient.run(blastId, phone, 'skipped_exclusion', null);
 
   const markSent = db.prepare(
     `UPDATE candidates SET last_blast = ?, blast_count = blast_count + 1, current_category = ? WHERE phone = ?`,
@@ -144,6 +145,7 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
     failed,
     skippedCooldown: plan.skippedCooldown.length,
     skippedDnc: plan.skippedDnc.length,
+    skippedExclusion: (plan.skippedExclusion || []).length,
     conversationsClosed,
     recruiterId,
     recruiterUsername,
