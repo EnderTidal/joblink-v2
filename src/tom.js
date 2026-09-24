@@ -190,7 +190,7 @@ function createTom(db) {
       if (file) docText = await extractText(file.buffer, file.originalname);
       if (!docText.trim()) persistSession(s); return reply(s, 'Drop a .docx or .txt file with the job details, or use the blank form below.', { showBlankFormLink: true });
       const parsed = await parseJobOrderText(docText);
-      if (!parsed.fields) persistSession(s); return reply(s, 'That document looks empty \u2014 try again?', { showBlankFormLink: true });
+      if (!parsed.fields) { persistSession(s); return reply(s, 'That document looks empty \u2014 try again?', { showBlankFormLink: true }); }
       s.data.draft = parsed.fields;
       s.state = 'review';
       persistSession(s); return reply(s, '', { showForm: true, draft: s.data.draft, warnings: parsed.warnings, fields: JOB_ORDER_FIELDS });
@@ -254,7 +254,7 @@ function createTom(db) {
           const dynCats = getCategories(db);
           const cat = dynCats.find((c) => c.toLowerCase() === edit.value.toLowerCase().replace(/s$/, ''))
             || dynCats.find((c) => edit.value.toLowerCase().includes(c.toLowerCase()));
-          if (!cat) persistSession(s); return reply(s, `Category has to be one of: ${dynCats.join(', ')}.`, { showForm: true, draft, warnings: [] });
+          if (!cat) { persistSession(s); return reply(s, `Category has to be one of: ${dynCats.join(', ')}.`, { showForm: true, draft, warnings: [] }); }
           draft.category = cat;
         } else if (edit.field === 'status') {
           persistSession(s); return reply(s, 'Say "publish" to publish, or "done" to save unpublished \u2014 status changes go through those.', { showForm: true, draft, warnings: [] });
@@ -393,9 +393,9 @@ function createTom(db) {
       if (action === 'confirm_auto') {
         // Auto-detect accepted: parse + skip exclusion → straight to blast settings
         const columnMap = payload && payload.columnMap;
-        if (!columnMap) persistSession(s); return reply(s, 'Please confirm your column mapping.', { showColumnMap: true, keepForm: true });
+        if (!columnMap) { persistSession(s); return reply(s, 'Please confirm your column mapping.', { showColumnMap: true, keepForm: true }); }
         const hasPhone = Object.values(columnMap).some(v => v === 'phone');
-        if (!hasPhone) persistSession(s); return reply(s, 'You must map at least one column to Phone.', { showColumnMap: true, keepForm: true });
+        if (!hasPhone) { persistSession(s); return reply(s, 'You must map at least one column to Phone.', { showColumnMap: true, keepForm: true }); }
         const buf = Buffer.from(s.data.fileBuffer, 'base64');
         const parsed = parseContactFileWithMap(buf, columnMap, s.data.fileName);
         if (!parsed.contacts.length) {
@@ -453,9 +453,9 @@ function createTom(db) {
       }
       if (action === 'confirm_column_map') {
         const columnMap = payload && payload.columnMap;
-        if (!columnMap) persistSession(s); return reply(s, 'Please confirm your column mapping.', { showColumnMap: true, keepForm: true });
+        if (!columnMap) { persistSession(s); return reply(s, 'Please confirm your column mapping.', { showColumnMap: true, keepForm: true }); }
         const hasPhone = Object.values(columnMap).some(v => v === 'phone');
-        if (!hasPhone) persistSession(s); return reply(s, 'You must map at least one column to Phone.', { showColumnMap: true, keepForm: true });
+        if (!hasPhone) { persistSession(s); return reply(s, 'You must map at least one column to Phone.', { showColumnMap: true, keepForm: true }); }
         const buf = Buffer.from(s.data.fileBuffer, 'base64');
         const parsed = parseContactFileWithMap(buf, columnMap, s.data.fileName);
         if (!parsed.contacts.length) {
@@ -539,7 +539,7 @@ function createTom(db) {
       // confirm_exclusion_auto: user accepts auto-detected phone column
       if (action === 'confirm_exclusion_auto' || action === 'confirm_exclusion_map') {
         const phoneColIdx = payload && payload.phoneCol;
-        if (phoneColIdx === undefined || phoneColIdx === null) persistSession(s); return reply(s, 'Please select which column has the phone numbers.', { showExclusionMap: true });
+        if (phoneColIdx === undefined || phoneColIdx === null) { persistSession(s); return reply(s, 'Please select which column has the phone numbers.', { showExclusionMap: true }); }
         const buf = Buffer.from(s.data.exclusionFileBuffer, 'base64');
         const excResult = parseExclusionFile(buf, s.data.exclusionFileName, parseInt(phoneColIdx));
         s.data.exclusionPhones = excResult.phones;
@@ -630,7 +630,7 @@ function createTom(db) {
         const name = String(payload?.name || '').trim();
         const body = String(payload?.body || '').trim();
         const category = payload?.category || null;
-        if (!name || !body) persistSession(s); return reply(s, 'Template needs a name and body.', { showBlastForm: true, keepForm: true });
+        if (!name || !body) { persistSession(s); return reply(s, 'Template needs a name and body.', { showBlastForm: true, keepForm: true }); }
         const r = db.prepare('INSERT INTO templates (name, body, category) VALUES (?, ?, ?)').run(name, body, category || null);
         const newTemplate = db.prepare('SELECT * FROM templates WHERE id = ?').get(Number(r.lastInsertRowid));
         const allTemplates = db.prepare('SELECT * FROM templates ORDER BY is_default DESC, id').all();
@@ -757,7 +757,7 @@ function createTom(db) {
       }
 
       if (action === 'confirm_send') {
-        if (!s.data.plan.sendable.length) persistSession(s); return reply(s, 'Nobody to send to \u2014 everyone was skipped.');
+        if (!s.data.plan.sendable.length) { persistSession(s); return reply(s, 'Nobody to send to \u2014 everyone was skipped.'); }
         s.state = 'sending';
         // Resolve multi-number: pass selected fromNumber override to provider
         const numberOverride = s.data.selectedFromNumber ? resolveNumber(db, s.data.selectedFromNumber) : null;
@@ -800,9 +800,9 @@ function createTom(db) {
       }
       
       if (action === 'schedule_send') {
-        if (!s.data.plan.sendable.length) persistSession(s); return reply(s, 'Nobody to send to \u2014 everyone was skipped.');
+        if (!s.data.plan.sendable.length) { persistSession(s); return reply(s, 'Nobody to send to \u2014 everyone was skipped.'); }
         const sendAt = extra?.send_at;
-        if (!sendAt) persistSession(s); return reply(s, 'No schedule time provided.');
+        if (!sendAt) { persistSession(s); return reply(s, 'No schedule time provided.'); }
         const numberOverride = s.data.selectedFromNumber ? resolveNumber(db, s.data.selectedFromNumber) : null;
         const recruiterId = s.data.recruiterId || null;
         const recruiterUsername = s.data.recruiterUsername || null;
@@ -838,7 +838,7 @@ function createTom(db) {
     s.state = 'report';
     const orgTz = (db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get() || {}).value || 'America/Chicago';
     const blasts = listBlasts(db, 20);
-    if (!blasts.length) persistSession(s); return reply(s, 'No magic blasts yet. Once you send one, its results show up here.', { blasts: [], timezone: orgTz });
+    if (!blasts.length) { persistSession(s); return reply(s, 'No magic blasts yet. Once you send one, its results show up here.', { blasts: [], timezone: orgTz }); }
     const lines = blasts.map((b) => {
       const d = new Date(b.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: orgTz });
       const bits = [`${b.sent_count} sent`];
