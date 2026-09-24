@@ -388,8 +388,13 @@ function createTom(db) {
         s.data.importCounts = counts;
         s.data.hasLastContacted = parsed.contacts.some(c => c.lastContacted);
         s.data.exclusionPhones = [];
-        // Skip exclusion — go straight to blast form
-        s.state = 'blast_form';
+        // Route to exclusion upload step (user can skip if not needed)
+        s.state = 'await_exclusion';
+        return reply(s, '', {
+          showExclusionUpload: true,
+          contactCount: parsed.contacts.length,
+          invalidCount: parsed.invalid.length,
+        });
         const _totalPool = db.prepare('SELECT COUNT(*) AS n FROM candidates').get().n;
         const cooldownHrs = getCooldownHours(db);
         const cooldownCutoff = new Date(Date.now() - cooldownHrs * 3600000).toISOString();
