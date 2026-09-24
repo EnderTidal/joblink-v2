@@ -233,7 +233,7 @@ function createTom(db) {
       if (/\b(publish|go live|publish it|ship it|looks good|good to go|make it live)\b/i.test(t)) {
         draft.status = 'Published';
         const v = validateJobOrder(draft);
-        if (!v.ok) persistSession(s); return reply(s, `Can't publish yet \u2014 ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: v.missing });
+        if (!v.ok) { persistSession(s); return reply(s, `Can't publish yet \u2014 ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: v.missing }); }
         if (!draft.assigned_recruiter) draft.assigned_recruiter = s.displayName || s.user || '';
         const id = createJobOrder(db, draft);
         s.state = 'ask_another';
@@ -242,7 +242,7 @@ function createTom(db) {
       if (/\b(done|save|keep it|finish|save it)\b/i.test(t)) {
         draft.status = draft.status === 'Published' ? 'Published' : 'Unpublished';
         const v = validateJobOrder(draft);
-        if (!v.ok) persistSession(s); return reply(s, `Almost \u2014 ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: v.missing });
+        if (!v.ok) { persistSession(s); return reply(s, `Almost \u2014 ${[...v.missing.map((m) => `missing ${m}`), ...v.errors].join('; ')}.\n\n${draftSummary(draft)}`, { showForm: true, draft, warnings: v.missing }); }
         if (!draft.assigned_recruiter) draft.assigned_recruiter = s.displayName || s.user || '';
         const id = createJobOrder(db, draft);
         s.state = 'ask_another';
