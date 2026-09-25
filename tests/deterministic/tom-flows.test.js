@@ -153,8 +153,13 @@ test('blast path: Last Contacted subset via form sort', async () => {
   assert.strictEqual(mapReply.state, 'await_column_map');
   assert.ok(mapReply.showColumnMap, 'should show column map summary');
   assert.ok(mapReply.suggestedMap, 'should have suggested map');
-  // Accept auto-detect (confirm_auto skips exclusion -> blast_form)
-  const r = await tom.message(s.sessionId, { action: 'confirm_auto', payload: { columnMap: mapReply.suggestedMap } });
+  // confirm_auto now routes to await_exclusion (user can skip or upload exclusion list)
+  const excl = await tom.message(s.sessionId, { action: 'confirm_auto', payload: { columnMap: mapReply.suggestedMap } });
+  assert.strictEqual(excl.state, 'await_exclusion', 'confirm_auto routes to exclusion step');
+  assert.ok(excl.showExclusionUpload, 'should show exclusion upload');
+  assert.strictEqual(excl.contactCount, 2, 'should report contact count');
+  // skip_exclusion advances to blast_form with hasLastContacted and sortOptions
+  const r = await tom.message(s.sessionId, { action: 'skip_exclusion' });
   assert.strictEqual(r.state, 'blast_form');
   assert.ok(r.hasLastContacted, 'should detect Last Contacted dates');
   assert.ok(r.sortOptions, 'should include sort options');

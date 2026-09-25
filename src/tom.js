@@ -188,7 +188,7 @@ function createTom(db) {
 
       let docText = text || '';
       if (file) docText = await extractText(file.buffer, file.originalname);
-      if (!docText.trim()) persistSession(s); return reply(s, 'Drop a .docx or .txt file with the job details, or use the blank form below.', { showBlankFormLink: true });
+      if (!docText.trim()) { persistSession(s); return reply(s, 'Drop a .docx or .txt file with the job details, or use the blank form below.', { showBlankFormLink: true }); }
       const parsed = await parseJobOrderText(docText);
       if (!parsed.fields) { persistSession(s); return reply(s, 'That document looks empty \u2014 try again?', { showBlankFormLink: true }); }
       s.data.draft = parsed.fields;
