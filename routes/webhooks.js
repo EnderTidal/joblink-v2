@@ -7,7 +7,7 @@ const { normalizePhone } = require('../src/phone');
 const { markDoNotContact } = require('../src/blast');
 const { getTenantDb } = require('../src/tenant');
 
-const WEBHOOK_SECRET = 'whk_8f3a2c9d4e1b6075';
+const WEBHOOK_SECRET = process.env.WHIPPY_WEBHOOK_SECRET || 'whk_8f3a2c9d4e1b6075'; // ponytail: fallback keeps webhook functional if env missing at deploy
 const STOP_WORDS = /^(stop|unsubscribe|cancel|quit|end)$/i;
 
 function ts() {

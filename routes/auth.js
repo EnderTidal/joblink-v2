@@ -13,6 +13,7 @@ const {
   findUser, findUserByEmail, findUserByInviteToken, findUserByMagicToken,
   updateUser, getOrg,
 } = require('../src/system-db');
+const { loginLimiter, forgotPasswordLimiter } = require('../middleware/rate-limit');
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const INVITE_TTL_MS = 72 * 60 * 60 * 1000;
@@ -161,7 +162,7 @@ function createAuth(sysDb) {
   const router = express.Router();
 
   // ---- Login (email OR username + password) ----
-  router.post('/api/login', (req, res) => {
+  router.post('/api/login', loginLimiter, (req, res) => {
     const { username, email, password } = req.body || {};
     const identifier = email || username;
     if (!identifier || !password) return res.status(400).json({ error: 'email/username and password required' });
@@ -266,7 +267,7 @@ function createAuth(sysDb) {
   });
 
   // ---- Forgot Password ----
-  router.post('/api/forgot-password', (req, res) => {
+  router.post('/api/forgot-password', forgotPasswordLimiter, (req, res) => {
     const { email } = req.body || {};
     if (!email) return res.status(400).json({ error: 'email required' });
     const user = findUserByEmail(sysDb, email);
