@@ -8,7 +8,7 @@ function createCopilotRoutes(auth) {
   const router = express.Router();
 
   // GET /api/copilot/candidates — list candidates with optional filters
-  router.get('/api/copilot/candidates', auth.requireAuth, (req, res) => {
+  router.get('/api/copilot/candidates', auth.requireApiKeyOrAuth, (req, res) => {
     try {
       const { status, search, limit = 100, offset = 0 } = req.query;
       let q = 'SELECT phone, first_name, last_name, current_category, do_not_contact, last_blast, blast_count, created_at FROM candidates WHERE 1=1';
@@ -24,7 +24,7 @@ function createCopilotRoutes(auth) {
   });
 
   // GET /api/copilot/candidates/summary — counts by status
-  router.get('/api/copilot/candidates/summary', auth.requireAuth, (req, res) => {
+  router.get('/api/copilot/candidates/summary', auth.requireApiKeyOrAuth, (req, res) => {
     try {
       const total = req.db.prepare('SELECT COUNT(*) AS n FROM candidates').get().n;
       const active = req.db.prepare('SELECT COUNT(*) AS n FROM candidates WHERE do_not_contact = 0').get().n;
@@ -37,7 +37,7 @@ function createCopilotRoutes(auth) {
   });
 
   // GET /api/copilot/job-orders — active job orders with fill stats
-  router.get('/api/copilot/job-orders', auth.requireAuth, (req, res) => {
+  router.get('/api/copilot/job-orders', auth.requireApiKeyOrAuth, (req, res) => {
     try {
       const { status = 'Published' } = req.query;
       const q = status === 'all'
@@ -55,7 +55,7 @@ function createCopilotRoutes(auth) {
   });
 
   // GET /api/copilot/job-orders/summary — open positions, fill rate
-  router.get('/api/copilot/job-orders/summary', auth.requireAuth, (req, res) => {
+  router.get('/api/copilot/job-orders/summary', auth.requireApiKeyOrAuth, (req, res) => {
     try {
       const published = req.db.prepare("SELECT COUNT(*) AS n FROM job_orders WHERE status = 'Published'").get().n;
       const total = req.db.prepare('SELECT COUNT(*) AS n FROM job_orders').get().n;
@@ -65,7 +65,7 @@ function createCopilotRoutes(auth) {
   });
 
   // GET /api/copilot/blasts — recent blasts with delivery stats
-  router.get('/api/copilot/blasts', auth.requireAuth, (req, res) => {
+  router.get('/api/copilot/blasts', auth.requireApiKeyOrAuth, (req, res) => {
     try {
       const limit = Math.min(Number(req.query.limit) || 20, 100);
       const blasts = req.db.prepare(
@@ -80,7 +80,7 @@ function createCopilotRoutes(auth) {
   });
 
   // GET /api/copilot/placements — interests in yes_listed/confirmed (closest to placements in V2)
-  router.get('/api/copilot/placements', auth.requireAuth, (req, res) => {
+  router.get('/api/copilot/placements', auth.requireApiKeyOrAuth, (req, res) => {
     try {
       const { from, to } = req.query;
       let q = "SELECT i.id, i.phone, i.job_order_id, i.status, i.created_at, jo.title AS job_title, jo.category FROM interests i LEFT JOIN job_orders jo ON jo.id = i.job_order_id WHERE i.status IN ('yes_listed','confirmed')";
@@ -94,7 +94,7 @@ function createCopilotRoutes(auth) {
   });
 
   // GET /api/copilot/metrics — key metrics in one call
-  router.get('/api/copilot/metrics', auth.requireAuth, (req, res) => {
+  router.get('/api/copilot/metrics', auth.requireApiKeyOrAuth, (req, res) => {
     try {
       const candidates = req.db.prepare('SELECT COUNT(*) AS n FROM candidates WHERE do_not_contact = 0').get().n;
       const activeJos = req.db.prepare("SELECT COUNT(*) AS n FROM job_orders WHERE status = 'Published'").get().n;
@@ -119,7 +119,7 @@ function createCopilotRoutes(auth) {
   });
 
   // GET /api/copilot/openapi.json — OpenAPI 3.0 spec for Copilot auto-discovery
-  router.get('/api/copilot/openapi.json', auth.requireAuth, (req, res) => {
+  router.get('/api/copilot/openapi.json', auth.requireApiKeyOrAuth, (req, res) => {
     const base = req.protocol + '://' + req.get('host');
     res.json({
       openapi: '3.0.0',

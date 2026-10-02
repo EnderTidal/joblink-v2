@@ -49,6 +49,19 @@ CREATE TABLE IF NOT EXISTS pending_signups (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   expires_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS api_keys (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  org_id INTEGER NOT NULL,
+  key_prefix TEXT NOT NULL,
+  key_hash TEXT NOT NULL,
+  name TEXT DEFAULT 'Default',
+  created_at TEXT DEFAULT (datetime('now')),
+  last_used_at TEXT,
+  revoked_at TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
 `;
 
 function openSystemDb(filePath) {
