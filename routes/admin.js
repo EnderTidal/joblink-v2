@@ -836,6 +836,112 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
     }
   });
 
+
+  // ---- Analytics & Reports ----
+
+  router.get('/api/analytics/overview', auth.requireAuth, (req, res) => {
+    const db = req.db;
+    try {
+      const candidates = db.prepare('SELECT COUNT(*) AS n FROM candidates WHERE do_not_contact = 0').get().n;
+      const activeJos = db.prepare("SELECT COUNT(*) AS n FROM job_orders WHERE status = 'Published'").get().n;
+      const totalJos = db.prepare('SELECT COUNT(*) AS n FROM job_orders').get().n;
+      const blastCount = db.prepare('SELECT COUNT(*) AS n FROM blasts').get().n;
+      const totalSent = db.prepare('SELECT COALESCE(SUM(sent_count),0) AS n FROM blasts').get().n;
+      const totalInterested = db.prepare("SELECT COUNT(*) AS n FROM interests WHERE status = 'interested'").get().n;
+      const responseRate = totalSent > 0 ? Math.round((totalInterested / totalSent) * 100 * 10) / 10 : 0;
+      const thisMonthStart = new Date(); thisMonthStart.setDate(1); thisMonthStart.setHours(0,0,0,0);
+      const newThisMonth = db.prepare("SELECT COUNT(*) AS n FROM candidates WHERE created_at >= ?").get(thisMonthStart.toISOString()).n;
+      res.json({ candidates, activeJos, totalJos, blastCount, totalSent, totalInterested, responseRate, newCandidatesThisMonth: newThisMonth });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  router.get('/api/analytics/blasts', auth.requireAuth, (req, res) => {
+    const db = req.db;
+    try {
+      const blasts = db.prepare(
+        `SELECT b.id, b.sent_at, b.category, b.sent_count, b.skipped_cooldown_count, b.skipped_dnc_count, b.failed_count, b.sent_by,
+          (SELECT COUNT(*) FROM interests i WHERE i.blast_id = b.id) AS responded
+         FROM blasts b ORDER BY b.id DESC LIMIT 20`
+      ).all();
+      res.json(blasts);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  router.get('/api/analytics/pipeline', auth.requireAuth, (req, res) => {
+    const db = req.db;
+    try {
+      const statuses = db.prepare(
+        `SELECT status, COUNT(*) AS count FROM interests GROUP BY status ORDER BY count DESC`
+      ).all();
+      const dnc = db.prepare('SELECT COUNT(*) AS n FROM candidates WHERE do_not_contact = 1').get().n;
+      const categories = db.prepare(
+        `SELECT current_category, COUNT(*) AS count FROM candidates WHERE current_category IS NOT NULL GROUP BY current_category`
+      ).all();
+      res.json({ byInterestStatus: statuses, dncCount: dnc, byCategory: categories });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  router.get('/api/analytics/trends', auth.requireAuth, (req, res) => {
+    const db = req.db;
+    try {
+      const days = parseInt(req.query.days) || 30;
+      const since = new Date(Date.now() - days * 86400000).toISOString();
+      const dailyBlasts = db.prepare(
+        `SELECT strftime('%Y-%m-%d', sent_at) AS day, SUM(sent_count) AS messages, COUNT(*) AS blasts
+         FROM blasts WHERE sent_at >= ? GROUP BY day ORDER BY day`
+      ).all(since);
+      const newCandidates = db.prepare(
+        `SELECT strftime('%Y-%m-%d', created_at) AS day, COUNT(*) AS count
+         FROM candidates WHERE created_at >= ? GROUP BY day ORDER BY day`
+      ).all(since);
+      res.json({ dailyBlasts, newCandidates, days });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ---- SMS Test Suite ----
+
+  router.post('/api/test-suite/dry-run', auth.requireAdmin, (req, res) => {
+    const db = req.db;
+    try {
+      const { phones = [], message = '' } = req.body || {};
+      if (!Array.isArray(phones)) return res.status(400).json({ error: 'phones must be array' });
+      const { normalizePhone } = require('../src/phone');
+      const results = phones.map(raw => {
+        const phone = normalizePhone(raw);
+        if (!phone) return { raw, phone: null, valid: false, error: 'invalid format' };
+        const c = db.prepare('SELECT first_name, last_name, do_not_contact, last_blast, current_category FROM candidates WHERE phone = ?').get(phone);
+        if (!c) return { raw, phone, valid: true, found: false };
+        if (c.do_not_contact) return { raw, phone, valid: true, found: true, skipped: true, reason: 'do_not_contact' };
+        return { raw, phone, valid: true, found: true, skipped: false, name: c.first_name + ' ' + c.last_name };
+      });
+      const wouldSend = results.filter(r => r.valid && r.found && !r.skipped).length;
+      const preview = message ? message.replace('{first_name}', 'FirstName').replace('{link}', 'https://go.joblinkplatform.com/m/EXAMPLE') : null;
+      res.json({ totalPhones: phones.length, wouldSend, results, messagePreview: preview });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  router.get('/api/test-suite/recent-blasts', auth.requireAuth, (req, res) => {
+    const db = req.db;
+    try {
+      const blasts = db.prepare(
+        `SELECT b.id, b.sent_at, b.category, b.sent_count, b.failed_count,
+          (SELECT COUNT(*) FROM blast_recipients br WHERE br.blast_id = b.id AND br.status = 'sent') AS delivered,
+          (SELECT COUNT(*) FROM blast_recipients br WHERE br.blast_id = b.id AND br.status = 'failed') AS failed_recipients
+         FROM blasts b ORDER BY b.id DESC LIMIT 10`
+      ).all();
+      res.json(blasts);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  router.post('/api/test-suite/validate-phones', auth.requireAuth, (req, res) => {
+    try {
+      const { phones = [] } = req.body || {};
+      const { normalizePhone } = require('../src/phone');
+      const results = phones.map(raw => ({ raw, normalized: normalizePhone(raw) || null, valid: !!normalizePhone(raw) }));
+      res.json({ total: phones.length, valid: results.filter(r => r.valid).length, results });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
   return router;
 }
 
