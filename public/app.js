@@ -38,8 +38,6 @@ function navbar(active) {
     <div class="nav-links">
       <a href="/dashboard.html" class="${active === 'dash' ? 'active' : ''}">Dashboard</a>
       <a href="/thewizard.html" class="${active === 'tom' ? 'active' : ''}">The Wizard</a>
-      <a href="/reports.html" class="${active === 'reports' ? 'active' : ''}">Reports</a>
-      <a href="/test-suite.html" class="${active === 'test-suite' ? 'active' : ''}">Test Suite</a>
       <a href="/admin.html" class="${active === 'admin' ? 'active' : ''}">Admin</a>
     </div>
     <span class="spacer"></span>

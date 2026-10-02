@@ -34,6 +34,21 @@
   .picker-item .pi-arrow { margin-left:auto; font-size:.75rem; color:var(--mut,#94a3b8); }
   .picker-empty { padding:20px 12px; text-align:center; color:var(--mut,#94a3b8); font-size:.82rem; font-style:italic; }
   @media (max-width:600px) { .picker-wrap { flex-direction:column; } .picker-col { min-height:150px; } }
+
+  .stat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:16px; margin-bottom:32px; }
+  .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .stat-card .lbl { font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--text-subtle); margin-bottom:8px; }
+  .stat-card .num { font-size:32px; font-weight:800; font-variant-numeric:tabular-nums; color:var(--text); }
+  .stat-card .sub { font-size:12px; color:var(--text-subtle); margin-top:4px; }
+  .bar-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .bar-label { width:110px; font-size:13px; color:var(--text); flex-shrink:0; }
+  .bar-track { flex:1; height:16px; background:var(--surface-2); border-radius:8px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:8px; background:var(--brand,#6366f1); transition:width .4s; }
+  .bar-count { width:40px; text-align:right; font-size:13px; font-variant-numeric:tabular-nums; color:var(--text-subtle); }
+  .blast-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .blast-table th { text-align:left; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--text-subtle); padding:8px 12px; border-bottom:2px solid var(--border); }
+  .blast-table td { padding:10px 12px; border-bottom:1px solid var(--border); }
+  .blast-table tr:hover td { background:var(--surface-2); }
 </style></head>
 <body>
 <main class="page">
@@ -48,6 +63,7 @@
     <button data-t="candidates">Candidates</button>
     <button data-t="feedback">Feedback</button>
     <button data-t="changelog">Changelog</button>
+    <button data-t="reports">Reports</button>
   </div>
 
   <section id="s-settings" class="on">
@@ -229,6 +245,28 @@
     <h3 style="margin-bottom:12px">Updates</h3>
     <div id="cl-list"></div>
   </div></section>
+
+  <section id="s-reports">
+    <div class="stat-grid">
+      <div class="stat-card"><div class="lbl">Candidates</div><div class="num" id="rCandidates">--</div><div class="sub">active (not DNC)</div></div>
+      <div class="stat-card"><div class="lbl">Active JOs</div><div class="num" id="rActiveJos">--</div><div class="sub" id="rTotalJos">-- total</div></div>
+      <div class="stat-card"><div class="lbl">Blasts Sent</div><div class="num" id="rBlasts">--</div><div class="sub" id="rTotalMessages">-- messages</div></div>
+      <div class="stat-card"><div class="lbl">Response Rate</div><div class="num" id="rResponseRate">--</div><div class="sub">interested / sent</div></div>
+      <div class="stat-card"><div class="lbl">New This Month</div><div class="num" id="rNewMonth">--</div><div class="sub">candidates added</div></div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:24px">
+      <div style="font-size:15px;font-weight:800;margin:0 0 14px">Pipeline by Status</div>
+      <div id="rPipelineChart"></div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:24px">
+      <div style="font-size:15px;font-weight:800;margin:0 0 14px">Recent Blasts (last 20)</div>
+      <table class="blast-table">
+        <thead><tr><th>Date</th><th>Category</th><th>Sent</th><th>Responded</th><th>Skipped (cooldown)</th><th>Skipped (DNC)</th><th>By</th></tr></thead>
+        <tbody id="rBlastBody"><tr><td colspan="7" style="text-align:center;color:var(--text-subtle);padding:24px">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
 </main>
 <script src="/app.js?v=5"></script>
 <script>
@@ -239,6 +277,8 @@ document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('cli
   document.querySelectorAll('section').forEach((x) => x.classList.remove('on'));
   b.classList.add('on');
   document.getElementById('s-' + b.dataset.t).classList.add('on');
+  if (b.dataset.t === 'api-keys') loadApiKeys();
+  if (b.dataset.t === 'reports') loadReports();
 }));
 
 async function loadSettings() {
@@ -999,9 +1039,43 @@ async function moveCat(id, direction) {
   } catch(e) { toast(e.message || 'Reorder failed', 'error'); }
 }
 
+
+async function loadReports() {
+  try {
+    const [ov, blasts, pipeline] = await Promise.all([
+      api('/api/analytics/overview'),
+      api('/api/analytics/blasts'),
+      api('/api/analytics/pipeline'),
+    ]);
+    document.getElementById('rCandidates').textContent = ov.candidates.toLocaleString();
+    document.getElementById('rActiveJos').textContent = ov.activeJos.toLocaleString();
+    document.getElementById('rTotalJos').textContent = ov.totalJos + ' total';
+    document.getElementById('rBlasts').textContent = ov.blastCount.toLocaleString();
+    document.getElementById('rTotalMessages').textContent = ov.totalSent.toLocaleString() + ' messages';
+    document.getElementById('rResponseRate').textContent = ov.responseRate + '%';
+    document.getElementById('rNewMonth').textContent = ov.newCandidatesThisMonth.toLocaleString();
+    var max = Math.max(1, ...pipeline.byInterestStatus.map(function(r){return r.count}));
+    document.getElementById('rPipelineChart').innerHTML = pipeline.byInterestStatus.length
+      ? pipeline.byInterestStatus.map(function(r){
+          return '<div class="bar-row"><div class="bar-label">'+esc(r.status)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+Math.round(r.count/max*100)+'%"></div></div><div class="bar-count">'+r.count+'</div></div>';
+        }).join('')
+      : '<p class="mut">No pipeline data yet.</p>';
+    var tbody = document.getElementById('rBlastBody');
+    if (!blasts.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-subtle);padding:24px">No blasts yet.</td></tr>';
+    } else {
+      tbody.innerHTML = blasts.map(function(b) {
+        var d = new Date(b.sent_at);
+        var ds = d.toLocaleDateString()+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+        return '<tr><td>'+esc(ds)+'</td><td>'+esc(b.category||'\u2014')+'</td><td>'+b.sent_count+'</td><td>'+b.responded+'</td><td>'+b.skipped_cooldown_count+'</td><td>'+b.skipped_dnc_count+'</td><td>'+esc(b.sent_by||'\u2014')+'</td></tr>';
+      }).join('');
+    }
+  } catch(e) { console.error('loadReports', e); }
+}
+
 boot('admin').then(function(m) {
   me = m;
-  loadCategories(); loadSettings(); loadTemplates(); loadUsers(); loadCandidates(); loadFeedback(); loadChangelog(); loadWhippyUsers(); loadPhoneLines();
+  loadCategories(); loadSettings(); loadTemplates(); loadUsers(); loadCandidates(); loadFeedback(); loadChangelog(); loadWhippyUsers(); loadPhoneLines(); loadApiKeys(); loadReports();
 });
 
 
