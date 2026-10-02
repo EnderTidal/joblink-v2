@@ -179,7 +179,7 @@ app.use(createQboRoutes());
 app.use(auth.router);
 
 // Everything below requires a logged-in recruiter/admin
-app.use('/api', auth.requireAuth);
+app.use('/api', auth.requireApiKeyOrAuth);
 
 // ---- Billing: create Stripe checkout for expired trials ----
 app.post('/api/billing/create-checkout', async (req, res) => {
