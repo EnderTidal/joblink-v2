@@ -138,7 +138,7 @@
       <div id="api-keys-list"><p class="mut">Loading...</p></div>
     </div>
 
-    <div id="api-key-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;display:flex;align-items:center;justify-content:center">
+    <div id="api-key-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;align-items:center;justify-content:center">
       <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:28px 32px;max-width:520px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.4)">
         <h3 style="margin:0 0 10px;font-size:17px">Your new API key</h3>
         <p style="color:#f59e0b;font-size:.88rem;margin:0 0 14px">Copy this now — it will not be shown again.</p>
@@ -1040,6 +1040,11 @@ async function moveCat(id, direction) {
 }
 
 
+
+function humanStatus(s) {
+  var map = {interested:'Interested', yes_listed:'Yes Listed', ruled_out:'Ruled Out', dnc:'DNC', new:'New', contacted:'Contacted', pending:'Pending'};
+  return map[s] || s.replace(/_/g, ' ').replace(/\b\w/g, function(c){return c.toUpperCase()});
+}
 async function loadReports() {
   try {
     const [ov, blasts, pipeline] = await Promise.all([
@@ -1057,7 +1062,7 @@ async function loadReports() {
     var max = Math.max(1, ...pipeline.byInterestStatus.map(function(r){return r.count}));
     document.getElementById('rPipelineChart').innerHTML = pipeline.byInterestStatus.length
       ? pipeline.byInterestStatus.map(function(r){
-          return '<div class="bar-row"><div class="bar-label">'+esc(r.status)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+Math.round(r.count/max*100)+'%"></div></div><div class="bar-count">'+r.count+'</div></div>';
+          return '<div class="bar-row"><div class="bar-label">'+humanStatus(r.status)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+Math.round(r.count/max*100)+'%"></div></div><div class="bar-count">'+r.count+'</div></div>';
         }).join('')
       : '<p class="mut">No pipeline data yet.</p>';
     var tbody = document.getElementById('rBlastBody');
@@ -1079,11 +1084,12 @@ boot('admin').then(function(m) {
 });
 
 
-  async function loadApiKeys() {
+  async function loadApiKeys(showRevoked) {
     try {
       const r = await api('/api/settings/api-keys');
       const el = document.getElementById('api-keys-list');
       if (!r.keys || r.keys.length === 0) { el.innerHTML = '<p class="mut">No API keys yet.</p>'; return; }
+      var active = r.keys.filter(function(k){return !k.revoked_at}); var revoked = r.keys.filter(function(k){return k.revoked_at}); var list = showRevoked ? r.keys : active; if (list.length === 0 && revoked.length > 0) { el.innerHTML = '<p class="mut">No active keys. <a href="#" onclick="loadApiKeys(true);return false">' + revoked.length + ' revoked</a></p>'; return; }
       el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:.88rem"><thead><tr style="text-align:left;color:var(--muted)"><th style="padding:4px 8px">Name</th><th style="padding:4px 8px">Prefix</th><th style="padding:4px 8px">Created</th><th style="padding:4px 8px">Last used</th><th style="padding:4px 8px"></th></tr></thead><tbody>' +
         r.keys.map(k => '<tr style="border-top:1px solid var(--line)' + (k.revoked_at ? ';opacity:.45' : '') + '"><td style="padding:6px 8px">' + escHtml(k.name) + '</td><td style="padding:6px 8px;font-family:monospace">' + escHtml(k.key_prefix) + '...</td><td style="padding:6px 8px">' + fmtDate(k.created_at) + '</td><td style="padding:6px 8px">' + (k.last_used_at ? fmtDate(k.last_used_at) : '—') + '</td><td style="padding:6px 8px">' + (k.revoked_at ? '<span class="mut">Revoked</span>' : '<button class="btn ghost sm" onclick="revokeApiKey(' + k.id + ')">Revoke</button>') + '</td></tr>').join('') +
         '</tbody></table>';

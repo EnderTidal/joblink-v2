@@ -847,11 +847,11 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
       const totalJos = db.prepare('SELECT COUNT(*) AS n FROM job_orders').get().n;
       const blastCount = db.prepare('SELECT COUNT(*) AS n FROM blasts').get().n;
       const totalSent = db.prepare('SELECT COALESCE(SUM(sent_count),0) AS n FROM blasts').get().n;
-      const totalInterested = db.prepare("SELECT COUNT(*) AS n FROM interests WHERE status = 'interested'").get().n;
-      const responseRate = totalSent > 0 ? Math.round((totalInterested / totalSent) * 100 * 10) / 10 : 0;
+      const totalResponded = db.prepare("SELECT COUNT(*) AS n FROM interests WHERE blast_id IS NOT NULL").get().n;
+      const responseRate = totalSent > 0 ? Math.round((totalResponded / totalSent) * 100 * 10) / 10 : 0;
       const thisMonthStart = new Date(); thisMonthStart.setDate(1); thisMonthStart.setHours(0,0,0,0);
       const newThisMonth = db.prepare("SELECT COUNT(*) AS n FROM candidates WHERE created_at >= ?").get(thisMonthStart.toISOString()).n;
-      res.json({ candidates, activeJos, totalJos, blastCount, totalSent, totalInterested, responseRate, newCandidatesThisMonth: newThisMonth });
+      res.json({ candidates, activeJos, totalJos, blastCount, totalSent, totalInterested: totalResponded, responseRate, newCandidatesThisMonth: newThisMonth });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
