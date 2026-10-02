@@ -90,6 +90,8 @@ app.get('/api/status', (_req, res) => {
   }
 });
 
+app.get('/api/health', (_req, res) => res.redirect('/health'));
+
 app.get('/health', (_req, res) => {
   try {
     const orgs = listOrgs(sysDb);
