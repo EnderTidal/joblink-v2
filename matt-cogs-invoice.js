@@ -37,8 +37,8 @@ const MATT_EMAIL = "tibbettsmatt@gmail.com";
 
 // QBO — note: the qbo.js route file has these assigned to the "wrong" variable names
 // but they work. We match the production code exactly.
-const QBO_CLIENT_ID = "aFCjZChe729kORQamKKZehX3APXwgSodAWTAnoHk";
-const QBO_CLIENT_SECRET = "ABb4cbjzdI4hVwcJI1Fqm61w46s3fcNy4Ze1ZHa2x8H28ifmAw";
+const QBO_CLIENT_ID = process.env.QBO_CLIENT_ID || "ABb4cbjzdI4hVwcJI1Fqm61w46s3fcNy4Ze1ZHa2x8H28ifmAw";
+const QBO_CLIENT_SECRET = process.env.QBO_CLIENT_SECRET || "aFCjZChe729kORQamKKZehX3APXwgSodAWTAnoHk";
 const QBO_REALM_ID = "9341457804886708";
 // Script lives at /root/joblink-v2/matt-cogs-invoice.js
 const TOKEN_FILE = path.join(__dirname, "data", "qbo-tokens.json");
@@ -210,6 +210,22 @@ async function main() {
       console.log(`[cogs] DRY RUN — would send Telegram: "${msg}"`);
     }
     return;
+  }
+
+    // 2.5. Check QBO for existing invoice this period (prevent double-billing)
+  if (!DRY_RUN) {
+    const tokensCheck = await getValidToken();
+    const dupeQuery = encodeURIComponent("SELECT * FROM Invoice WHERE CustomerRef = '" + MATT_QBO_CUSTOMER_ID + "' AND TxnDate >= '" + startDate.slice(0, 10) + "' AND TxnDate <= '" + endDate.slice(0, 10) + "'");
+    const dupeResult = await qboApi("GET", "/query?query=" + dupeQuery + "&minorversion=65", tokensCheck);
+    const existing = (dupeResult.QueryResponse?.Invoice || []);
+    if (existing.length > 0) {
+      const msg = "[cogs] Invoice already exists for " + label + " period (Invoice #" + (existing[0].DocNumber || existing[0].Id) + ", $" + existing[0].TotalAmt + "). Skipping to prevent double-billing.";
+      console.log(msg);
+      await sendTelegram(msg);
+      return;
+    }
+  } else {
+    console.log("[cogs] DRY RUN — would check QBO for existing invoice in " + label + " period");
   }
 
   // 3. Create QBO invoice

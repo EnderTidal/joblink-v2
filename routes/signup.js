@@ -13,6 +13,7 @@ const { createTenantDb } = require('../src/tenant');
 
 function createSignupRoutes(sysDb) {
   const Stripe = require('stripe');
+  const { qboPost, qboQuery } = require('../lib/qbo-client');
   const stripe = new Stripe(process.env.STRIPE_SK);
 
   const PRICE_ID = process.env.STRIPE_PRICE_ID;
@@ -315,6 +316,26 @@ function createStripeWebhook(sysDb) {
             text: paidText
           });
           fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.RESEND_KEY }, body: paidAlert }).catch(function(e) { console.error('[payment-alert]', e.message); });
+
+          // --- QBO: Create Sales Receipt ---
+          try {
+            var qboAmt = (inv.amount_paid / 100).toFixed(2);
+            var qboDesc = 'Stripe ' + (inv.billing_reason === 'subscription_cycle' ? 'subscription' : inv.billing_reason || 'payment') + ' - ' + (org.name || 'Unknown');
+            var receipt = await qboPost('salesreceipt', {
+              Line: [{
+                Amount: parseFloat(qboAmt),
+                DetailType: 'SalesItemLineDetail',
+                SalesItemLineDetail: { ItemRef: { value: '1', name: 'Services' }, Qty: 1, UnitPrice: parseFloat(qboAmt) },
+                Description: qboDesc
+              }],
+              CustomerRef: { value: '1' },
+              PrivateNote: 'Auto-synced from Stripe. Invoice: ' + inv.id + ', Org: ' + (org.name || org.id),
+              TxnDate: new Date(inv.created * 1000).toISOString().split('T')[0]
+            });
+            console.log('[stripe-webhook] QBO Sales Receipt created: ' + (receipt.SalesReceipt?.Id || 'unknown'));
+          } catch (qboErr) {
+            console.error('[stripe-webhook] QBO sync failed (non-fatal):', qboErr.message);
+          }
           break;
         }
 
@@ -336,6 +357,85 @@ function createStripeWebhook(sysDb) {
             text: alertText
           });
           fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.RESEND_KEY }, body: alertEmailBody }).catch(function(e) { console.error('[payment-alert]', e.message); });
+          break;
+        }
+
+        case 'charge.refunded': {
+          const charge = event.data.object;
+          var refundAmt = 0;
+          if (charge.refunds && charge.refunds.data) {
+            charge.refunds.data.forEach(function(r) { refundAmt += r.amount; });
+          } else {
+            refundAmt = charge.amount_refunded || 0;
+          }
+          refundAmt = (refundAmt / 100).toFixed(2);
+          console.log('[stripe-webhook] Refund: 
+      }
+    } catch (err) {
+      console.error('[stripe-webhook] Handler error:', err.message);
+    }
+
+    res.json({ received: true });
+  });
+
+  return router;
+}
+
+module.exports = { createSignupRoutes, createStripeWebhook };
+ + refundAmt + ' on charge ' + charge.id);
+
+          // QBO: Create Refund Receipt
+          try {
+            var refundReceipt = await qboPost('refundreceipt', {
+              DepositToAccountRef: { value: '99', name: 'Mercury Checking (8881)' },
+              Line: [{
+                Amount: parseFloat(refundAmt),
+                DetailType: 'SalesItemLineDetail',
+                SalesItemLineDetail: { ItemRef: { value: '1', name: 'Services' }, Qty: 1, UnitPrice: parseFloat(refundAmt) },
+                Description: 'Stripe refund - charge ' + charge.id
+              }],
+              PrivateNote: 'Auto-synced from Stripe. Charge: ' + charge.id + ', Reason: ' + (charge.refunds?.data?.[0]?.reason || 'none'),
+              TxnDate: new Date(charge.created * 1000).toISOString().split('T')[0]
+            });
+            console.log('[stripe-webhook] QBO Refund Receipt created: ' + (refundReceipt.RefundReceipt?.Id || 'unknown'));
+          } catch (qboErr) {
+            console.error('[stripe-webhook] QBO refund sync failed (non-fatal):', qboErr.message);
+          }
+
+          // Alert Josh
+          var refundAlert = JSON.stringify({
+            from: 'JobLink <noreply@joblinkplatform.com>',
+            to: ['joshuafriends@gmail.com'],
+            subject: 'JobLink: Refund Processed - 
+      }
+    } catch (err) {
+      console.error('[stripe-webhook] Handler error:', err.message);
+    }
+
+    res.json({ received: true });
+  });
+
+  return router;
+}
+
+module.exports = { createSignupRoutes, createStripeWebhook };
+ + refundAmt,
+            text: 'REFUND PROCESSED\nAmount: 
+      }
+    } catch (err) {
+      console.error('[stripe-webhook] Handler error:', err.message);
+    }
+
+    res.json({ received: true });
+  });
+
+  return router;
+}
+
+module.exports = { createSignupRoutes, createStripeWebhook };
+ + refundAmt + '\nCharge: ' + charge.id + '\nReason: ' + (charge.refunds?.data?.[0]?.reason || 'none')
+          });
+          fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.RESEND_KEY }, body: refundAlert }).catch(function(e) { console.error('[refund-alert]', e.message); });
           break;
         }
 
