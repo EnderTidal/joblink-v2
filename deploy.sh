@@ -103,7 +103,7 @@ fi
 # Step 1: Run E2E tests
 echo ""
 echo "--- Running E2E test suite ---"
-if ! $NODE tests/e2e-full.js; then
+if ! $NODE --test-force-exit tests/e2e-full.js; then
   echo ""
   echo "DEPLOY ABORTED — tests failed"
   exit 1
