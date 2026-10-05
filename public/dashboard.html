@@ -473,7 +473,7 @@ async function openJoDetail(id) {
     document.getElementById('joModal').classList.add('open');
     // Populate recruiter dropdown
     try {
-      var users = await api('/api/users');
+      var users = await api('/api/team');
     _recruiters = users.map(function(u) { return u.display_name || u.username; });
       var sel = document.getElementById('jo-recruiter-select');
       if (sel) {
@@ -557,7 +557,7 @@ async function changeRecruiter(joId, value) {
 }
 async function loadRecruiterFilter() {
   try {
-    var users = await api('/api/users');
+    var users = await api('/api/team');
     _recruiters = users.map(function(u) { return u.display_name || u.username; });
     var sel = document.getElementById('recruiterFilter');
     if (!sel) return;

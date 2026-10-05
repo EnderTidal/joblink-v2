@@ -609,6 +609,12 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
     res.json(req.db.prepare('SELECT * FROM templates WHERE id = ?').get(id));
   });
 
+  // ---- Team list (any authenticated user — for filters/dropdowns) ----
+  router.get('/api/team', auth.requireAuth, (req, res) => {
+    const users = listOrgUsers(sysDb, req.user.org_id);
+    res.json(users.map(u => ({ display_name: u.display_name || u.username, username: u.username })));
+  });
+
   // ---- Users (admin only — reads from SYSTEM DB, scoped to the admin's org) ----
   router.get('/api/users', auth.requireAdmin, (req, res) => {
     res.json(listOrgUsers(sysDb, req.user.org_id));
