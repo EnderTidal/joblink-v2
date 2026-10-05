@@ -342,8 +342,16 @@ describe('JobLink V2 — Full E2E', () => {
         payload: { columnMap: r.data.suggestedMap }
       });
       assert.equal(confirm.status, 200);
-      assert.ok(confirm.data.showBlastForm, 'Should show blast form after column mapping');
+      assert.ok(confirm.data.showExclusionUpload, 'Should show exclusion upload after column mapping');
       assert.equal(confirm.data.contactCount, 4);
+
+      // Skip exclusion step to get to blast form
+      const skip = await http('POST', '/api/tom/message', {
+        sessionId: blastSessionId,
+        action: 'skip_exclusion'
+      });
+      assert.equal(skip.status, 200);
+      assert.ok(skip.data.showBlastForm, 'Should show blast form after skipping exclusion');
     });
 
     it('18. Parse contacts via tom (POST /api/tom with blast path + contacts text)', async () => {
