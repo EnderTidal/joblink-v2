@@ -250,7 +250,7 @@ async function move(interestId, newStatus) {
 
 async function loadRecruiterOptions() {
   try {
-    var users = await api('/api/users');
+    var users = await api('/api/team');
     var sel = document.getElementById('fRecruiter');
     users.forEach(function(u) {
       var opt = document.createElement('option');
