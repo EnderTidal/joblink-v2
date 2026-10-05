@@ -252,10 +252,11 @@ async function loadRecruiterOptions() {
   try {
     var users = await api('/api/team');
     var sel = document.getElementById('fRecruiter');
+    var defOpt = document.createElement('option'); defOpt.value = ''; defOpt.textContent = 'Unassigned'; sel.appendChild(defOpt);
     users.forEach(function(u) {
       var opt = document.createElement('option');
       opt.value = u.display_name || u.username;
-      opt.textContent = (u.display_name || u.username) + ' (' + u.role + ')';
+      opt.textContent = u.display_name || u.username;
       var isMatch = joData && (joData.assigned_recruiter || '') === (u.display_name || u.username); if (isMatch) opt.selected = true; if (!joData.assigned_recruiter && sel.options.length === 0) opt.selected = true;
       sel.appendChild(opt);
     });
@@ -273,7 +274,7 @@ async function loadDetail() {
   }
 }
 
-boot('dash').then(function() { loadDetail(); loadRecruiterOptions(); });
+boot('dash').then(function() { loadDetail().then(function() { loadRecruiterOptions(); }); });
 </script>
 
 <script>
