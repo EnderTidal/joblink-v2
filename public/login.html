@@ -37,7 +37,7 @@
   <div class="err" id="err">Invalid email or password.</div>
   <label class="f">Email<input id="e" type="email" autocomplete="email" required placeholder="you@agency.com"></label>
   <label class="f">Password<input id="p" type="password" autocomplete="current-password" required placeholder="••••••••"></label>
-  <button class="btn" style="width:100%" type="submit">Log in</button>
+  <button class="btn" style="width:100%" type="submit" onclick="this.closest('form').requestSubmit()">Log in</button>
   <div class="alt-actions">
     <button type="button" class="link-btn" onclick="showForgot()">Forgot password?</button>
     <button type="button" class="link-btn" onclick="showMagic()">Sign in with email link</button>
