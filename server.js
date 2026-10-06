@@ -21,6 +21,7 @@ const { createSignupRoutes, createStripeWebhook } = require('./routes/signup');
 const { createQboRoutes } = require("./routes/qbo");
 const { billingMiddleware } = require('./middleware/billing');
 const { createReportRoutes } = require('./routes/reports');
+const { createCopilotRoutes } = require('./routes/copilot');
 const { createWebhookRoutes } = require('./routes/webhooks');
 
 const PORT = process.env.PORT || 3000;
@@ -88,6 +89,8 @@ app.get('/api/status', (_req, res) => {
     });
   }
 });
+
+app.get('/api/health', (_req, res) => res.redirect('/health'));
 
 app.get('/health', (_req, res) => {
   try {
@@ -176,7 +179,7 @@ app.use(createQboRoutes());
 app.use(auth.router);
 
 // Everything below requires a logged-in recruiter/admin
-app.use('/api', auth.requireAuth);
+app.use('/api', auth.requireApiKeyOrAuth);
 
 // ---- Billing: create Stripe checkout for expired trials ----
 app.post('/api/billing/create-checkout', async (req, res) => {
@@ -233,6 +236,7 @@ app.use('/api', tenantMiddleware);
 // Mount routes (they now use req.db instead of a closure db)
 app.use(createTomRoutes(sysDb));
 app.use(createAdminRoutes(sysDb, auth));
+app.use(createCopilotRoutes(auth));
 app.use("/dev", createDevRoutes(sysDb, auth));
 app.use("/dev", createReportRoutes(auth));
 

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JobLink &mdash; Test Suite</title>
+<script>(function(){if(localStorage.getItem("joblink_light_mode")!=="false"){document.documentElement.classList.add("light-mode")}})();</script>
+<link rel="stylesheet" href="/app.css?v=5">
+<style>
+  .test-panel { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:22px; margin-bottom:20px; }
+  .test-panel h2 { font-size:15px; font-weight:800; margin:0 0 14px; }
+  .result-box { background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:14px; margin-top:12px; font-size:13px; white-space:pre-wrap; font-family:monospace; max-height:300px; overflow:auto; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700; }
+  .badge.ok { background:#dcfce7; color:#16a34a; }
+  .badge.warn { background:#fef3c7; color:#d97706; }
+  .badge.err { background:#fee2e2; color:#dc2626; }
+  label { font-size:13px; font-weight:600; display:block; margin-bottom:6px; }
+  textarea { width:100%; box-sizing:border-box; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:10px; font-size:13px; color:var(--text); font-family:inherit; }
+  .row-result { display:flex; gap:8px; align-items:center; padding:6px 0; font-size:13px; border-bottom:1px solid var(--border); }
+  .row-result:last-child { border-bottom:none; }
+</style>
+</head>
+<body>
+<main class="page">
+  <div style="margin-bottom:24px">
+    <h1 class="pagetitle">Test Suite</h1>
+    <p class="mut" style="margin-top:4px">SMS delivery verification and blast dry-runs</p>
+  </div>
+
+  <!-- Phone validator -->
+  <div class="test-panel">
+    <h2>Phone Number Validator</h2>
+    <p class="mut" style="font-size:13px;margin-bottom:12px">Paste phone numbers (one per line) to check E.164 normalization.</p>
+    <label for="phoneInput">Phone numbers</label>
+    <textarea id="phoneInput" rows="5" placeholder="2065551234"></textarea>
+    <button class="preview-btn" style="margin-top:10px" onclick="validatePhones()">Validate</button>
+    <div id="phoneResults" class="result-box" style="display:none"></div>
+  </div>
+
+  <!-- Blast dry-run -->
+  <div class="test-panel">
+    <h2>Blast Dry-Run</h2>
+    <p class="mut" style="font-size:13px;margin-bottom:12px">Preview who would receive a blast without sending anything.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div>
+        <label for="dryRunPhones">Phone numbers (one per line)</label>
+        <textarea id="dryRunPhones" rows="6" placeholder="2065551234"></textarea>
+      </div>
+      <div>
+        <label for="dryRunMsg">Message template (optional)</label>
+        <textarea id="dryRunMsg" rows="6" placeholder="Hi {first_name}, check this out: {link}"></textarea>
+      </div>
+    </div>
+    <button class="preview-btn" style="margin-top:10px" onclick="dryRun()">Dry Run</button>
+    <div id="dryRunResults" style="display:none;margin-top:14px">
+      <div id="dryRunSummary" style="margin-bottom:10px;font-size:14px;font-weight:600"></div>
+      <div id="dryRunPreview" style="margin-bottom:10px;font-size:13px;color:var(--text-subtle);font-style:italic"></div>
+      <div id="dryRunRows"></div>
+    </div>
+  </div>
+
+  <!-- Recent blast delivery -->
+  <div class="test-panel">
+    <h2>Recent Blast Delivery Status</h2>
+    <button class="preview-btn" onclick="loadRecentBlasts()">Refresh</button>
+    <div id="recentBlasts" style="margin-top:14px"></div>
+  </div>
+</main>
+<script src="/app.js?v=5"></script>
+<script>
+async function validatePhones() {
+  var raw = document.getElementById('phoneInput').value.trim();
+  if (!raw) { toast('Enter some phone numbers first'); return; }
+  var phones = raw.split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+  var data = await api('/api/test-suite/validate-phones', { method: 'POST', body: { phones: phones } }).catch(function(e){ toast(e.message); return null; });
+  if (!data) return;
+  var box = document.getElementById('phoneResults');
+  box.style.display = 'block';
+  box.textContent = data.valid + '/' + data.total + ' valid\n\n' +
+    data.results.map(function(r){ return (r.valid ? '\u2713' : '\u2717') + ' ' + r.raw + ' \u2192 ' + (r.normalized || 'invalid'); }).join('\n');
+}
+
+async function dryRun() {
+  var phonesRaw = document.getElementById('dryRunPhones').value.trim();
+  var message = document.getElementById('dryRunMsg').value.trim();
+  if (!phonesRaw) { toast('Enter phone numbers first'); return; }
+  var phones = phonesRaw.split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+  var data = await api('/api/test-suite/dry-run', { method: 'POST', body: { phones: phones, message: message } }).catch(function(e){ toast(e.message); return null; });
+  if (!data) return;
+  var wrap = document.getElementById('dryRunResults');
+  wrap.style.display = 'block';
+  document.getElementById('dryRunSummary').innerHTML = 'Would send to <strong>' + data.wouldSend + '</strong> of ' + data.totalPhones + ' phones';
+  document.getElementById('dryRunPreview').textContent = data.messagePreview ? 'Preview: ' + data.messagePreview : '';
+  var rows = document.getElementById('dryRunRows');
+  rows.innerHTML = data.results.map(function(r) {
+    var badge, detail;
+    if (!r.valid) { badge = 'err'; detail = 'invalid number'; }
+    else if (!r.found) { badge = 'warn'; detail = 'not in candidate list'; }
+    else if (r.skipped) { badge = 'warn'; detail = 'skipped: ' + r.reason; }
+    else { badge = 'ok'; detail = r.name || 'would send'; }
+    var badgeLabel = badge === 'ok' ? 'SEND' : badge === 'warn' ? 'SKIP' : 'ERR';
+    return '<div class="row-result"><span class="badge ' + badge + '">' + badgeLabel + '</span><span>' + esc(r.raw) + '</span><span style="color:var(--text-subtle)">' + esc(detail) + '</span></div>';
+  }).join('');
+}
+
+async function loadRecentBlasts() {
+  var data = await api('/api/test-suite/recent-blasts').catch(function(e){ toast(e.message); return null; });
+  if (!data) return;
+  var el = document.getElementById('recentBlasts');
+  if (!data.length) { el.innerHTML = '<p class="mut">No blasts yet.</p>'; return; }
+  var rows = data.map(function(b) {
+    var d = new Date(b.sent_at);
+    var ds = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    return '<tr><td style="padding:9px 10px;border-bottom:1px solid var(--border)">' + esc(ds) + '</td>' +
+      '<td style="padding:9px 10px;border-bottom:1px solid var(--border)">' + esc(b.category || '\u2014') + '</td>' +
+      '<td style="padding:9px 10px;border-bottom:1px solid var(--border);text-align:right">' + b.sent_count + '</td>' +
+      '<td style="padding:9px 10px;border-bottom:1px solid var(--border);text-align:right">' + b.delivered + '</td>' +
+      '<td style="padding:9px 10px;border-bottom:1px solid var(--border);text-align:right">' + b.failed_recipients + '</td></tr>';
+  }).join('');
+  el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+    '<thead><tr style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-subtle)">' +
+    '<th style="padding:8px 10px;border-bottom:2px solid var(--border);text-align:left">Date</th>' +
+    '<th style="padding:8px 10px;border-bottom:2px solid var(--border);text-align:left">Category</th>' +
+    '<th style="padding:8px 10px;border-bottom:2px solid var(--border);text-align:right">Sent</th>' +
+    '<th style="padding:8px 10px;border-bottom:2px solid var(--border);text-align:right">Delivered</th>' +
+    '<th style="padding:8px 10px;border-bottom:2px solid var(--border);text-align:right">Failed</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+boot('test-suite').then(function(){ loadRecentBlasts(); });
+</script>
+</body></html>

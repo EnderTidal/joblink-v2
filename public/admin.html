@@ -34,12 +34,28 @@
   .picker-item .pi-arrow { margin-left:auto; font-size:.75rem; color:var(--mut,#94a3b8); }
   .picker-empty { padding:20px 12px; text-align:center; color:var(--mut,#94a3b8); font-size:.82rem; font-style:italic; }
   @media (max-width:600px) { .picker-wrap { flex-direction:column; } .picker-col { min-height:150px; } }
+
+  .stat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:16px; margin-bottom:32px; }
+  .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .stat-card .lbl { font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--text-subtle); margin-bottom:8px; }
+  .stat-card .num { font-size:32px; font-weight:800; font-variant-numeric:tabular-nums; color:var(--text); }
+  .stat-card .sub { font-size:12px; color:var(--text-subtle); margin-top:4px; }
+  .bar-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .bar-label { width:110px; font-size:13px; color:var(--text); flex-shrink:0; }
+  .bar-track { flex:1; height:16px; background:var(--surface-2); border-radius:8px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:8px; background:var(--brand,#6366f1); transition:width .4s; }
+  .bar-count { width:40px; text-align:right; font-size:13px; font-variant-numeric:tabular-nums; color:var(--text-subtle); }
+  .blast-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .blast-table th { text-align:left; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--text-subtle); padding:8px 12px; border-bottom:2px solid var(--border); }
+  .blast-table td { padding:10px 12px; border-bottom:1px solid var(--border); }
+  .blast-table tr:hover td { background:var(--surface-2); }
 </style></head>
 <body>
 <main class="page">
   <h1 class="pagetitle">Admin</h1>
   <div class="tabs" id="tabs">
     <button data-t="settings" class="on">Settings</button>
+    <button data-t="api-keys">API Keys</button>
     <button data-t="categories">Categories</button>
     <button data-t="users">Users</button>
     <button data-t="templates">Templates</button>
@@ -47,6 +63,7 @@
     <button data-t="candidates">Candidates</button>
     <button data-t="feedback">Feedback</button>
     <button data-t="changelog">Changelog</button>
+    <button data-t="reports">Reports</button>
   </div>
 
   <section id="s-settings" class="on">
@@ -105,6 +122,32 @@
             <button class="btn ghost sm" onclick="cancelPhoneLinesPicker()">Cancel</button>
             <button class="btn sm" onclick="savePhoneLines()">Save Selection</button>
           </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="s-api-keys">
+    <div class="card half">
+      <h3 style="margin:0 0 16px;font-size:17px;font-weight:800">API Keys</h3>
+      <p class="mut" style="margin-bottom:14px;font-size:.88rem">Use API keys to authenticate Copilot endpoints without a session cookie. Send as <code>Authorization: Bearer &lt;key&gt;</code>.</p>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+        <input id="api-key-name" placeholder="Key name (optional)" style="flex:1;min-width:140px;max-width:240px">
+        <button class="btn" onclick="generateApiKey()">Generate API Key</button>
+      </div>
+      <div id="api-keys-list"><p class="mut">Loading...</p></div>
+    </div>
+
+    <div id="api-key-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;align-items:center;justify-content:center">
+      <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:28px 32px;max-width:520px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.4)">
+        <h3 style="margin:0 0 10px;font-size:17px">Your new API key</h3>
+        <p style="color:#f59e0b;font-size:.88rem;margin:0 0 14px">Copy this now — it will not be shown again.</p>
+        <div style="display:flex;gap:8px;align-items:center;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:.88rem;word-break:break-all">
+          <span id="api-key-value" style="flex:1"></span>
+          <button class="btn sm ghost" onclick="copyApiKey()">Copy</button>
+        </div>
+        <div style="margin-top:18px;text-align:right">
+          <button class="btn" onclick="closeApiKeyModal()">Done</button>
         </div>
       </div>
     </div>
@@ -202,6 +245,28 @@
     <h3 style="margin-bottom:12px">Updates</h3>
     <div id="cl-list"></div>
   </div></section>
+
+  <section id="s-reports">
+    <div class="stat-grid">
+      <div class="stat-card"><div class="lbl">Candidates</div><div class="num" id="rCandidates">--</div><div class="sub">active (not DNC)</div></div>
+      <div class="stat-card"><div class="lbl">Active JOs</div><div class="num" id="rActiveJos">--</div><div class="sub" id="rTotalJos">-- total</div></div>
+      <div class="stat-card"><div class="lbl">Blasts Sent</div><div class="num" id="rBlasts">--</div><div class="sub" id="rTotalMessages">-- messages</div></div>
+      <div class="stat-card"><div class="lbl">Response Rate</div><div class="num" id="rResponseRate">--</div><div class="sub">interested / sent</div></div>
+      <div class="stat-card"><div class="lbl">New This Month</div><div class="num" id="rNewMonth">--</div><div class="sub">candidates added</div></div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:24px">
+      <div style="font-size:15px;font-weight:800;margin:0 0 14px">Pipeline by Status</div>
+      <div id="rPipelineChart"></div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:24px">
+      <div style="font-size:15px;font-weight:800;margin:0 0 14px">Recent Blasts (last 20)</div>
+      <table class="blast-table">
+        <thead><tr><th>Date</th><th>Category</th><th>Sent</th><th>Responded</th><th>Skipped (cooldown)</th><th>Skipped (DNC)</th><th>By</th></tr></thead>
+        <tbody id="rBlastBody"><tr><td colspan="7" style="text-align:center;color:var(--text-subtle);padding:24px">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
 </main>
 <script src="/app.js?v=5"></script>
 <script>
@@ -212,6 +277,8 @@ document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('cli
   document.querySelectorAll('section').forEach((x) => x.classList.remove('on'));
   b.classList.add('on');
   document.getElementById('s-' + b.dataset.t).classList.add('on');
+  if (b.dataset.t === 'api-keys') loadApiKeys();
+  if (b.dataset.t === 'reports') loadReports();
 }));
 
 async function loadSettings() {
@@ -972,10 +1039,90 @@ async function moveCat(id, direction) {
   } catch(e) { toast(e.message || 'Reorder failed', 'error'); }
 }
 
+
+
+function humanStatus(s) {
+  var map = {interested:'Interested', yes_listed:'Yes Listed', ruled_out:'Ruled Out', dnc:'DNC', new:'New', contacted:'Contacted', pending:'Pending'};
+  return map[s] || s.replace(/_/g, ' ').replace(/\b\w/g, function(c){return c.toUpperCase()});
+}
+async function loadReports() {
+  try {
+    const [ov, blasts, pipeline] = await Promise.all([
+      api('/api/analytics/overview'),
+      api('/api/analytics/blasts'),
+      api('/api/analytics/pipeline'),
+    ]);
+    document.getElementById('rCandidates').textContent = ov.candidates.toLocaleString();
+    document.getElementById('rActiveJos').textContent = ov.activeJos.toLocaleString();
+    document.getElementById('rTotalJos').textContent = ov.totalJos + ' total';
+    document.getElementById('rBlasts').textContent = ov.blastCount.toLocaleString();
+    document.getElementById('rTotalMessages').textContent = ov.totalSent.toLocaleString() + ' messages';
+    document.getElementById('rResponseRate').textContent = ov.responseRate + '%';
+    document.getElementById('rNewMonth').textContent = ov.newCandidatesThisMonth.toLocaleString();
+    var max = Math.max(1, ...pipeline.byInterestStatus.map(function(r){return r.count}));
+    document.getElementById('rPipelineChart').innerHTML = pipeline.byInterestStatus.length
+      ? pipeline.byInterestStatus.map(function(r){
+          return '<div class="bar-row"><div class="bar-label">'+humanStatus(r.status)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+Math.round(r.count/max*100)+'%"></div></div><div class="bar-count">'+r.count+'</div></div>';
+        }).join('')
+      : '<p class="mut">No pipeline data yet.</p>';
+    var tbody = document.getElementById('rBlastBody');
+    if (!blasts.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-subtle);padding:24px">No blasts yet.</td></tr>';
+    } else {
+      tbody.innerHTML = blasts.map(function(b) {
+        var d = new Date(b.sent_at);
+        var ds = d.toLocaleDateString()+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+        return '<tr><td>'+esc(ds)+'</td><td>'+esc(b.category||'\u2014')+'</td><td>'+b.sent_count+'</td><td>'+b.responded+'</td><td>'+b.skipped_cooldown_count+'</td><td>'+b.skipped_dnc_count+'</td><td>'+esc(b.sent_by||'\u2014')+'</td></tr>';
+      }).join('');
+    }
+  } catch(e) { console.error('loadReports', e); }
+}
+
 boot('admin').then(function(m) {
   me = m;
-  loadCategories(); loadSettings(); loadTemplates(); loadUsers(); loadCandidates(); loadFeedback(); loadChangelog(); loadWhippyUsers(); loadPhoneLines();
+  loadCategories(); loadSettings(); loadTemplates(); loadUsers(); loadCandidates(); loadFeedback(); loadChangelog(); loadWhippyUsers(); loadPhoneLines(); loadApiKeys(); loadReports();
 });
+
+
+  async function loadApiKeys(showRevoked) {
+    try {
+      const r = await api('/api/settings/api-keys');
+      const el = document.getElementById('api-keys-list');
+      if (!r.keys || r.keys.length === 0) { el.innerHTML = '<p class="mut">No API keys yet.</p>'; return; }
+      var active = r.keys.filter(function(k){return !k.revoked_at}); var revoked = r.keys.filter(function(k){return k.revoked_at}); var list = showRevoked ? r.keys : active; if (list.length === 0 && revoked.length > 0) { el.innerHTML = '<p class="mut">No active keys. <a href="#" onclick="loadApiKeys(true);return false">' + revoked.length + ' revoked</a></p>'; return; }
+      el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:.88rem"><thead><tr style="text-align:left;color:var(--muted)"><th style="padding:4px 8px">Name</th><th style="padding:4px 8px">Prefix</th><th style="padding:4px 8px">Created</th><th style="padding:4px 8px">Last used</th><th style="padding:4px 8px"></th></tr></thead><tbody>' +
+        r.keys.map(k => '<tr style="border-top:1px solid var(--line)' + (k.revoked_at ? ';opacity:.45' : '') + '"><td style="padding:6px 8px">' + escHtml(k.name) + '</td><td style="padding:6px 8px;font-family:monospace">' + escHtml(k.key_prefix) + '...</td><td style="padding:6px 8px">' + fmtDate(k.created_at) + '</td><td style="padding:6px 8px">' + (k.last_used_at ? fmtDate(k.last_used_at) : '—') + '</td><td style="padding:6px 8px">' + (k.revoked_at ? '<span class="mut">Revoked</span>' : '<button class="btn ghost sm" onclick="revokeApiKey(' + k.id + ')">Revoke</button>') + '</td></tr>').join('') +
+        '</tbody></table>';
+    } catch { document.getElementById('api-keys-list').innerHTML = '<p class="mut">Failed to load keys.</p>'; }
+  }
+
+  function escHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function fmtDate(s) { try { return new Date(s).toLocaleDateString(); } catch { return s || '—'; } }
+
+  async function generateApiKey() {
+    const name = document.getElementById('api-key-name').value.trim() || 'Default';
+    try {
+      const r = await api('/api/settings/api-key/generate', { method: 'POST', body: { name } });
+      document.getElementById('api-key-value').textContent = r.key;
+      document.getElementById('api-key-modal').style.display = 'flex';
+      await loadApiKeys();
+    } catch (e) { alert('Failed: ' + (e.message || 'unknown error')); }
+  }
+
+  function copyApiKey() {
+    const val = document.getElementById('api-key-value').textContent;
+    navigator.clipboard.writeText(val).then(() => alert('Copied!')).catch(() => prompt('Copy this key:', val));
+  }
+
+  function closeApiKeyModal() { document.getElementById('api-key-modal').style.display = 'none'; }
+
+  async function revokeApiKey(id) {
+    if (!confirm('Revoke this API key? Any integrations using it will stop working.')) return;
+    try {
+      await api('/api/settings/api-key/' + id, { method: 'DELETE' });
+      await loadApiKeys();
+    } catch (e) { alert('Failed: ' + (e.message || 'unknown error')); }
+  }
 
 </script>
 </body></html>
