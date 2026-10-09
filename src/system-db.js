@@ -52,15 +52,13 @@ CREATE TABLE IF NOT EXISTS pending_signups (
 
 CREATE TABLE IF NOT EXISTS api_keys (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  org_id INTEGER NOT NULL,
-  key_prefix TEXT NOT NULL,
+  org_id INTEGER NOT NULL REFERENCES orgs(id),
+  name TEXT NOT NULL DEFAULT '',
   key_hash TEXT NOT NULL,
-  name TEXT DEFAULT 'Default',
-  created_at TEXT DEFAULT (datetime('now')),
-  last_used_at TEXT,
-  revoked_at TEXT,
-  FOREIGN KEY (user_id) REFERENCES users(id)
+  key_prefix TEXT NOT NULL,
+  expires_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  created_by TEXT NOT NULL DEFAULT ''
 );
 `;
 
@@ -78,6 +76,10 @@ function openSystemDb(filePath) {
   try { db.exec("ALTER TABLE orgs ADD COLUMN reminder_sent INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
   try { db.exec("ALTER TABLE orgs ADD COLUMN is_test INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
   try { db.exec("ALTER TABLE users ADD COLUMN last_login_at TEXT"); } catch { /* exists */ }
+  try { db.exec("ALTER TABLE users ADD COLUMN password_changed_at TEXT"); } catch { /* exists */ }
+  try { db.exec("ALTER TABLE users ADD COLUMN totp_secret TEXT"); } catch { /* exists */ }
+  try { db.exec("ALTER TABLE users ADD COLUMN totp_enabled INTEGER DEFAULT 0"); } catch { /* exists */ }
+  try { db.exec("ALTER TABLE api_keys ADD COLUMN expires_at TEXT"); } catch { /* exists */ }
   return db;
 }
 
@@ -138,7 +140,7 @@ function listOrgUsers(sysDb, orgId) {
 
 /** Update user fields. */
 function updateUser(sysDb, userId, fields) {
-  const allowed = ['password_hash', 'role', 'email', 'email_verified', 'display_name',
+  const allowed = ['password_hash', 'role', 'email', 'email_verified', 'display_name', 'password_changed_at', 'totp_secret', 'totp_enabled',
                    'invite_token', 'invite_expires', 'magic_login_token', 'magic_login_expires', 'username'];
   for (const [key, value] of Object.entries(fields)) {
     if (!allowed.includes(key)) continue;
@@ -201,7 +203,22 @@ function findOrgByStripeCustomer(sysDb, customerId) {
   return sysDb.prepare('SELECT * FROM orgs WHERE stripe_customer_id = ?').get(String(customerId)) || null;
 }
 
+
+/** Validate password complexity: min 12 chars, uppercase, lowercase, number, special char */
+function validatePassword(pw) {
+  if (!pw || typeof pw !== 'string') return { valid: false, error: 'Password is required' };
+  const errors = [];
+  if (pw.length < 12) errors.push('at least 12 characters');
+  if (!/[A-Z]/.test(pw)) errors.push('an uppercase letter');
+  if (!/[a-z]/.test(pw)) errors.push('a lowercase letter');
+  if (!/[0-9]/.test(pw)) errors.push('a number');
+  if (!/[^A-Za-z0-9]/.test(pw)) errors.push('a special character (!@#$%^&*)');
+  if (errors.length > 0) return { valid: false, error: 'Password must contain ' + errors.join(', ') };
+  return { valid: true };
+}
+
 module.exports = {
+  validatePassword,
   openSystemDb, createOrg, findUser, findUserByEmail,
   findUserByInviteToken, findUserByMagicToken, getOrg, listOrgs, listOrgUsers, updateUser,
   createPendingSignup, findPendingBySession, findPendingByEmail, deletePendingSignup,

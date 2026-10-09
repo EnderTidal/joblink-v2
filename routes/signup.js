@@ -8,6 +8,7 @@ const bcrypt = require('bcryptjs');
 const {
   findUserByEmail, createOrg, createPendingSignup, findPendingBySession,
   findPendingByEmail, deletePendingSignup, updateOrgBilling, findOrgByStripeCustomer,
+validatePassword,
 } = require('../src/system-db');
 const { createTenantDb } = require('../src/tenant');
 
@@ -41,8 +42,9 @@ function createSignupRoutes(sysDb) {
       if (!String(email).includes('@') || !String(email).includes('.')) {
         return res.status(400).json({ error: 'Invalid email address' });
       }
-      if (String(password).length < 8) {
-        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      const pwCheck = validatePassword(String(password));
+      if (!pwCheck.valid) {
+        return res.status(400).json({ error: pwCheck.error });
       }
 
       // Check email not taken

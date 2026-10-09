@@ -9,11 +9,42 @@ const https = require('node:https');
 const bcrypt = require('bcryptjs');
 const { getTenantDb, createTenantDb } = require('../src/tenant');
 const { getSetting } = require('../src/db');
-const {
-  findUser, findUserByEmail, findUserByInviteToken, findUserByMagicToken,
-  updateUser, getOrg,
-} = require('../src/system-db');
+const {findUser, findUserByEmail, findUserByInviteToken, findUserByMagicToken,
+  updateUser, getOrg, validatePassword} = require('../src/system-db');
 const { loginLimiter, forgotPasswordLimiter } = require('../middleware/rate-limit');
+
+// ---- TOTP Helpers ----
+function hexToBase32(hex) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = '';
+  for (let i = 0; i < hex.length; i += 2) {
+    bits += parseInt(hex.substring(i, i + 2), 16).toString(2).padStart(8, '0');
+  }
+  let result = '';
+  for (let i = 0; i < bits.length; i += 5) {
+    const chunk = bits.substring(i, i + 5).padEnd(5, '0');
+    result += alphabet[parseInt(chunk, 2)];
+  }
+  return result;
+}
+
+function verifyTOTP(hexSecret, code, window) {
+  window = window || 1;
+  const crypto = require('crypto');
+  const now = Math.floor(Date.now() / 1000);
+  for (let i = -window; i <= window; i++) {
+    const counter = Math.floor((now + i * 30) / 30);
+    const buf = Buffer.alloc(8);
+    buf.writeUInt32BE(0, 0);
+    buf.writeUInt32BE(counter, 4);
+    const hmac = crypto.createHmac('sha1', Buffer.from(hexSecret, 'hex')).update(buf).digest();
+    const offset = hmac[hmac.length - 1] & 0x0f;
+    const otp = ((hmac[offset] & 0x7f) << 24 | hmac[offset + 1] << 16 | hmac[offset + 2] << 8 | hmac[offset + 3]) % 1000000;
+    if (String(otp).padStart(6, '0') === String(code).padStart(6, '0')) return true;
+  }
+  return false;
+}
+
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const INVITE_TTL_MS = 72 * 60 * 60 * 1000;
@@ -170,14 +201,29 @@ function createAuth(sysDb) {
     if (!user || !user.password_hash || !bcrypt.compareSync(String(password), user.password_hash)) {
       return res.status(401).json({ error: 'bad_credentials' });
     }
+    // If MFA is enabled, require TOTP code
+    if (user.totp_enabled) {
+      const { totp_code } = req.body || {};
+      if (!totp_code) {
+        return res.status(200).json({ mfa_required: true, message: 'Enter your authenticator code' });
+      }
+      if (!verifyTOTP(user.totp_secret, String(totp_code))) {
+        return res.status(401).json({ error: 'invalid_mfa_code', message: 'Invalid authenticator code' });
+      }
+    }
     createSession(res, user);
     updateUser(sysDb, user.id, { last_login_at: new Date().toISOString() });
+    // Check password expiration (30 days)
+    const pwChangedAt = user.password_changed_at ? new Date(user.password_changed_at) : new Date(0);
+    const pwAgeDays = Math.floor((Date.now() - pwChangedAt.getTime()) / (1000 * 60 * 60 * 24));
+    const passwordExpired = pwAgeDays >= 30;
     const isDefault = (user.username === 'admin' && bcrypt.compareSync('joblink2026', user.password_hash));
     const tenantDb = getTenantDb(user.org_id);
     res.json({
       ok: true, username: user.username, role: user.role, email: user.email || '',
       org_id: user.org_id,
       defaultPassword: isDefault,
+      passwordExpired: passwordExpired,
       needsOnboarding: user.role === 'admin' && getSetting(tenantDb, 'onboarded') !== '1',
     });
   });
@@ -238,7 +284,8 @@ function createAuth(sysDb) {
   router.post('/api/invite/accept', (req, res) => {
     const { token, password, display_name } = req.body || {};
     if (!token) return res.status(400).json({ error: 'token required' });
-    if (!password || String(password).length < 8) return res.status(400).json({ error: 'password must be at least 8 characters' });
+    const pwCheck = validatePassword(String(password));
+    if (!pwCheck.valid) return res.status(400).json({ error: pwCheck.error });
     const user = findUserByInviteToken(sysDb, token);
     if (!user) return res.status(404).json({ error: 'invalid or expired invitation' });
     if (new Date(user.invite_expires) < new Date()) return res.status(400).json({ error: 'invitation expired' });
@@ -292,11 +339,13 @@ function createAuth(sysDb) {
   router.post('/api/reset-password', (req, res) => {
     const { token, password } = req.body || {};
     if (!token) return res.status(400).json({ error: 'token required' });
-    if (!password || String(password).length < 8) return res.status(400).json({ error: 'password must be at least 8 characters' });
+    if (!password || String(password).length < 12) return res.status(400).json({ error: 'password must be at least 12 characters' });
     const user = findUserByMagicToken(sysDb, token);
     if (!user) return res.status(404).json({ error: 'invalid or expired reset link' });
     if (new Date(user.magic_login_expires) < new Date()) return res.status(400).json({ error: 'reset link expired' });
-    updateUser(sysDb, user.id, { password_hash: bcrypt.hashSync(String(password), 10), magic_login_token: null, magic_login_expires: null });
+    const pwCheck2 = validatePassword(String(password));
+    if (!pwCheck2.valid) return res.status(400).json({ error: pwCheck2.error });
+    updateUser(sysDb, user.id, { password_hash: bcrypt.hashSync(String(password), 10), magic_login_token: null, magic_login_expires: null, password_changed_at: new Date().toISOString() });
     res.json({ ok: true });
   });
 
@@ -341,25 +390,49 @@ function createAuth(sysDb) {
   });
 
 
-  function requireApiKeyOrAuth(req, res, next) {
-    const authHeader = req.headers.authorization || '';
-    if (authHeader.startsWith('Bearer ')) {
-      const raw = authHeader.slice(7).trim();
-      const hash = require('node:crypto').createHash('sha256').update(raw).digest('hex');
-      const key = sysDb.prepare(
-        'SELECT * FROM api_keys WHERE key_hash = ? AND revoked_at IS NULL'
-      ).get(hash);
-      if (!key) return res.status(401).json({ error: 'invalid_api_key' });
-      try { sysDb.prepare("UPDATE api_keys SET last_used_at = datetime('now') WHERE id = ?").run(key.id); } catch {}
-      const user = sysDb.prepare('SELECT * FROM users WHERE id = ?').get(key.user_id);
-      if (!user) return res.status(401).json({ error: 'invalid_api_key' });
-      req.user = { username: user.username, role: user.role, email: user.email || '', display_name: user.display_name || '', org_id: key.org_id, user_id: user.id };
-      return next();
-    }
-    return requireAuth(req, res, next);
-  }
+  // ---- TOTP Enrollment ----
 
-  return { router, requireAuth, requireAdmin, requireApiKeyOrAuth, sysDb };
+  // Step 1: Generate secret + QR URI. Does NOT enable TOTP yet.
+  router.post('/api/totp/setup', requireAuth, (req, res) => {
+    const user = sysDb.prepare('SELECT * FROM users WHERE id = ?').get(req.user.user_id);
+    if (!user) return res.status(404).json({ error: 'user_not_found' });
+    if (user.totp_enabled) return res.status(400).json({ error: 'totp_already_enabled' });
+    const secret = crypto.randomBytes(20).toString('hex');
+    updateUser(sysDb, user.id, { totp_secret: secret });
+    const b32 = hexToBase32(secret);
+    const email = user.email || user.username;
+    const uri = 'otpauth://totp/JobLink:' + encodeURIComponent(email) + '?secret=' + b32 + '&issuer=JobLink';
+    res.json({ secret: b32, uri });
+  });
+
+  // Step 2: Verify a code to confirm setup. Enables TOTP if valid.
+  router.post('/api/totp/verify', requireAuth, (req, res) => {
+    const { code } = req.body || {};
+    if (!code) return res.status(400).json({ error: 'code required' });
+    const user = sysDb.prepare('SELECT * FROM users WHERE id = ?').get(req.user.user_id);
+    if (!user || !user.totp_secret) return res.status(400).json({ error: 'call /api/totp/setup first' });
+    if (user.totp_enabled) return res.status(400).json({ error: 'totp_already_enabled' });
+    if (!verifyTOTP(user.totp_secret, String(code))) {
+      return res.status(401).json({ error: 'invalid_code' });
+    }
+    updateUser(sysDb, user.id, { totp_enabled: 1 });
+    res.json({ ok: true, message: 'TOTP enabled' });
+  });
+
+  // Disable TOTP — requires current password.
+  router.delete('/api/totp', requireAuth, (req, res) => {
+    const { password } = req.body || {};
+    if (!password) return res.status(400).json({ error: 'password required' });
+    const user = sysDb.prepare('SELECT * FROM users WHERE id = ?').get(req.user.user_id);
+    if (!user) return res.status(404).json({ error: 'user_not_found' });
+    if (!bcrypt.compareSync(String(password), user.password_hash)) {
+      return res.status(401).json({ error: 'wrong_password' });
+    }
+    updateUser(sysDb, user.id, { totp_enabled: 0, totp_secret: null });
+    res.json({ ok: true, message: 'TOTP disabled' });
+  });
+
+  return { router, requireAuth, requireAdmin, sysDb };
 }
 
 module.exports = { createAuth, sendEmail };

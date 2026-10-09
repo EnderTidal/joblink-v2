@@ -20,9 +20,10 @@ const { createPublicRoutes } = require('./routes/public');
 const { createSignupRoutes, createStripeWebhook } = require('./routes/signup');
 const { createQboRoutes } = require("./routes/qbo");
 const { billingMiddleware } = require('./middleware/billing');
+const { passwordExpiryMiddleware } = require('./middleware/password-expiry');
 const { createReportRoutes } = require('./routes/reports');
-const { createCopilotRoutes } = require('./routes/copilot');
 const { createWebhookRoutes } = require('./routes/webhooks');
+const { createApiV1Routes } = require('./routes/api-v1');
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
@@ -89,8 +90,6 @@ app.get('/api/status', (_req, res) => {
     });
   }
 });
-
-app.get('/api/health', (_req, res) => res.redirect('/health'));
 
 app.get('/health', (_req, res) => {
   try {
@@ -165,6 +164,9 @@ app.post('/webhooks/deploy', express.json(), (req, res) => {
   });
 });
 
+// Public API v1 — API key auth, no session needed
+app.use('/api/v1', createApiV1Routes(sysDb));
+
 const auth = createAuth(sysDb);
 
 // Candidate-facing magic link pages — NO auth (token IS the auth), mounted first.
@@ -179,7 +181,10 @@ app.use(createQboRoutes());
 app.use(auth.router);
 
 // Everything below requires a logged-in recruiter/admin
-app.use('/api', auth.requireApiKeyOrAuth);
+app.use('/api', auth.requireAuth);
+
+// Password expiration gate — must change password before accessing any other API
+app.use('/api', passwordExpiryMiddleware(sysDb));
 
 // ---- Billing: create Stripe checkout for expired trials ----
 app.post('/api/billing/create-checkout', async (req, res) => {
@@ -236,7 +241,6 @@ app.use('/api', tenantMiddleware);
 // Mount routes (they now use req.db instead of a closure db)
 app.use(createTomRoutes(sysDb));
 app.use(createAdminRoutes(sysDb, auth));
-app.use(createCopilotRoutes(auth));
 app.use("/dev", createDevRoutes(sysDb, auth));
 app.use("/dev", createReportRoutes(auth));
 
