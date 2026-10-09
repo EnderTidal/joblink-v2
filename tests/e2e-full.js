@@ -829,7 +829,7 @@ describe('JobLink V2 — Full E2E', () => {
     });
 
     it('Change own password', async () => {
-      const r = await http('POST', '/api/me/password', { current: 'NewPassword123!', password: 'joblink2026' });
+      const r = await http('POST', '/api/me/password', { current: 'NewPassword123!', password: 'JobLink2026!!x' });
       assert.equal(r.status, 200);
       assert.equal(r.data.ok, true);
     });
