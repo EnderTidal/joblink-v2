@@ -152,7 +152,7 @@ describe('JobLink V2 — Full E2E', () => {
 
       // Accept the invitation
       const accept = await http('POST', '/api/invite/accept', {
-        token: user.invite_token, password: 'testpass123', display_name: 'Test Recruiter'
+        token: user.invite_token, password: 'TestPass123!xx', display_name: 'Test Recruiter'
       }, { cookie: '' });
       assert.equal(accept.status, 200);
       assert.equal(accept.data.ok, true);
@@ -817,19 +817,19 @@ describe('JobLink V2 — Full E2E', () => {
 
       const r = await http('POST', '/api/reset-password', {
         token: user.magic_login_token,
-        password: 'newpassword123'
+        password: 'NewPassword123!'
       });
       assert.equal(r.status, 200);
       assert.equal(r.data.ok, true);
 
       // Login with new password
-      const login = await http('POST', '/api/login', { email: 'joshuafriends@gmail.com', password: 'newpassword123' });
+      const login = await http('POST', '/api/login', { email: 'joshuafriends@gmail.com', password: 'NewPassword123!' });
       assert.equal(login.status, 200);
       assert.equal(login.data.ok, true);
     });
 
     it('Change own password', async () => {
-      const r = await http('POST', '/api/me/password', { current: 'newpassword123', password: 'joblink2026' });
+      const r = await http('POST', '/api/me/password', { current: 'NewPassword123!', password: 'joblink2026' });
       assert.equal(r.status, 200);
       assert.equal(r.data.ok, true);
     });
