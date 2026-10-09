@@ -866,7 +866,7 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
     const keys = sysDb.prepare(
       'SELECT id, name, key_prefix, expires_at, created_at, created_by FROM api_keys WHERE org_id = ? ORDER BY created_at DESC'
     ).all(req.user.org_id);
-    res.json(keys);
+    res.json({ keys });
   });
 
   router.delete('/api/keys/:id', auth.requireAdmin, (req, res) => {
@@ -883,7 +883,7 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
     const keys = sysDb.prepare(
       'SELECT id, name, key_prefix, expires_at, created_at, created_by FROM api_keys WHERE org_id = ? ORDER BY created_at DESC'
     ).all(req.user.org_id);
-    res.json(keys);
+    res.json({ keys });
   });
 
   router.post('/api/settings/api-key/generate', auth.requireAdmin, (req, res) => {
