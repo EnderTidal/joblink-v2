@@ -876,6 +876,67 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
     res.json({ ok: true });
   });
 
+  
+  // === ROUTE ALIASES (frontend expects these paths) ===
+  // API Keys aliases
+  router.get('/api/settings/api-keys', auth.requireAdmin, (req, res) => {
+    const keys = sysDb.prepare(
+      'SELECT id, name, key_prefix, expires_at, created_at, created_by FROM api_keys WHERE org_id = ? ORDER BY created_at DESC'
+    ).all(req.user.org_id);
+    res.json(keys);
+  });
+
+  router.post('/api/settings/api-key/generate', auth.requireAdmin, (req, res) => {
+    const { name } = req.body || {};
+    const rawKey = crypto.randomUUID();
+    const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+    const keyPrefix = rawKey.substring(0, 8);
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const createdBy = req.user.username || req.user.display_name || '';
+    sysDb.prepare(
+      'INSERT INTO api_keys (org_id, name, key_hash, key_prefix, expires_at, created_by) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(req.user.org_id, name ? String(name) : '', keyHash, keyPrefix, expiresAt, createdBy);
+    res.json({ key: rawKey, prefix: keyPrefix, expires_at: expiresAt, message: 'Store this key — it will not be shown again.' });
+  });
+
+  router.delete('/api/settings/api-key/:id', auth.requireAdmin, (req, res) => {
+    const result = sysDb.prepare('DELETE FROM api_keys WHERE id = ? AND org_id = ?').run(req.params.id, req.user.org_id);
+    if (result.changes === 0) return res.status(404).json({ error: 'not_found' });
+    res.json({ ok: true });
+  });
+
+  // Analytics aliases
+  router.get('/api/analytics/overview', auth.requireAuth, (req, res) => {
+    const db = req.db;
+    const stats = {
+      total_job_orders: db.prepare('SELECT COUNT(*) as c FROM job_orders').get().c,
+      published_job_orders: db.prepare("SELECT COUNT(*) as c FROM job_orders WHERE status = 'Published'").get().c,
+      total_candidates: db.prepare('SELECT COUNT(*) as c FROM candidates WHERE do_not_contact = 0').get().c,
+      total_interests: db.prepare('SELECT COUNT(*) as c FROM interests').get().c,
+      total_blasts: db.prepare('SELECT COUNT(*) as c FROM blasts').get().c,
+      new_candidates_this_month: db.prepare("SELECT COUNT(*) as c FROM candidates WHERE created_at >= date('now', 'start of month')").get().c,
+    };
+    if (stats.total_interests > 0) {
+      const sent = db.prepare('SELECT SUM(sent_count) as s FROM blasts').get().s || 1;
+      stats.response_rate_pct = Math.round((stats.total_interests / sent) * 100);
+    } else {
+      stats.response_rate_pct = 0;
+    }
+    res.json(stats);
+  });
+
+  router.get('/api/analytics/blasts', auth.requireAuth, (req, res) => {
+    const db = req.db;
+    const blasts = db.prepare('SELECT id, category, sent_count, sent_at as created_at FROM blasts ORDER BY created_at DESC LIMIT 20').all();
+    res.json(blasts);
+  });
+
+  router.get('/api/analytics/pipeline', auth.requireAuth, (req, res) => {
+    const db = req.db;
+    const pipeline = db.prepare("SELECT status, COUNT(*) as count FROM interests GROUP BY status").all();
+    res.json(pipeline);
+  });
+
   return router;
 }
 

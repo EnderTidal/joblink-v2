@@ -3,7 +3,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
-NODE=/opt/node22/bin/node
+NODE=/usr/bin/node
 
 echo "=== JobLink V2 Deploy ==="
 echo "$(date '+%Y-%m-%d %H:%M:%S') — Starting deploy"
@@ -23,7 +23,7 @@ done
 # Step 0a: Verify staging is running and healthy
 echo ""
 echo "--- Checking staging health ---"
-STAGING_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3848/health 2>/dev/null || echo "000")
+STAGING_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3850/ 2>/dev/null || echo "000")
 if [ "$STAGING_HEALTH" != "200" ]; then
   echo ""
   echo "DEPLOY BLOCKED — Staging server (joblink-v2-staging) is NOT healthy."
