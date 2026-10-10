@@ -1100,13 +1100,23 @@ boot('admin').then(function(m) {
   function fmtDate(s) { try { return new Date(s).toLocaleDateString(); } catch { return s || '—'; } }
 
   async function generateApiKey() {
+    const btn = document.querySelector('#s-api-keys .btn');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = 'Generating...';
     const name = document.getElementById('api-key-name').value.trim() || 'Default';
     try {
       const r = await api('/api/settings/api-key/generate', { method: 'POST', body: { name } });
       document.getElementById('api-key-value').textContent = r.key;
       document.getElementById('api-key-modal').style.display = 'flex';
       await loadApiKeys();
-    } catch (e) { alert('Failed: ' + (e.message || 'unknown error')); }
+      btn.disabled = false;
+      btn.textContent = 'Generate API Key';
+    } catch (e) {
+      alert('Failed: ' + (e.message || 'unknown error'));
+      btn.disabled = false;
+      btn.textContent = 'Generate API Key';
+    }
   }
 
   function copyApiKey() {
