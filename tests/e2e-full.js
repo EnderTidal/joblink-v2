@@ -431,6 +431,8 @@ describe('JobLink V2 — Full E2E', () => {
     it('24. Mark interest (POST /m/:token/interest)', async () => {
       // Get a candidate's magic token
       const cand = tenantDb.prepare("SELECT * FROM candidates WHERE phone = '5551112222'").get();
+      // Ensure candidate has the right category for magic link page test
+      tenantDb.prepare("UPDATE candidates SET current_category = 'Skilled Trade' WHERE phone = '5551112222'").run();
       assert.ok(cand, 'Candidate Alice should exist');
       candidateToken = cand.magic_token;
 
