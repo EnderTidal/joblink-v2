@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const { listBlasts, markDoNotContact } = require('../src/blast');
 const { getSetting, setSetting } = require('../src/db');
 const { normalizePhone } = require('../src/phone');
+const { translateAndSave } = require('../src/translate');
 const { listOrgUsers } = require('../src/system-db');
 
 // FIX 4: strip HTML tags from user input to prevent XSS
@@ -297,6 +298,7 @@ function createApiV1Routes(sysDb) {
         'INSERT INTO job_orders (title, description, category, location, city_state, pay, assigned_recruiter, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
       ).run(title, description || '', category || '', location || '', location || '', resolvedPay, assigned_recruiter || '', resolvedStatus);
       const jo = db.prepare('SELECT * FROM job_orders WHERE id = ?').get(Number(r.lastInsertRowid));
+      translateAndSave(db, jo.id).catch(() => {}); // fire-and-forget Spanish translation
       res.status(201).json({ data: jo });
     } catch (e) {
       res.status(500).json({ error: { code: 'internal', message: e.message } });
@@ -334,6 +336,9 @@ function createApiV1Routes(sysDb) {
       sets.push("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')");
       vals.push(jo.id);
       db.prepare('UPDATE job_orders SET ' + sets.join(', ') + ' WHERE id = ?').run(...vals);
+      if (['title', 'description', 'requirements'].some(k => req.body[k] !== undefined)) {
+        translateAndSave(db, jo.id).catch(() => {}); // fire-and-forget Spanish translation
+      }
       res.json({ data: db.prepare('SELECT * FROM job_orders WHERE id = ?').get(jo.id) });
     } catch (e) {
       res.status(500).json({ error: { code: 'internal', message: e.message } });

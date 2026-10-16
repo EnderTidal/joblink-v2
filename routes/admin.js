@@ -7,6 +7,7 @@ const crypto = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const https = require('node:https');
 const { listJobOrders, setStatus, updateJobOrder } = require('../src/job-orders');
+const { translateAndSave } = require('../src/translate');
 const { listBlasts, markDoNotContact, getCategories } = require('../src/blast');
 const { getProvider } = require('../src/messaging');
 const { getSetting, setSetting, logInterestEvent } = require('../src/db');
@@ -145,7 +146,13 @@ function createAdminRoutes(sysDb, auth) {
   });
 
   router.patch('/api/job-orders/:id', (req, res, next) => {
-    try { res.json(updateJobOrder(req.db, Number(req.params.id), req.body || {})); }
+    try {
+      const result = updateJobOrder(req.db, Number(req.params.id), req.body || {});
+      if (['title', 'description', 'requirements'].some(k => (req.body || {})[k] !== undefined)) {
+        translateAndSave(req.db, Number(req.params.id)).catch(() => {}); // fire-and-forget
+      }
+      res.json(result);
+    }
     catch (err) { next(err); }
   });
 
