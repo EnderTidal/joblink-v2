@@ -21,11 +21,16 @@ const DEFAULT_CATEGORIES = ['Industrial', 'Administrative', 'Skilled Trade'];
 
 /** Read categories from the DB, falling back to defaults if the table doesn't exist. */
 function getCategories(db) {
+  const cats = new Set(DEFAULT_CATEGORIES);
   try {
     const rows = db.prepare('SELECT name FROM categories ORDER BY sort_order, id').all();
-    if (rows.length > 0) return rows.map(r => r.name);
-  } catch { /* table doesn't exist yet — use defaults */ }
-  return DEFAULT_CATEGORIES;
+    rows.forEach(r => cats.add(r.name));
+  } catch { /* table doesn't exist yet */ }
+  try {
+    const candCats = db.prepare('SELECT DISTINCT current_category FROM candidates WHERE current_category IS NOT NULL AND length(current_category) > 0').all();
+    candCats.forEach(r => cats.add(r.current_category));
+  } catch {}
+  return [...cats];
 }
 
 // Legacy compat: const CATEGORIES still exported as the defaults
@@ -47,7 +52,7 @@ function renderMessage(templateBody, candidate, baseUrl, orgSlug) {
  */
 function planBlast(db, { phones, category, now = new Date(), skipBlastGuard = false }) {
   const validCats = getCategories(db);
-  if (!validCats.includes(category)) throw new Error(`Invalid category: ${category}`);
+  if (!validCats.some(c => c.toLowerCase() === category.toLowerCase())) throw new Error(`Invalid category: ${category}`);
   const cooldownHours = getCooldownHours(db);
   const get = db.prepare('SELECT * FROM candidates WHERE phone = ?');
   const candidates = phones.map((p) => get.get(p)).filter(Boolean);
@@ -89,8 +94,9 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
   for (const s of plan.skippedDnc) recRecipient.run(blastId, s.phone, 'skipped_dnc', null);
   for (const phone of (plan.skippedExclusion || [])) recRecipient.run(blastId, phone, 'skipped_exclusion', null);
 
+  // FIX 4: use SQLite strftime for last_blast timestamp (DB clock, not app clock)
   const markSent = db.prepare(
-    `UPDATE candidates SET last_blast = ?, blast_count = blast_count + 1, current_category = ? WHERE phone = ?`,
+    `UPDATE candidates SET last_blast = strftime('%Y-%m-%dT%H:%M:%fZ','now'), blast_count = blast_count + 1 WHERE phone = ?`,
   );
 
   // Snapshot open conversations BEFORE blast (only close NEW ones after)
@@ -105,7 +111,7 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
     const result = await provider.sendSms({ to: c.phone, body });
     if (result.ok) {
       // Partial-send rule: only an ACCEPTED send burns the cooldown
-      markSent.run(now.toISOString(), plan.category, c.phone);
+      markSent.run(c.phone);
       recRecipient.run(blastId, c.phone, 'sent', null);
       sent++;
       // Assign+close this specific conversation immediately

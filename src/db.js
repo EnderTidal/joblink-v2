@@ -265,6 +265,10 @@ function openDb(filePath) {
     }
   } catch (e) { console.warn('[db migration] blast_recipients CHECK update failed:', e.message); }
   try { db.exec("ALTER TABLE feedback ADD COLUMN type TEXT NOT NULL DEFAULT 'general'"  ); } catch { /* already exists */ }
+  // Migration: external_id for Wimzy/source tracking on candidates
+  try { db.exec("ALTER TABLE candidates ADD COLUMN external_id TEXT"); } catch { /* already exists */ }
+  // Migration: unique index on external_id per tenant DB
+  try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_candidates_external_id ON candidates(external_id) WHERE external_id IS NOT NULL"); } catch { /* already exists */ }
   const seed = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) seed.run(k, v);
   const tCount = db.prepare('SELECT COUNT(*) AS n FROM templates').get().n;
