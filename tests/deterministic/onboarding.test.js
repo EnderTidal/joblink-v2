@@ -40,7 +40,7 @@ after(() => {
 });
 
 test('fresh install: login reports needsOnboarding for the admin', async () => {
-  const r = await http('POST', '/api/login', { username: 'admin', password: 'joblink2026' });
+  const r = await http('POST', '/api/login', { username: 'admin', password: 'JobLink2026!' });
   assert.strictEqual(r.data.ok, true);
   assert.strictEqual(r.data.needsOnboarding, true);
   cookie = r.setCookie.split(';')[0];
@@ -49,16 +49,16 @@ test('fresh install: login reports needsOnboarding for the admin', async () => {
 });
 
 test('wizard password change requires the CURRENT password', async () => {
-  const wrong = await http('POST', '/api/me/password', { current: 'nope', password: 'newpassword123' });
+  const wrong = await http('POST', '/api/me/password', { current: 'nope', password: 'NewPassword2026!' });
   assert.strictEqual(wrong.status, 401);
-  const short = await http('POST', '/api/me/password', { current: 'joblink2026', password: 'short' });
+  const short = await http('POST', '/api/me/password', { current: 'JobLink2026!', password: 'short' });
   assert.strictEqual(short.status, 400);
-  const ok = await http('POST', '/api/me/password', { current: 'joblink2026', password: 'newpassword123' });
+  const ok = await http('POST', '/api/me/password', { current: 'JobLink2026!', password: 'NewPassword2026!' });
   assert.strictEqual(ok.data.ok, true);
   // old password is dead, new one works
-  const oldLogin = await http('POST', '/api/login', { username: 'admin', password: 'joblink2026' }, '');
+  const oldLogin = await http('POST', '/api/login', { username: 'admin', password: 'JobLink2026!' }, '');
   assert.strictEqual(oldLogin.status, 401);
-  const newLogin = await http('POST', '/api/login', { username: 'admin', password: 'newpassword123' }, '');
+  const newLogin = await http('POST', '/api/login', { username: 'admin', password: 'NewPassword2026!' }, '');
   assert.strictEqual(newLogin.data.ok, true);
   assert.strictEqual(newLogin.data.defaultPassword, false);
 });
@@ -66,7 +66,7 @@ test('wizard password change requires the CURRENT password', async () => {
 test('completing onboarding flips the flag; login stops redirecting', async () => {
   const r = await http('POST', '/api/onboarding/complete');
   assert.strictEqual(r.data.ok, true);
-  const login = await http('POST', '/api/login', { username: 'admin', password: 'newpassword123' }, '');
+  const login = await http('POST', '/api/login', { username: 'admin', password: 'NewPassword2026!' }, '');
   assert.strictEqual(login.data.needsOnboarding, false);
   const me = await http('GET', '/api/me');
   assert.strictEqual(me.data.onboarded, true);
@@ -80,8 +80,8 @@ test('reset lets the wizard run again (Admin -> Re-run setup)', async () => {
 });
 
 test('non-admin recruiters cannot complete or reset onboarding', async () => {
-  await http('POST', '/api/users', { username: 'rec', password: 'recruiterpw1', role: 'recruiter' });
-  const login = await http('POST', '/api/login', { username: 'rec', password: 'recruiterpw1' }, '');
+  await http('POST', '/api/users', { username: 'rec', password: 'RecruiterPw2026!', role: 'recruiter' });
+  const login = await http('POST', '/api/login', { username: 'rec', password: 'RecruiterPw2026!' }, '');
   assert.strictEqual(login.data.needsOnboarding, false, 'recruiters are never sent to the wizard');
   const recCookie = login.setCookie.split(';')[0];
   const r = await http('POST', '/api/onboarding/reset', null, recCookie);

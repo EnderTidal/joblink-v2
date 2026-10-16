@@ -38,7 +38,7 @@ before(async () => {
   createTenantDb(org2.id);
   sysDb.prepare(
     'INSERT INTO users (org_id, username, password_hash, role, email, email_verified) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(org2.id, 'acme-admin', bcrypt.hashSync('acmepass123', 10), 'admin', 'admin@acme.test', 1);
+  ).run(org2.id, 'acme-admin', bcrypt.hashSync('AcmePass2026!', 10), 'admin', 'admin@acme.test', 1);
 });
 
 after(() => {
@@ -47,14 +47,14 @@ after(() => {
 });
 
 test('login returns org_id in response', async () => {
-  const r = await http('POST', '/api/login', { username: 'admin', password: 'joblink2026' });
+  const r = await http('POST', '/api/login', { username: 'admin', password: 'JobLink2026!' });
   assert.strictEqual(r.data.ok, true);
   assert.strictEqual(r.data.org_id, 1);
   cookie1 = r.setCookie.split(';')[0];
 });
 
 test('second org admin can login with their own credentials', async () => {
-  const r = await http('POST', '/api/login', { username: 'acme-admin', password: 'acmepass123' }, '');
+  const r = await http('POST', '/api/login', { username: 'acme-admin', password: 'AcmePass2026!' }, '');
   assert.strictEqual(r.data.ok, true);
   assert.strictEqual(r.data.org_id, 2);
   cookie2 = r.setCookie.split(';')[0];
@@ -97,7 +97,7 @@ test('stats are tenant-scoped', async () => {
 
 test('user management is org-scoped', async () => {
   // Org1 admin creates a user
-  await http('POST', '/api/users', { username: 'recruiter1', password: 'password123', role: 'recruiter' }, cookie1);
+  await http('POST', '/api/users', { username: 'recruiter1', password: 'TestPass2026!', role: 'recruiter' }, cookie1);
   const users1 = await http('GET', '/api/users', null, cookie1);
   const users2 = await http('GET', '/api/users', null, cookie2);
 

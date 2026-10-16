@@ -573,7 +573,7 @@ async function loadCandidates() {
   }).join('') || '<tr><td colspan="6" class="mut">No candidates yet.</td></tr>';
 }
 async function toggleDnc(phone, value) {
-  await api('/api/candidates/' + phone + '/dnc', { method: 'POST', body: { value } });
+  await api(`/api/candidates/${phone}/dnc`, { method: 'POST', body: { value } });
   toast(value ? 'Marked do-not-contact (never blasted again).' : 'Do-not-contact removed.');
   loadCandidates();
 }
@@ -1129,7 +1129,7 @@ boot('admin').then(function(m) {
   async function revokeApiKey(id) {
     if (!confirm('Revoke this API key? Any integrations using it will stop working.')) return;
     try {
-      await api('/api/settings/api-key/' + id, { method: 'DELETE' });
+      await api(`/api/settings/api-key/${id}`, { method: 'DELETE' });
       await loadApiKeys();
     } catch (e) { alert('Failed: ' + (e.message || 'unknown error')); }
   }

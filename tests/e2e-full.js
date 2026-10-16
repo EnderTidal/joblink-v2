@@ -113,7 +113,7 @@ describe('JobLink V2 — Full E2E', () => {
 
   describe('Auth', () => {
     it('1. Login with email + password', async () => {
-      const r = await http('POST', '/api/login', { email: 'joshuafriends@gmail.com', password: 'joblink2026' });
+      const r = await http('POST', '/api/login', { email: 'joshuafriends@gmail.com', password: 'JobLink2026!' });
       assert.equal(r.status, 200);
       assert.equal(r.data.ok, true);
       assert.equal(r.data.username, 'admin');
@@ -127,7 +127,7 @@ describe('JobLink V2 — Full E2E', () => {
     });
 
     it('3. Login with username fallback', async () => {
-      const r = await http('POST', '/api/login', { username: 'admin', password: 'joblink2026' });
+      const r = await http('POST', '/api/login', { username: 'admin', password: 'JobLink2026!' });
       assert.equal(r.status, 200);
       assert.equal(r.data.ok, true);
     });
@@ -744,7 +744,7 @@ describe('JobLink V2 — Full E2E', () => {
       const me = await http('GET', '/api/me');
       assert.equal(me.status, 401);
       // Re-login for remaining tests (use email since that always works with fresh seed)
-      const login = await http('POST', '/api/login', { email: 'joshuafriends@gmail.com', password: 'joblink2026' });
+      const login = await http('POST', '/api/login', { email: 'joshuafriends@gmail.com', password: 'JobLink2026!' });
       assert.equal(login.status, 200, 'Re-login after logout should succeed');
     });
 

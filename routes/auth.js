@@ -127,9 +127,9 @@ function createAuth(sysDb) {
     const orgId = Number(orgResult.lastInsertRowid);
     sysDb.prepare(
       'INSERT INTO users (org_id, username, password_hash, role, email, email_verified) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(orgId, 'admin', bcrypt.hashSync('joblink2026', 10), 'admin', 'joshuafriends@gmail.com', 1);
+    ).run(orgId, 'admin', bcrypt.hashSync('JobLink2026!', 10), 'admin', 'joshuafriends@gmail.com', 1);
     createTenantDb(orgId);
-    console.log('[auth] Seeded default org + admin — email: joshuafriends@gmail.com, password: joblink2026 (CHANGE THIS)');
+    console.log('[auth] Seeded default org + admin — email: joshuafriends@gmail.com, password: JobLink2026! (CHANGE THIS)');
   }
 
   function getSession(req) {
@@ -217,7 +217,7 @@ function createAuth(sysDb) {
     const pwChangedAt = user.password_changed_at ? new Date(user.password_changed_at) : new Date(0);
     const pwAgeDays = Math.floor((Date.now() - pwChangedAt.getTime()) / (1000 * 60 * 60 * 24));
     const passwordExpired = pwAgeDays >= 30;
-    const isDefault = (user.username === 'admin' && bcrypt.compareSync('joblink2026', user.password_hash));
+    const isDefault = (user.username === 'admin' && bcrypt.compareSync('JobLink2026!', user.password_hash));
     const tenantDb = getTenantDb(user.org_id);
     res.json({
       ok: true, username: user.username, role: user.role, email: user.email || '',
