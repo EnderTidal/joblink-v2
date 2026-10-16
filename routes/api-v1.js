@@ -726,10 +726,15 @@ function createApiV1Routes(sysDb) {
       // If plan.sendable is empty after guard, still return success but 0 sent
       const provider = getProvider(db);
       const templateBody = message_template.includes('{link}') ? message_template : message_template + ' {link}';
+      const { getOrg } = require('../src/system-db');
+      const org = getOrg(sysDb, req.apiOrgId);
+      const { getSetting } = require('../src/db');
       const result = await executeBlast(db, plan, {
         templateBody,
         provider,
         sentBy: 'api-v1',
+        orgSlug: org ? org.slug : null,
+        baseUrl: getSetting(db, 'base_url') || process.env.BASE_URL || 'https://app.joblinkplatform.com',
       });
 
       res.json({
