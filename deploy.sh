@@ -77,16 +77,6 @@ fi
 
 # ──────────────────────────────────────────────
 # ──────────────────────────────────────────────
-# PRE-DEPLOY CHECKLIST (automated — added by IRIS)
-# ──────────────────────────────────────────────
-echo ""
-echo "--- Running pre-deploy checklist ---"
-if ! $NODE scripts/pre-deploy-checks.js; then
-  echo ""
-  echo "DEPLOY BLOCKED — pre-deploy checks failed. Fix issues above before deploying."
-  exit 1
-fi
-
 # TOTP VERIFICATION GATE (added Sep 7, 2026)
 # ──────────────────────────────────────────────
 if [ "$FORCE" != "true" ]; then
@@ -108,6 +98,16 @@ if [ "$FORCE" != "true" ]; then
 fi
 
 # ──────────────────────────────────────────────
+# PRE-DEPLOY CHECKLIST (automated — added by IRIS)
+# ──────────────────────────────────────────────
+echo ""
+echo "--- Running pre-deploy checklist ---"
+if ! $NODE scripts/pre-deploy-checks.js; then
+  echo ""
+  echo "DEPLOY BLOCKED — pre-deploy checks failed. Fix issues above before deploying."
+  exit 1
+fi
+
 # ORIGINAL DEPLOY STEPS
 # ──────────────────────────────────────────────
 
