@@ -64,7 +64,7 @@ if [ "$FORCE" = false ]; then
   echo "│  3. You visually verified staging in the browser     │"
   echo "└──────────────────────────────────────────────────────┘"
   echo ""
-  read -p "Have you tested and verified these changes on staging? (yes/no): " CONFIRM
+  CONFIRM="${2:-}"; if [ -z "$CONFIRM" ]; then read -p "Have you tested and verified these changes on staging? (yes/no): " CONFIRM; fi
   if [ "$CONFIRM" != "yes" ]; then
     echo ""
     echo "DEPLOY ABORTED — Go test on staging first."
@@ -87,7 +87,7 @@ if [ "$FORCE" != "true" ]; then
   fi
 
   echo ""
-  read -p "Enter 6-digit authenticator code: " TOTP_CODE
+  TOTP_CODE="${3:-}"; if [ -z "$TOTP_CODE" ]; then read -p "Enter 6-digit authenticator code: " TOTP_CODE; fi
 
   EXPECTED=$(oathtool --totp -b "$TOTP_SECRET")
   if [ "$TOTP_CODE" != "$EXPECTED" ]; then
