@@ -592,43 +592,68 @@ function createApiV1Routes(sysDb) {
   });
 
   // ---- WRITE: Blast preview (does NOT send) — generates a lock token ----
+  // Accepts EITHER {phones: [...]} or {category: "..."} or both.
+  // When phones provided: look up each in candidates table, skip unknowns.
+  // When category only: query candidates by category match (original behavior).
   router.post('/blasts/preview', (req, res) => {
     try {
       cleanExpiredTokens();
       const db = getDb(req);
-      const { category, job_order_id } = req.body || {};
-      // Fix #2: require category as non-empty string
-      if (!category || typeof category !== 'string' || !category.trim()) {
-        return res.status(400).json({ error: { code: 'validation', message: 'category is required for blast preview' } });
+      const { phones, category, job_order_id } = req.body || {};
+
+      // Must provide at least one of phones or category
+      if ((!phones || !Array.isArray(phones) || phones.length === 0) && (!category || typeof category !== 'string' || !category.trim())) {
+        return res.status(400).json({ error: { code: 'validation', message: 'phones (array) or category (string) is required for blast preview' } });
       }
 
-      // Fix #3: case-insensitive + comma-split category matching
-      // Split requested category by comma, trim each, match any via LIKE
-      const catTerms = category.split(',').map(c => c.trim().toLowerCase()).filter(Boolean);
-      let where = ['do_not_contact = 0'];
-      let params = [];
-      if (catTerms.length === 1) {
-        // Single category: match exact (case-insensitive) OR as substring in comma-separated field
-        where.push('(LOWER(current_category) = ? OR LOWER(current_category) LIKE ?)');
-        params.push(catTerms[0], '%' + catTerms[0] + '%');
-      } else {
-        // Multiple categories: OR each term
-        const orClauses = catTerms.map(() => '(LOWER(current_category) = ? OR LOWER(current_category) LIKE ?)');
-        where.push('(' + orClauses.join(' OR ') + ')');
-        for (const term of catTerms) {
-          params.push(term, '%' + term + '%');
+      let candidates;
+      let resolvedCategory = category || null;
+      const notFound = [];
+
+      if (phones && Array.isArray(phones) && phones.length > 0) {
+        // Phone-based lookup — primary path (matches Wizard flow)
+        const get = db.prepare('SELECT phone, first_name, last_name, current_category FROM candidates WHERE phone = ? AND do_not_contact = 0');
+        candidates = [];
+        for (const raw of phones) {
+          const normalized = normalizePhone(raw);
+          if (!normalized) { notFound.push(raw); continue; }
+          const c = get.get(normalized);
+          if (c) candidates.push(c);
+          else notFound.push(raw);
         }
+
+        // If no category provided, infer from first candidate for JO warning check
+        if (!resolvedCategory && candidates.length > 0) {
+          resolvedCategory = candidates[0].current_category || null;
+        }
+      } else {
+        // Category-based lookup — original behavior
+        // Fix #3: case-insensitive + comma-split category matching
+        const catTerms = category.split(',').map(c => c.trim().toLowerCase()).filter(Boolean);
+        let where = ['do_not_contact = 0'];
+        let params = [];
+        if (catTerms.length === 1) {
+          where.push('(LOWER(current_category) = ? OR LOWER(current_category) LIKE ?)');
+          params.push(catTerms[0], '%' + catTerms[0] + '%');
+        } else {
+          const orClauses = catTerms.map(() => '(LOWER(current_category) = ? OR LOWER(current_category) LIKE ?)');
+          where.push('(' + orClauses.join(' OR ') + ')');
+          for (const term of catTerms) {
+            params.push(term, '%' + term + '%');
+          }
+        }
+        const whereClause = 'WHERE ' + where.join(' AND ');
+        candidates = db.prepare('SELECT phone, first_name, last_name, current_category FROM candidates ' + whereClause + ' ORDER BY phone').all(...params);
       }
 
-      const whereClause = 'WHERE ' + where.join(' AND ');
-      const candidates = db.prepare('SELECT phone, first_name, last_name, current_category FROM candidates ' + whereClause + ' ORDER BY phone').all(...params);
-
-
-      // Check if any Published job orders match the blast category
+      // Check if any Published job orders match the category
       let warning = undefined;
-      const publishedJoCount = db.prepare("SELECT COUNT(*) as cnt FROM job_orders WHERE status = 'Published' AND LOWER(category) = ?").get(catTerms[0]).cnt;
-      if (publishedJoCount === 0) {
-        warning = `No published job orders match category '${category}'. Candidates would see an empty page.`;
+      if (resolvedCategory) {
+        const catCheck = resolvedCategory.split(',')[0].trim().toLowerCase();
+        const publishedJoCount = db.prepare("SELECT COUNT(*) as cnt FROM job_orders WHERE status = 'Published' AND LOWER(category) = ?").get(catCheck).cnt;
+        if (publishedJoCount === 0) {
+          warning = `No published job orders match category '${resolvedCategory}'. Candidates would see an empty page.`;
+        }
       }
 
       // Generate preview-lock token
@@ -637,7 +662,7 @@ function createApiV1Routes(sysDb) {
         candidatePhones: candidates.map(c => c.phone),
         orgId: req.apiOrgId,
         jobOrderId: job_order_id || null,
-        category,
+        category: resolvedCategory || 'unknown',
         createdAt: Date.now(),
       });
 
@@ -651,6 +676,7 @@ function createApiV1Routes(sysDb) {
         meta: { note: 'Preview only — no messages sent. Phone numbers redacted. Use preview_token with POST /blasts/send within 15 minutes.' },
       };
       if (warning) response.warning = warning;
+      if (notFound.length > 0) response.not_found = notFound;
       res.json(response);
     } catch (e) {
       res.status(500).json({ error: { code: 'internal', message: e.message } });
