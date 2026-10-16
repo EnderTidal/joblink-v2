@@ -10,6 +10,9 @@ const { getSetting, setSetting } = require('../src/db');
 const { normalizePhone } = require('../src/phone');
 const { listOrgUsers } = require('../src/system-db');
 
+// FIX 4: strip HTML tags from user input to prevent XSS
+function stripTags(s) { return s == null ? s : String(s).replace(/<[^>]*>/g, ''); }
+
 // Coerce skills/category to string — arrays get joined with ", "
 function coerceSkills(v) {
   if (v != null && typeof v === 'object' && !Array.isArray(v)) {
@@ -168,7 +171,7 @@ function createApiV1Routes(sysDb) {
       const offset = parseInt(req.query.offset) || 0;
       const total = db.prepare('SELECT COUNT(*) as cnt FROM candidates').get().cnt;
       const rows = db.prepare(
-        'SELECT phone, first_name, last_name, current_category, blast_count, do_not_contact, external_id, last_blast, created_at FROM candidates ORDER BY created_at DESC LIMIT ? OFFSET ?'
+        'SELECT phone, first_name, last_name, current_category AS category, blast_count, do_not_contact, external_id, last_blast, created_at FROM candidates ORDER BY created_at DESC LIMIT ? OFFSET ?'
       ).all(limit, offset);
       res.json(listResponse(rows, total, limit, offset));
     } catch (e) {
@@ -202,7 +205,7 @@ function createApiV1Routes(sysDb) {
 
       const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : '';
       const total = db.prepare('SELECT COUNT(*) as cnt FROM candidates ' + whereClause).get(...params).cnt;
-      const rows = db.prepare('SELECT phone, first_name, last_name, current_category, blast_count, do_not_contact, external_id, last_blast, created_at FROM candidates ' + whereClause + ' ORDER BY created_at DESC LIMIT ? OFFSET ?').all(...params, limit, offset);
+      const rows = db.prepare('SELECT phone, first_name, last_name, current_category AS category, blast_count, do_not_contact, external_id, last_blast, created_at FROM candidates ' + whereClause + ' ORDER BY created_at DESC LIMIT ? OFFSET ?').all(...params, limit, offset);
       res.json(listResponse(rows, total, limit, offset));
     } catch (e) {
       res.status(500).json({ error: { code: 'internal', message: e.message } });
@@ -217,7 +220,8 @@ function createApiV1Routes(sysDb) {
         return res.status(400).json({ error: { code: 'validation', message: 'Invalid phone format — must be at least 7 digits' } });
       }
       const db = getDb(req);
-      const c = db.prepare('SELECT phone, first_name, last_name, current_category, blast_count, do_not_contact, external_id, last_blast, created_at FROM candidates WHERE phone = ?').get(req.params.phone);
+      // FIX 5: alias current_category AS category for consistency with write endpoints
+      const c = db.prepare('SELECT phone, first_name, last_name, current_category AS category, blast_count, do_not_contact, external_id, last_blast, created_at FROM candidates WHERE phone = ?').get(req.params.phone);
       if (!c) return res.status(404).json({ error: { code: 'not_found', message: 'Candidate not found' } });
       const interests = db.prepare('SELECT * FROM interests WHERE phone = ? ORDER BY created_at DESC').all(c.phone);
       res.json({ data: { ...c, interests } });
@@ -273,8 +277,10 @@ function createApiV1Routes(sysDb) {
     try {
       const db = getDb(req);
       // Bug fix #5: accept `pay` as alias for `pay_rate`; copy `location` to `city_state`
-      const { title, description, category, location, pay_rate, pay, assigned_recruiter, status } = req.body || {};
-      const resolvedPay = pay_rate || pay || '';
+      const _b = req.body || {};
+      const title = stripTags(_b.title), description = stripTags(_b.description), category = stripTags(_b.category);
+      const location = stripTags(_b.location), assigned_recruiter = stripTags(_b.assigned_recruiter), status = _b.status;
+      const resolvedPay = stripTags(_b.pay_rate || _b.pay) || '';
       if (!title) return res.status(400).json({ error: { code: 'validation', message: 'title is required' } });
 
       // FIX 4: validate and apply status if provided, default to Unpublished
@@ -320,7 +326,8 @@ function createApiV1Routes(sysDb) {
       for (const key of allowed) {
         if (req.body[key] !== undefined) {
           sets.push(key + ' = ?');
-          vals.push(req.body[key]);
+          // FIX 4: sanitize string inputs (status already validated above)
+          vals.push(typeof req.body[key] === 'string' ? stripTags(req.body[key]) : req.body[key]);
         }
       }
       if (sets.length === 0) return res.status(400).json({ error: { code: 'validation', message: 'No valid fields to update' } });
@@ -342,7 +349,7 @@ function createApiV1Routes(sysDb) {
       if (skillsErr) return res.status(400).json({ error: { code: 'validation', message: skillsErr } });
 
       // Fix #6: accept first_name/last_name as alternative to name
-      const name = resolveName(req.body || {});
+      const name = stripTags(resolveName(req.body || {}));
       const { phone, external_id } = req.body || {};
       const skills = req.body.skills || req.body.category;
       // email silently ignored — column doesn't exist on candidates table
@@ -354,7 +361,7 @@ function createApiV1Routes(sysDb) {
       const lastName = parts.slice(1).join(' ') || '';
       const magicToken = crypto.randomBytes(16).toString('hex');
       // Bug fix #3: skills maps to current_category (documented in response as `category`)
-      const skillsStr = coerceSkills(skills) || '';
+      const skillsStr = stripTags(coerceSkills(skills)) || '';
       db.prepare(
         'INSERT INTO candidates (phone, first_name, last_name, magic_token, current_category, external_id) VALUES (?, ?, ?, ?, ?, ?)'
       ).run(cleanPhone, firstName, lastName, magicToken, skillsStr, external_id || null);
@@ -395,7 +402,7 @@ function createApiV1Routes(sysDb) {
         if (skillsErr) { errors.push({ index: i, message: skillsErr }); continue; }
 
         // Fix #6: accept first_name/last_name
-        const name = resolveName(cand);
+        const name = stripTags(resolveName(cand));
         const { phone, external_id } = cand;
         // FIX 1: use category as fallback for skills (same pattern as single POST)
         const skills = cand.skills || cand.category;
@@ -408,7 +415,7 @@ function createApiV1Routes(sysDb) {
         const lastName = parts.slice(1).join(' ') || '';
         const magicToken = crypto.randomBytes(16).toString('hex');
         let skillsStr;
-        try { skillsStr = coerceSkills(skills) || ''; } catch { errors.push({ index: i, message: 'skills must be a string or array of strings' }); continue; }
+        try { skillsStr = stripTags(coerceSkills(skills)) || ''; } catch { errors.push({ index: i, message: 'skills must be a string or array of strings' }); continue; }
         try {
           insertStmt.run(cleanPhone, firstName, lastName, magicToken, skillsStr, external_id || null);
           created++;
@@ -444,7 +451,7 @@ function createApiV1Routes(sysDb) {
       if (skillsErr) return res.status(400).json({ error: { code: 'validation', message: skillsErr } });
 
       // Fix #6: accept first_name/last_name
-      const name = resolveName(req.body || {});
+      const name = stripTags(resolveName(req.body || {}));
       const { external_id } = req.body || {};
       const skills = req.body.skills || req.body.category;
       // email silently ignored — column doesn't exist on candidates table
@@ -459,7 +466,7 @@ function createApiV1Routes(sysDb) {
           sets.push('first_name = ?', 'last_name = ?');
           vals.push(parts[0] || '', parts.slice(1).join(' ') || '');
         }
-        if (skills !== undefined) { sets.push('current_category = ?'); vals.push(coerceSkills(skills)); }
+        if (skills !== undefined) { sets.push('current_category = ?'); vals.push(stripTags(coerceSkills(skills))); }
         if (external_id !== undefined) { sets.push('external_id = ?'); vals.push(external_id); }
         if (sets.length > 0) {
           vals.push(cleanPhone);
@@ -473,7 +480,7 @@ function createApiV1Routes(sysDb) {
         const firstName = parts[0] || '';
         const lastName = parts.slice(1).join(' ') || '';
         const magicToken = crypto.randomBytes(16).toString('hex');
-        const skillsStr = coerceSkills(skills) || '';
+        const skillsStr = stripTags(coerceSkills(skills)) || '';
         db.prepare(
           'INSERT INTO candidates (phone, first_name, last_name, magic_token, current_category, external_id) VALUES (?, ?, ?, ?, ?, ?)'
         ).run(cleanPhone, firstName, lastName, magicToken, skillsStr, external_id || null);
@@ -509,16 +516,16 @@ function createApiV1Routes(sysDb) {
 
       // Fix #6: accept first_name/last_name in PATCH too
       if (req.body.name !== undefined) {
-        const parts = req.body.name.trim().split(/\s+/);
+        const parts = stripTags(req.body.name).trim().split(/\s+/);
         sets.push('first_name = ?', 'last_name = ?');
         vals.push(parts[0] || '', parts.slice(1).join(' ') || '');
       } else if (req.body.first_name !== undefined || req.body.last_name !== undefined) {
-        if (req.body.first_name !== undefined) { sets.push('first_name = ?'); vals.push(req.body.first_name); }
-        if (req.body.last_name !== undefined) { sets.push('last_name = ?'); vals.push(req.body.last_name); }
+        if (req.body.first_name !== undefined) { sets.push('first_name = ?'); vals.push(stripTags(req.body.first_name)); }
+        if (req.body.last_name !== undefined) { sets.push('last_name = ?'); vals.push(stripTags(req.body.last_name)); }
       }
       // email silently ignored — column doesn't exist on candidates table
-      if (req.body.skills !== undefined) { sets.push('current_category = ?'); vals.push(coerceSkills(req.body.skills)); }
-      if (req.body.category !== undefined) { sets.push('current_category = ?'); vals.push(coerceSkills(req.body.category)); }
+      if (req.body.skills !== undefined) { sets.push('current_category = ?'); vals.push(stripTags(coerceSkills(req.body.skills))); }
+      if (req.body.category !== undefined) { sets.push('current_category = ?'); vals.push(stripTags(coerceSkills(req.body.category))); }
       if (req.body.external_id !== undefined) { sets.push('external_id = ?'); vals.push(req.body.external_id); }
       if (req.body.do_not_contact !== undefined) { sets.push('do_not_contact = ?'); vals.push(req.body.do_not_contact ? 1 : 0); }
 
@@ -543,8 +550,13 @@ function createApiV1Routes(sysDb) {
       const db = getDb(req);
       const { job_order_id, status } = req.body || {};
       if (!job_order_id || !status) return res.status(400).json({ error: { code: 'validation', message: 'job_order_id and status required' } });
+      // FIX 3: validate job_order_id is numeric
+      if (isNaN(Number(job_order_id))) return res.status(400).json({ error: { code: 'validation', message: 'job_order_id must be a number' } });
       const validStatuses = ['interested', 'yes_listed', 'confirmed', 'filled', 'ruled_out'];
       if (!validStatuses.includes(status)) return res.status(400).json({ error: { code: 'validation', message: 'Invalid status. Must be: ' + validStatuses.join(', ') } });
+      // FIX 2: verify job order exists before creating interest
+      const jo = db.prepare('SELECT id FROM job_orders WHERE id = ?').get(Number(job_order_id));
+      if (!jo) return res.status(400).json({ error: { code: 'validation', message: 'Job order not found' } });
       const phone = req.params.phone;
       const candidate = db.prepare('SELECT phone FROM candidates WHERE phone = ?').get(phone);
       if (!candidate) return res.status(404).json({ error: { code: 'not_found', message: 'Candidate not found' } });
@@ -782,7 +794,7 @@ function createApiV1Routes(sysDb) {
       const { name, body, category } = req.body || {};
       if (!name || !body) return res.status(400).json({ error: { code: 'validation', message: 'name and body required' } });
       if (!String(body).includes('{link}')) return res.status(400).json({ error: { code: 'validation', message: 'Template must include {link}' } });
-      const r = db.prepare('INSERT INTO templates (name, body, category) VALUES (?, ?, ?)').run(name, body, category || null);
+      const r = db.prepare('INSERT INTO templates (name, body, category) VALUES (?, ?, ?)').run(stripTags(name), stripTags(body), stripTags(category) || null);
       const created = db.prepare('SELECT id, name, body, category, is_default FROM templates WHERE id = ?').get(Number(r.lastInsertRowid));
       res.status(201).json({ data: created });
     } catch (e) {
@@ -797,13 +809,13 @@ function createApiV1Routes(sysDb) {
       const t = db.prepare('SELECT * FROM templates WHERE id = ?').get(id);
       if (!t) return res.status(404).json({ error: { code: 'not_found', message: 'Template not found' } });
       const { name, body, category } = req.body || {};
-      if (name !== undefined) db.prepare('UPDATE templates SET name = ? WHERE id = ?').run(String(name), id);
+      if (name !== undefined) db.prepare('UPDATE templates SET name = ? WHERE id = ?').run(stripTags(String(name)), id);
       if (body !== undefined) {
         if (!String(body).includes('{link}')) return res.status(400).json({ error: { code: 'validation', message: 'Template must include {link}' } });
-        db.prepare('UPDATE templates SET body = ? WHERE id = ?').run(String(body), id);
+        db.prepare('UPDATE templates SET body = ? WHERE id = ?').run(stripTags(String(body)), id);
       }
       if (category !== undefined) {
-        db.prepare('UPDATE templates SET category = ? WHERE id = ?').run(category === null ? null : String(category), id);
+        db.prepare('UPDATE templates SET category = ? WHERE id = ?').run(category === null ? null : stripTags(String(category)), id);
       }
       const updated = db.prepare('SELECT id, name, body, category, is_default FROM templates WHERE id = ?').get(id);
       res.json({ data: updated });

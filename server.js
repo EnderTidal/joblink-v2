@@ -60,6 +60,14 @@ app.use(createWebhookRoutes(sysDb));
 
 app.use(express.json({ limit: '2mb' }));
 
+// FIX 1: catch malformed JSON globally — return 400 instead of 500
+app.use((err, _req, res, next) => {
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: { code: 'invalid_json', message: 'Malformed JSON in request body' } });
+  }
+  next(err);
+});
+
 const startedAt = Date.now();
 
 // Health check — no auth, always accessible. Reports system-wide stats.
