@@ -366,7 +366,7 @@ function createApiV1Routes(sysDb) {
       const lastName = parts.slice(1).join(' ') || '';
       const magicToken = crypto.randomBytes(16).toString('hex');
       // Bug fix #3: skills maps to current_category (documented in response as `category`)
-      const skillsStr = stripTags(coerceSkills(skills)) || '';
+      const skillsStr = stripTags(coerceSkills(skills)) || 'Industrial';
       db.prepare(
         'INSERT INTO candidates (phone, first_name, last_name, magic_token, current_category, external_id) VALUES (?, ?, ?, ?, ?, ?)'
       ).run(cleanPhone, firstName, lastName, magicToken, skillsStr, external_id || null);
@@ -420,7 +420,7 @@ function createApiV1Routes(sysDb) {
         const lastName = parts.slice(1).join(' ') || '';
         const magicToken = crypto.randomBytes(16).toString('hex');
         let skillsStr;
-        try { skillsStr = stripTags(coerceSkills(skills)) || ''; } catch { errors.push({ index: i, message: 'skills must be a string or array of strings' }); continue; }
+        try { skillsStr = stripTags(coerceSkills(skills)) || 'Industrial'; } catch { errors.push({ index: i, message: 'skills must be a string or array of strings' }); continue; }
         try {
           insertStmt.run(cleanPhone, firstName, lastName, magicToken, skillsStr, external_id || null);
           created++;
@@ -485,7 +485,7 @@ function createApiV1Routes(sysDb) {
         const firstName = parts[0] || '';
         const lastName = parts.slice(1).join(' ') || '';
         const magicToken = crypto.randomBytes(16).toString('hex');
-        const skillsStr = stripTags(coerceSkills(skills)) || '';
+        const skillsStr = stripTags(coerceSkills(skills)) || 'Industrial';
         db.prepare(
           'INSERT INTO candidates (phone, first_name, last_name, magic_token, current_category, external_id) VALUES (?, ?, ?, ?, ?, ?)'
         ).run(cleanPhone, firstName, lastName, magicToken, skillsStr, external_id || null);
