@@ -40,6 +40,8 @@ function createPublicRoutes(sysDb) {
 
   // Fast O(1) lookup: new magic links include the org slug
   router.get('/m/:slug/:token', (req, res) => {
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
     const org = findOrgBySlug(sysDb, req.params.slug);
     if (!org) return res.status(404).send('<h1>Link not found</h1><p>This link may have expired. Reply to our text and we will send a fresh one.</p>');
     try {
