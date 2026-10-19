@@ -269,6 +269,9 @@ function openDb(filePath) {
   try { db.exec("ALTER TABLE candidates ADD COLUMN external_id TEXT"); } catch { /* already exists */ }
   // Migration: unique index on external_id per tenant DB
   try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_candidates_external_id ON candidates(external_id) WHERE external_id IS NOT NULL"); } catch { /* already exists */ }
+  // Migration: prevent null categories — default to Industrial on every startup
+  try { db.exec("UPDATE candidates SET current_category = 'Industrial' WHERE current_category IS NULL OR current_category = ''"); } catch { /* ignore */ }
+
   const seed = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) seed.run(k, v);
   const tCount = db.prepare('SELECT COUNT(*) AS n FROM templates').get().n;
