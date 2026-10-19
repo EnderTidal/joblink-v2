@@ -166,7 +166,7 @@ function parseContactRows(rows, filename = '') {
 function upsertCandidates(db, contacts) {
   const get = db.prepare('SELECT phone, first_name, last_name FROM candidates WHERE phone = ?');
   const insert = db.prepare(
-    'INSERT INTO candidates (phone, first_name, last_name, magic_token) VALUES (?, ?, ?, ?)',
+    'INSERT INTO candidates (phone, first_name, last_name, magic_token, current_category) VALUES (?, ?, ?, ?, 'Industrial')',
   );
   const updateName = db.prepare(
     'UPDATE candidates SET first_name = ?, last_name = ? WHERE phone = ?',
