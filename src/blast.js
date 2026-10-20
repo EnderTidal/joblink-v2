@@ -107,6 +107,19 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
     try { preBlastConvoIds = new Set(await provider.getOpenConversationIds()); } catch(e) {}
   }
 
+  // Sync contacts to Whippy before sending — ensures names show in Whippy inbox
+  if (typeof provider.ensureContact === 'function') {
+    console.log('[blast] Syncing ' + plan.sendable.length + ' contacts to Whippy...');
+    let synced = 0, skipped = 0, errors = 0;
+    for (const c of plan.sendable) {
+      const r = await provider.ensureContact(c.phone, c.first_name, c.last_name);
+      if (r.ok) { if (r.action === 'created' || r.action === 'updated') synced++; else skipped++; }
+      else errors++;
+      if (pacingMs > 0) await sleep(Math.floor(pacingMs / 2)); // half-pace for lookups
+    }
+    console.log('[blast] Contact sync done: ' + synced + ' synced, ' + skipped + ' already good, ' + errors + ' errors');
+  }
+
   let sent = 0, failed = 0;
   for (const c of plan.sendable) {
     const body = renderMessage(templateBody, c, baseUrl, orgSlug);
