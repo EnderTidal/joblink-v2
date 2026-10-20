@@ -117,18 +117,13 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
         setCategoryIfNull.run(plan.category, c.phone);
       recRecipient.run(blastId, c.phone, 'sent', null);
       sent++;
-      // Assign+close this specific conversation immediately
-      if (result.conversationId && recruiterId && typeof provider.assignConversation === 'function') {
+      // Always close conversation immediately after send — prevents AI agents from grabbing it
+      if (result.conversationId && typeof provider._patchConversation === 'function') {
         try {
-          const patchBody = { status: 'closed', assigned_user_id: Number(recruiterId) };
-          console.log('[blast] Assigning conversation', result.conversationId, 'to recruiter', recruiterId);
-          // Use the raw whippy request through the provider
-          if (typeof provider._patchConversation === 'function') {
-            await provider._patchConversation(result.conversationId, patchBody);
-          } else {
-            await provider.assignConversation(result.conversationId, recruiterId);
-          }
-        } catch(e) { console.error('[blast] inline assign failed:', e.message); }
+          const patchBody = { status: 'closed' };
+          if (recruiterId) patchBody.assigned_user_id = Number(recruiterId);
+          await provider._patchConversation(result.conversationId, patchBody);
+        } catch(e) { console.error('[blast] inline close failed:', e.message); }
       }
     } else {
       recRecipient.run(blastId, c.phone, 'failed', result.error || 'send failed');
