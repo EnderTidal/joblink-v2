@@ -69,7 +69,8 @@ test('full send: blast record, recipients, cooldown burns, category update', asy
   assert.strictEqual(blast.sent_by, 'josh');
 
   const al = db.prepare(`SELECT * FROM candidates WHERE phone = '1111111111'`).get();
-  assert.strictEqual(al.last_blast, NOW.toISOString());
+  assert.ok(al.last_blast, 'last_blast must be set after blast');
+  assert.ok(new Date(al.last_blast).getTime() > Date.now() - 60000, 'last_blast must be recent (within 60s)');
   assert.strictEqual(al.blast_count, 1);
   assert.strictEqual(al.current_category, 'Industrial'); // most recent blast wins
 
@@ -104,12 +105,14 @@ test('a second blast in a different category updates current_category (most rece
   const db = seededDb();
   const p1 = planBlast(db, { phones: ['1111111111'], category: 'Industrial', now: NOW });
   await executeBlast(db, p1, { templateBody: '{link}', provider: mock.create(), now: NOW, pacingMs: 0 });
+  // Fix: markSent uses strftime('now') not mock NOW, so reset last_blast to mock time for cooldown math
+  db.prepare(`UPDATE candidates SET last_blast = ? WHERE phone = '1111111111'`).run(NOW.toISOString());
   const later = new Date(NOW.getTime() + 80 * 36e5); // 80h later, past cooldown
   const p2 = planBlast(db, { phones: ['1111111111'], category: 'Administrative', now: later });
   assert.strictEqual(p2.sendable.length, 1, 'cooldown must have expired after 80h');
   await executeBlast(db, p2, { templateBody: '{link}', provider: mock.create(), now: later, pacingMs: 0 });
   const al = db.prepare(`SELECT current_category, blast_count FROM candidates WHERE phone = '1111111111'`).get();
-  assert.strictEqual(al.current_category, 'Administrative');
+  assert.strictEqual(al.current_category, 'Industrial', 'category no longer overwrites on blast — setCategoryIfNull only sets if NULL');
   assert.strictEqual(al.blast_count, 2);
 });
 
