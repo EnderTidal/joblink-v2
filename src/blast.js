@@ -114,7 +114,7 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
     if (result.ok) {
       // Partial-send rule: only an ACCEPTED send burns the cooldown
       markSent.run(c.phone);
-        setCategoryIfNull.run(category, c.phone);
+        setCategoryIfNull.run(plan.category, c.phone);
       recRecipient.run(blastId, c.phone, 'sent', null);
       sent++;
       // Assign+close this specific conversation immediately
