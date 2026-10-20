@@ -127,31 +127,6 @@ function create(config) {
         return { assigned: 0, closed: 0, error: e.message };
       }
     },
-    async ensureContact(phone, firstName, lastName) {
-      try {
-        const e164 = toE164(phone);
-        // Check if contact exists
-        const result = await whippyRequest(config, 'GET', '/v1/contacts?phone=' + encodeURIComponent(e164) + '&limit=1', null);
-        const existing = result?.data?.[0];
-        const fullName = ((firstName || '') + ' ' + (lastName || '')).trim();
-        if (!fullName) return { ok: true, action: 'skip_no_name' };
-        if (existing) {
-          // Only update if Whippy has no name
-          if (!existing.name || existing.name.trim() === '') {
-            await whippyRequest(config, 'PATCH', '/v1/contacts/' + existing.id, { name: fullName });
-            return { ok: true, action: 'updated', id: existing.id };
-          }
-          return { ok: true, action: 'exists', id: existing.id };
-        } else {
-          // Create new contact
-          const created = await whippyRequest(config, 'POST', '/v1/contacts', { phone: e164, name: fullName });
-          return { ok: true, action: 'created', id: created?.data?.id };
-        }
-      } catch(e) {
-        // Non-fatal — blast still sends even if contact sync fails
-        return { ok: false, error: e.message };
-      }
-    },
     async closeOpenConversations() {
       try {
         const result = await whippyRequest(config, 'GET', '/v1/conversations?limit=100', null);
