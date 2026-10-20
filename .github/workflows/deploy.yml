@@ -40,16 +40,24 @@ jobs:
           ssh -i ~/.ssh/deploy_key root@"$HOST" "cd /root/joblink-v2-staging && git fetch origin && git reset --hard origin/master && npm ci --omit=dev && pm2 restart joblink-v2-staging"
 
           echo "Verifying staging..."
-          STAGING_HEALTH=$(ssh -i ~/.ssh/deploy_key root@"$HOST" "curl -sf http://localhost:3850/health" || echo "FAIL")
-          echo "Staging health: $STAGING_HEALTH"
-          echo "$STAGING_HEALTH" | grep -q '"ok"' || { echo "Staging health check failed"; exit 1; }
+          for i in 1 2 3 4 5; do
+            sleep 3
+            STAGING_HEALTH=$(ssh -i ~/.ssh/deploy_key root@"$HOST" "curl -sf http://localhost:3850/health" || echo "FAIL")
+            echo "Staging health (attempt $i): $STAGING_HEALTH"
+            echo "$STAGING_HEALTH" | grep -q '"ok"' && break
+          done
+          echo "$STAGING_HEALTH" | grep -q '"ok"' || { echo "Staging health check failed after 5 attempts"; exit 1; }
 
           echo "Deploying to production..."
           ssh -i ~/.ssh/deploy_key root@"$HOST" "cd /root/joblink-v2 && git fetch origin && git reset --hard origin/master && npm ci --omit=dev && pm2 restart joblink-v2"
 
           echo "Verifying production..."
-          PROD_HEALTH=$(ssh -i ~/.ssh/deploy_key root@"$HOST" "curl -sf http://localhost:3849/health" || echo "FAIL")
-          echo "Production health: $PROD_HEALTH"
-          echo "$PROD_HEALTH" | grep -q '"ok"' || { echo "Production health check failed"; exit 1; }
+          for i in 1 2 3 4 5; do
+            sleep 3
+            PROD_HEALTH=$(ssh -i ~/.ssh/deploy_key root@"$HOST" "curl -sf http://localhost:3849/health" || echo "FAIL")
+            echo "Production health (attempt $i): $PROD_HEALTH"
+            echo "$PROD_HEALTH" | grep -q '"ok"' && break
+          done
+          echo "$PROD_HEALTH" | grep -q '"ok"' || { echo "Production health check failed after 5 attempts"; exit 1; }
 
           echo "Deploy complete!"
