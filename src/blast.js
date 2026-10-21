@@ -36,11 +36,25 @@ function getCategories(db) {
 // Legacy compat: const CATEGORIES still exported as the defaults
 const CATEGORIES = DEFAULT_CATEGORIES;
 
+/** Get or create a blast-specific token for a candidate+category. */
+function getBlastToken(db, phone, category, blastId) {
+  // Check for existing token for this phone+category
+  const existing = db.prepare('SELECT token FROM blast_tokens WHERE phone = ? AND category = ?').get(phone, category);
+  if (existing) return existing.token;
+  // Create new token
+  const token = require('crypto').randomBytes(16).toString('base64url');
+  db.prepare('INSERT INTO blast_tokens (phone, category, token, blast_id) VALUES (?, ?, ?, ?)').run(phone, category, token, blastId);
+  return token;
+}
+
 /** Render a template for one candidate. Placeholders: {first_name}, {link}. */
-function renderMessage(templateBody, candidate, baseUrl, orgSlug) {
-  const link = orgSlug
-    ? `${baseUrl}/m/${orgSlug}/${candidate.magic_token}`
-    : `${baseUrl}/m/${candidate.magic_token}`;
+function renderMessage(templateBody, candidate, baseUrl, orgSlug, categorySlug, blastToken) {
+  const token = blastToken || candidate.magic_token;
+  const link = orgSlug && categorySlug
+    ? `${baseUrl}/m/${orgSlug}/${categorySlug}/${token}`
+    : orgSlug
+    ? `${baseUrl}/m/${orgSlug}/${token}`
+    : `${baseUrl}/m/${token}`;
   return String(templateBody)
     .replace(/\{first_name\}/g, candidate.first_name || 'there')
     .replace(/\{link\}/g, link);
@@ -182,4 +196,4 @@ function markDoNotContact(db, phone, value = true) {
   db.prepare('UPDATE candidates SET do_not_contact = ? WHERE phone = ?').run(value ? 1 : 0, phone);
 }
 
-module.exports = { planBlast, executeBlast, renderMessage, listBlasts, markDoNotContact, CATEGORIES, getCategories, SMS_RATE_LIMIT_MS };
+module.exports = { planBlast, executeBlast, getBlastToken, renderMessage, listBlasts, markDoNotContact, CATEGORIES, getCategories, SMS_RATE_LIMIT_MS };

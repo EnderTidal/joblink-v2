@@ -188,7 +188,19 @@ function openDb(filePath) {
   try { db.exec("ALTER TABLE users ADD COLUMN magic_login_expires TEXT"); } catch { /* already exists */ }
   // Migration: interest_events table (for existing DBs that were created before it was in SCHEMA)
   try {
-    db.exec(`CREATE TABLE IF NOT EXISTS interest_events (
+    db.exec(`CREATE TABLE IF NOT EXISTS blast_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone TEXT NOT NULL,
+    category TEXT NOT NULL,
+    token TEXT NOT NULL UNIQUE,
+    blast_id INTEGER,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    FOREIGN KEY (blast_id) REFERENCES blasts(id)
+  )`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_blast_tokens_token ON blast_tokens(token)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_blast_tokens_phone_cat ON blast_tokens(phone, category)`);
+
+  db.exec(`CREATE TABLE IF NOT EXISTS interest_events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       phone TEXT NOT NULL,
       job_order_id INTEGER NOT NULL,

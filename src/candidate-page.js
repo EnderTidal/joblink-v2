@@ -31,8 +31,8 @@ function markInterest(db, candidate, jobOrderId) {
   return { ok: true };
 }
 
-function renderCandidatePage(db, candidate, orgName) {
-  const category = candidate.current_category;
+function renderCandidatePage(db, candidate, orgName, categoryOverride) {
+  const category = categoryOverride || candidate.current_category;
   const jobs = category ? publishedInCategory(db, category) : [];
   const interested = new Set(
     db.prepare('SELECT job_order_id FROM interests WHERE phone = ?').all(candidate.phone).map((r) => r.job_order_id),

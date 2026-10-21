@@ -38,6 +38,74 @@ function createPublicRoutes(sysDb) {
   });
 
 
+  // Per-category magic links: /m/{org-slug}/{category-slug}/{token}
+  router.get('/m/:slug/:catSlug/:token', (req, res) => {
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    const org = findOrgBySlug(sysDb, req.params.slug);
+    if (!org) return res.status(404).send('<h1>Link not found</h1><p>This link may have expired. Reply to our text and we will send a fresh one.</p>');
+    try {
+      const db = getTenantDb(org.id);
+      // Look up in blast_tokens first
+      const bt = db.prepare('SELECT phone, category FROM blast_tokens WHERE token = ?').get(req.params.token);
+      if (bt) {
+        const candidate = db.prepare('SELECT * FROM candidates WHERE phone = ?').get(bt.phone);
+        if (!candidate) return res.status(404).send('<h1>Link not found</h1><p>This link may have expired. Reply to our text and we will send a fresh one.</p>');
+        res.send(renderCandidatePage(db, candidate, org.name, bt.category));
+        return;
+      }
+      // Fallback: maybe it's a legacy magic_token with a category slug
+      const candidate = db.prepare('SELECT * FROM candidates WHERE magic_token = ?').get(req.params.token);
+      if (!candidate) return res.status(404).send('<h1>Link not found</h1><p>This link may have expired. Reply to our text and we will send a fresh one.</p>');
+      res.send(renderCandidatePage(db, candidate, org.name));
+    } catch {
+      return res.status(404).send('<h1>Link not found</h1>');
+    }
+  });
+
+  // Per-category interest submission
+  router.post('/m/:slug/:catSlug/:token/interest', express.json(), (req, res) => {
+    const org = findOrgBySlug(sysDb, req.params.slug);
+    if (!org) return res.status(404).json({ ok: false, error: 'not_found' });
+    try {
+      const db = getTenantDb(org.id);
+      const bt = db.prepare('SELECT phone FROM blast_tokens WHERE token = ?').get(req.params.token);
+      const phone = bt ? bt.phone : null;
+      const candidate = phone
+        ? db.prepare('SELECT * FROM candidates WHERE phone = ?').get(phone)
+        : db.prepare('SELECT * FROM candidates WHERE magic_token = ?').get(req.params.token);
+      if (!candidate) return res.status(404).json({ ok: false, error: 'not_found' });
+      const result = markInterest(db, candidate, Number(req.body?.job_order_id));
+      res.status(result.ok ? 200 : 400).json(result);
+    } catch {
+      res.status(404).json({ ok: false, error: 'not_found' });
+    }
+  });
+
+  // Per-category interest removal
+  router.delete('/m/:slug/:catSlug/:token/interest', express.json(), (req, res) => {
+    const org = findOrgBySlug(sysDb, req.params.slug);
+    if (!org) return res.status(404).json({ ok: false, error: 'not_found' });
+    try {
+      const db = getTenantDb(org.id);
+      const bt = db.prepare('SELECT phone FROM blast_tokens WHERE token = ?').get(req.params.token);
+      const phone = bt ? bt.phone : null;
+      const candidate = phone
+        ? db.prepare('SELECT * FROM candidates WHERE phone = ?').get(phone)
+        : db.prepare('SELECT * FROM candidates WHERE magic_token = ?').get(req.params.token);
+      if (!candidate) return res.status(404).json({ ok: false, error: 'not_found' });
+      const joId = Number(req.body?.job_order_id);
+      const existing = db.prepare('SELECT status FROM interests WHERE phone = ? AND job_order_id = ?').get(candidate.phone, joId);
+      if (existing) {
+        logInterestEvent(db, candidate.phone, joId, existing.status, 'withdrawn', (candidate.first_name || '') + ' ' + (candidate.last_name || '') + ' (self)');
+      }
+      db.prepare('DELETE FROM interests WHERE phone = ? AND job_order_id = ?').run(candidate.phone, joId);
+      res.json({ ok: true });
+    } catch {
+      res.status(404).json({ ok: false, error: 'not_found' });
+    }
+  });
+
   // Fast O(1) lookup: new magic links include the org slug
   router.get('/m/:slug/:token', (req, res) => {
     res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
