@@ -96,8 +96,6 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
     `INSERT INTO blasts (category, template_id, message_preview, skipped_cooldown_count, skipped_dnc_count, sent_by)
      VALUES (?, ?, ?, ?, ?, ?)`,
   );
-  // Store variant B template if provided
-  const _variantBTemplate = variantBTemplate || null;
   const blastId = Number(insertBlast.run(
     plan.category, templateId ?? null, templateBody,
     plan.skippedCooldown.length, plan.skippedDnc.length, sentBy,
@@ -138,19 +136,16 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
 
   let sent = 0, failed = 0;
   for (const c of plan.sendable) {
-    // A/B variant assignment (50/50 random split)
-    const variant = variantBTemplate && Math.random() < 0.5 ? "B" : "A";
-    const activeTemplate = variant === "B" ? variantBTemplate : templateBody;
     const blastToken = getBlastToken(db, c.phone, plan.category, blastId);
     const categorySlug = (plan.category || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const body = renderMessage(activeTemplate, c, baseUrl, orgSlug, categorySlug, blastToken);
+    const body = renderMessage(templateBody, c, baseUrl, orgSlug, categorySlug, blastToken);
     const result = await provider.sendSms({ to: c.phone, body });
     if (result.ok) {
       // Partial-send rule: only an ACCEPTED send burns the cooldown
       markSent.run(c.phone);
         setCategory.run(plan.category, c.phone);
       recRecipient.run(blastId, c.phone, 'sent', null);
-      if (variant === 'B') { try { db.prepare('UPDATE blast_recipients SET message_variant = ? WHERE blast_id = ? AND phone = ?').run('B', blastId, c.phone); } catch {} }
+
       sent++;
       // Always close conversation immediately after send — prevents AI agents from grabbing it
       if (result.conversationId && typeof provider._patchConversation === 'function') {
@@ -193,10 +188,17 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
 
 /** Review Magic Blasts: recent blasts with interested-reply counts. */
 function listBlasts(db, limit = 20) {
-  return db.prepare(
-    `SELECT b.*, (SELECT COUNT(*) FROM interests i WHERE i.blast_id = b.id) AS interested_count
-     FROM blasts b ORDER BY b.id DESC LIMIT ?`,
+  const blasts = db.prepare(
+    `SELECT b.*,
+            (SELECT COUNT(*) FROM interests i WHERE i.blast_id = b.id) AS interested_count,
+            (SELECT COUNT(*) FROM interests i WHERE i.blast_id = b.id AND i.status = 'filled') AS filled_count
+     FROM blasts b ORDER BY b.id DESC LIMIT ?`
   ).all(limit);
+  return blasts.map(b => ({
+    ...b,
+    interest_rate: b.sent_count > 0 ? Math.round((b.interested_count / b.sent_count) * 100 * 10) / 10 : 0,
+    fill_rate: b.sent_count > 0 ? Math.round((b.filled_count / b.sent_count) * 100 * 10) / 10 : 0,
+  }));
 }
 
 /** Mark a candidate do-not-contact (STOP reply / manual). Infinite cooldown. */

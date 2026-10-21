@@ -265,6 +265,62 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
   router.get('/api/blasts', (req, res) => res.json(listBlasts(req.db, 50)));
 
   // ---- Blast Recipients (expandable blast detail) ----
+  // ---- Blast Analytics — retrospective message comparison ----
+  router.get('/api/blasts/analytics', auth.requireAuth, (req, res) => {
+    try {
+      const db = req.db;
+      const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+      const category = req.query.category;
+
+      let where = '1=1';
+      const params = [];
+      if (category) { where += ' AND b.category = ?'; params.push(category); }
+      params.push(limit);
+
+      const blasts = db.prepare(`
+        SELECT b.id, b.category, b.sent_by, b.sent_at, b.sent_count,
+               b.skipped_cooldown_count, b.skipped_dnc_count, b.failed_count,
+               b.message_preview,
+               (SELECT COUNT(*) FROM interests i WHERE i.blast_id = b.id) AS interested_count,
+               (SELECT COUNT(*) FROM interests i WHERE i.blast_id = b.id AND i.status = 'filled') AS filled_count
+        FROM blasts b WHERE ${where}
+        ORDER BY b.sent_at DESC LIMIT ?
+      `).all(...params);
+
+      const results = blasts.map(b => ({
+        id: b.id,
+        category: b.category,
+        sent_by: b.sent_by,
+        sent_at: b.sent_at,
+        message_text: b.message_preview || '(no preview)',
+        sent: b.sent_count,
+        interested: b.interested_count,
+        filled: b.filled_count,
+        interest_rate: b.sent_count > 0 ? ((b.interested_count / b.sent_count) * 100).toFixed(1) + '%' : '0%',
+        fill_rate: b.sent_count > 0 ? ((b.filled_count / b.sent_count) * 100).toFixed(1) + '%' : '0%',
+      }));
+
+      // Summary stats
+      const totalSent = results.reduce((s, r) => s + r.sent, 0);
+      const totalInterested = results.reduce((s, r) => s + r.interested, 0);
+      const totalFilled = results.reduce((s, r) => s + r.filled, 0);
+
+      res.json({
+        blasts: results,
+        summary: {
+          total_blasts: results.length,
+          total_sent: totalSent,
+          total_interested: totalInterested,
+          total_filled: totalFilled,
+          avg_interest_rate: totalSent > 0 ? ((totalInterested / totalSent) * 100).toFixed(1) + '%' : '0%',
+          avg_fill_rate: totalSent > 0 ? ((totalFilled / totalSent) * 100).toFixed(1) + '%' : '0%',
+        }
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // ---- A/B Test Results ----
   router.get('/api/blasts/:id/ab-results', auth.requireAuth, (req, res) => {
     try {
