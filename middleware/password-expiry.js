@@ -3,7 +3,7 @@
 // On/after ENFORCEMENT_DATE: passwords set before that date are forced to reset,
 // then rolling 30-day clock from the reset moment.
 
-const ENFORCEMENT_DATE = new Date('2026-10-21T00:00:00-05:00'); // Wed Oct 14, midnight CDT
+const ENFORCEMENT_DATE = new Date('2026-11-01T00:00:00-05:00'); // pushed from Oct 21 — change-password page not ready // Wed Oct 14, midnight CDT
 const PASSWORD_MAX_AGE_DAYS = 30;
 
 const ALLOWED_WHEN_EXPIRED = [
