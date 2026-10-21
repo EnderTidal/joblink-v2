@@ -136,7 +136,9 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
 
   let sent = 0, failed = 0;
   for (const c of plan.sendable) {
-    const body = renderMessage(templateBody, c, baseUrl, orgSlug);
+    const blastToken = getBlastToken(db, c.phone, plan.category, blastId);
+    const categorySlug = (plan.category || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const body = renderMessage(templateBody, c, baseUrl, orgSlug, categorySlug, blastToken);
     const result = await provider.sendSms({ to: c.phone, body });
     if (result.ok) {
       // Partial-send rule: only an ACCEPTED send burns the cooldown
