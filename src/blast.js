@@ -96,7 +96,7 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
 
   // FIX 4: use SQLite strftime for last_blast timestamp (DB clock, not app clock)
   // SET_CATEGORY_IF_NULL: set candidate category from blast category if currently empty
-    const setCategoryIfNull = db.prepare("UPDATE candidates SET current_category = ? WHERE phone = ? AND (current_category IS NULL OR current_category = '')");
+    const setCategory = db.prepare("UPDATE candidates SET current_category = ? WHERE phone = ?");
     const markSent = db.prepare(
     `UPDATE candidates SET last_blast = strftime('%Y-%m-%dT%H:%M:%fZ','now'), blast_count = blast_count + 1 WHERE phone = ?`,
   );
@@ -114,7 +114,7 @@ async function executeBlast(db, plan, { templateId, templateBody, provider, sent
     if (result.ok) {
       // Partial-send rule: only an ACCEPTED send burns the cooldown
       markSent.run(c.phone);
-        setCategoryIfNull.run(plan.category, c.phone);
+        setCategory.run(plan.category, c.phone);
       recRecipient.run(blastId, c.phone, 'sent', null);
       sent++;
       // Always close conversation immediately after send — prevents AI agents from grabbing it
