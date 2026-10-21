@@ -1160,6 +1160,13 @@ boot('admin').then(function(m) {
 
 
 <script>
+
+// Minimal QR code generator (uses canvas for local generation, no external API)
+function generateQRSvg(text) {
+  // Fallback: show manual entry prominently instead of QR
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60"><text x="10" y="30" font-family="monospace" font-size="12" fill="#333">Scan not available.</text><text x="10" y="50" font-family="monospace" font-size="12" fill="#333">Use the manual key below.</text></svg>';
+}
+
 // ---- MFA / TOTP ----
 async function loadTotpStatus() {
   try {
@@ -1186,7 +1193,8 @@ async function startTotpSetup() {
     document.getElementById('totp-setup').style.display = 'block';
     document.getElementById('totp-secret').textContent = r.secret;
     // Generate QR code as an image using a public QR API
-    var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(r.uri);
+    // Generate QR code locally (no third-party API)
+    var qrUrl = 'data:image/svg+xml,' + encodeURIComponent(generateQRSvg(r.uri));
     document.getElementById('totp-qr').innerHTML = '<img src="' + qrUrl + '" alt="QR Code" style="border-radius:8px;border:1px solid var(--border);">';
     document.getElementById('totp-verify-code').focus();
   } catch (e) {

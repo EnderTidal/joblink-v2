@@ -54,10 +54,14 @@ function createPublicRoutes(sysDb) {
         res.send(renderCandidatePage(db, candidate, org.name, bt.category));
         return;
       }
-      // Fallback: maybe it's a legacy magic_token with a category slug
+      // Fallback: legacy magic_token with category from URL slug
       const candidate = db.prepare('SELECT * FROM candidates WHERE magic_token = ?').get(req.params.token);
       if (!candidate) return res.status(404).send('<h1>Link not found</h1><p>This link may have expired. Reply to our text and we will send a fresh one.</p>');
-      res.send(renderCandidatePage(db, candidate, org.name));
+      // Use category slug from URL to override candidate's stored category
+      const catFromUrl = req.params.catSlug;
+      const categories = db.prepare("SELECT name FROM categories ORDER BY sort_order, id").all().map(r => r.name);
+      const matchedCat = categories.find(c => c.toLowerCase().replace(/[^a-z0-9]+/g, '-') === catFromUrl) || null;
+      res.send(renderCandidatePage(db, candidate, org.name, matchedCat || catFromUrl));
     } catch {
       return res.status(404).send('<h1>Link not found</h1>');
     }

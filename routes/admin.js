@@ -867,9 +867,10 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
   router.post('/api/me/password', (req, res) => {
     const { current, password } = req.body || {};
     const pwCheck = validatePassword(String(password || '')); if (!pwCheck.valid) return res.status(400).json({ error: pwCheck.error });
+    if (current && password && bcrypt.compareSync(String(password), sysDb.prepare('SELECT password_hash FROM users WHERE id = ?').get(req.user.user_id)?.password_hash || '')) return res.status(400).json({ error: 'New password must be different from current password' });
     const user = sysDb.prepare('SELECT * FROM users WHERE id = ?').get(req.user.user_id);
     if (!user || !bcrypt.compareSync(String(current || ''), user.password_hash)) {
-      return res.status(401).json({ error: 'current password is wrong' });
+      return res.status(400).json({ error: 'current password is wrong' });
     }
     updateUser(sysDb, user.id, { password_hash: bcrypt.hashSync(String(password), 10), password_changed_at: new Date().toISOString() });
     res.json({ ok: true });
