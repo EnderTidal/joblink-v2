@@ -200,6 +200,11 @@ function openDb(filePath) {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_blast_tokens_token ON blast_tokens(token)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_blast_tokens_phone_cat ON blast_tokens(phone, category)`);
 
+  // A/B testing support
+  try { db.exec(`ALTER TABLE blast_recipients ADD COLUMN message_variant TEXT DEFAULT 'A'`); } catch {}
+  try { db.exec(`ALTER TABLE blasts ADD COLUMN variant_b_template TEXT`); } catch {}
+  try { db.exec(`ALTER TABLE blasts ADD COLUMN variant_b_preview TEXT`); } catch {};
+
   db.exec(`CREATE TABLE IF NOT EXISTS interest_events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       phone TEXT NOT NULL,

@@ -265,6 +265,50 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
   router.get('/api/blasts', (req, res) => res.json(listBlasts(req.db, 50)));
 
   // ---- Blast Recipients (expandable blast detail) ----
+  // ---- A/B Test Results ----
+  router.get('/api/blasts/:id/ab-results', auth.requireAuth, (req, res) => {
+    try {
+      const blastId = Number(req.params.id);
+      const db = req.db;
+
+      // Count recipients per variant
+      const variants = db.prepare(`
+        SELECT message_variant as variant, COUNT(*) as sent
+        FROM blast_recipients WHERE blast_id = ? AND status = 'sent'
+        GROUP BY message_variant
+      `).all(blastId);
+
+      // Count interests per variant
+      const interests = db.prepare(`
+        SELECT br.message_variant as variant, COUNT(DISTINCT i.id) as interests
+        FROM blast_recipients br
+        LEFT JOIN interests i ON i.phone = br.phone AND i.blast_id = br.blast_id
+        WHERE br.blast_id = ? AND br.status = 'sent'
+        GROUP BY br.message_variant
+      `).all(blastId);
+
+      const interestMap = {};
+      interests.forEach(r => { interestMap[r.variant || 'A'] = r.interests; });
+
+      const results = variants.map(v => ({
+        variant: v.variant || 'A',
+        sent: v.sent,
+        interests: interestMap[v.variant || 'A'] || 0,
+        interest_rate: v.sent > 0 ? (((interestMap[v.variant || 'A'] || 0) / v.sent) * 100).toFixed(1) + '%' : '0%',
+      }));
+
+      const blast = db.prepare('SELECT message_preview, variant_b_preview FROM blasts WHERE id = ?').get(blastId);
+      res.json({
+        blast_id: blastId,
+        variant_a_preview: blast ? blast.message_preview : null,
+        variant_b_preview: blast ? blast.variant_b_preview : null,
+        results,
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   router.get('/api/blasts/:id/recipients', (req, res) => {
     const blastId = Number(req.params.id);
     const blast = req.db.prepare('SELECT * FROM blasts WHERE id = ?').get(blastId);
@@ -618,6 +662,79 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
   });
 
   // ---- Team list (any authenticated user — for filters/dropdowns) ----
+  // ---- Team Activity (admin sees all, recruiter sees own) ----
+  router.get('/api/team/activity', auth.requireAuth, (req, res) => {
+    try {
+      const isAdmin = req.user.role === 'admin';
+      const db = req.db;
+      const users = listOrgUsers(sysDb, req.user.org_id);
+      const userMap = {};
+      users.forEach(u => { userMap[u.username] = u.display_name || u.username; });
+
+      // Per-recruiter blast stats
+      const blastStats = db.prepare(`
+        SELECT sent_by, COUNT(*) as blast_count, SUM(sent_count) as total_sent,
+               MAX(sent_at) as last_blast_at
+        FROM blasts WHERE sent_by IS NOT NULL
+        GROUP BY sent_by ORDER BY last_blast_at DESC
+      `).all();
+
+      // Per-recruiter interest stats (via blast -> interests)
+      const interestStats = db.prepare(`
+        SELECT b.sent_by, COUNT(DISTINCT i.id) as interest_count,
+               COUNT(DISTINCT CASE WHEN i.status = 'filled' THEN i.id END) as filled_count
+        FROM interests i JOIN blasts b ON i.blast_id = b.id
+        WHERE b.sent_by IS NOT NULL
+        GROUP BY b.sent_by
+      `).all();
+
+      const interestMap = {};
+      interestStats.forEach(s => { interestMap[s.sent_by] = s; });
+
+      // Recent activity feed (last 50 blasts)
+      const recentBlasts = db.prepare(`
+        SELECT id, sent_by, category, sent_count, skipped_cooldown_count, skipped_dnc_count,
+               failed_count, sent_at, message_preview
+        FROM blasts ORDER BY sent_at DESC LIMIT 50
+      `).all();
+
+      // Filter by user if not admin
+      const filteredBlasts = isAdmin ? recentBlasts : recentBlasts.filter(b => b.sent_by === req.user.username);
+      const filteredStats = isAdmin ? blastStats : blastStats.filter(s => s.sent_by === req.user.username);
+
+      const team = filteredStats.map(s => {
+        const interests = interestMap[s.sent_by] || { interest_count: 0, filled_count: 0 };
+        return {
+          recruiter: userMap[s.sent_by] || s.sent_by,
+          username: s.sent_by,
+          blasts: s.blast_count,
+          total_sent: s.total_sent,
+          interests: interests.interest_count,
+          fills: interests.filled_count,
+          interest_rate: s.total_sent > 0 ? Math.round((interests.interest_count / s.total_sent) * 100) + '%' : '0%',
+          last_blast: s.last_blast_at,
+        };
+      });
+
+      res.json({
+        team,
+        recent_activity: filteredBlasts.map(b => ({
+          id: b.id,
+          recruiter: userMap[b.sent_by] || b.sent_by || 'system',
+          category: b.category,
+          sent: b.sent_count,
+          skipped: (b.skipped_cooldown_count || 0) + (b.skipped_dnc_count || 0),
+          failed: b.failed_count || 0,
+          sent_at: b.sent_at,
+          preview: (b.message_preview || '').substring(0, 80),
+        })),
+        is_admin: isAdmin,
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   router.get('/api/team', auth.requireAuth, (req, res) => {
     const users = listOrgUsers(sysDb, req.user.org_id);
     res.json(users.map(u => ({ display_name: u.display_name || u.username, username: u.username })));
