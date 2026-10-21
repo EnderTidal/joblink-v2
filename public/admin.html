@@ -1135,4 +1135,98 @@ boot('admin').then(function(m) {
   }
 
 </script>
+
+  <!-- MFA / Two-Factor Authentication -->
+  <div id="totp-section" class="card" style="margin-top:20px;padding:24px;">
+    <h3 style="margin:0 0 12px;font-size:16px;font-weight:700;">Two-Factor Authentication</h3>
+    <div id="totp-status"></div>
+    <div id="totp-setup" style="display:none">
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.):</p>
+      <div id="totp-qr" style="text-align:center;margin:16px 0;"></div>
+      <p style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:12px;">Or enter this key manually: <code id="totp-secret" style="background:var(--bg-soft);padding:2px 6px;border-radius:4px;font-size:11px;"></code></p>
+      <div style="display:flex;gap:8px;align-items:flex-end;">
+        <label class="f" style="flex:1;margin-bottom:0;">Verification Code<input id="totp-verify-code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit code" style="margin-bottom:0"></label>
+        <button class="btn" onclick="verifyTotp()" style="height:40px;white-space:nowrap;">Verify &amp; Enable</button>
+      </div>
+    </div>
+    <div id="totp-disable" style="display:none">
+      <p style="font-size:13px;color:var(--green);margin-bottom:12px;">&#x2713; Two-factor authentication is enabled.</p>
+      <div style="display:flex;gap:8px;align-items:flex-end;">
+        <label class="f" style="flex:1;margin-bottom:0;">Current Password (to disable)<input id="totp-disable-pw" type="password" placeholder="Enter password" style="margin-bottom:0"></label>
+        <button class="btn ghost" onclick="disableTotp()" style="height:40px;white-space:nowrap;color:var(--red);">Disable MFA</button>
+      </div>
+    </div>
+  </div>
+
+
+<script>
+// ---- MFA / TOTP ----
+async function loadTotpStatus() {
+  try {
+    var r = await api('/api/me');
+    var section = document.getElementById('totp-section');
+    if (!section) return;
+    var statusEl = document.getElementById('totp-status');
+    if (r.totp_enabled) {
+      statusEl.innerHTML = '';
+      document.getElementById('totp-setup').style.display = 'none';
+      document.getElementById('totp-disable').style.display = 'block';
+    } else {
+      statusEl.innerHTML = '<p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Add an extra layer of security to your account.</p><button class="btn ghost" onclick="startTotpSetup()">Set Up Authenticator</button>';
+      document.getElementById('totp-setup').style.display = 'none';
+      document.getElementById('totp-disable').style.display = 'none';
+    }
+  } catch {}
+}
+
+async function startTotpSetup() {
+  try {
+    var r = await api('/api/totp/setup', { method: 'POST' });
+    document.getElementById('totp-status').innerHTML = '';
+    document.getElementById('totp-setup').style.display = 'block';
+    document.getElementById('totp-secret').textContent = r.secret;
+    // Generate QR code as an image using a public QR API
+    var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(r.uri);
+    document.getElementById('totp-qr').innerHTML = '<img src="' + qrUrl + '" alt="QR Code" style="border-radius:8px;border:1px solid var(--border);">';
+    document.getElementById('totp-verify-code').focus();
+  } catch (e) {
+    alert(e.message || 'Failed to start setup');
+  }
+}
+
+async function verifyTotp() {
+  var code = document.getElementById('totp-verify-code').value;
+  if (!code || code.length !== 6) { alert('Enter the 6-digit code from your authenticator app.'); return; }
+  try {
+    var r = await api('/api/totp/verify', { method: 'POST', body: { code: code } });
+    if (r.ok) {
+      alert('Two-factor authentication is now enabled!');
+      loadTotpStatus();
+    }
+  } catch (e) {
+    alert(e.message || 'Invalid code. Try again.');
+  }
+}
+
+async function disableTotp() {
+  var pw = document.getElementById('totp-disable-pw').value;
+  if (!pw) { alert('Enter your current password to disable MFA.'); return; }
+  if (!confirm('Are you sure you want to disable two-factor authentication?')) return;
+  try {
+    var r = await api('/api/totp', { method: 'DELETE', body: { password: pw } });
+    if (r.ok) {
+      alert('Two-factor authentication has been disabled.');
+      loadTotpStatus();
+    }
+  } catch (e) {
+    alert(e.message || 'Wrong password.');
+  }
+}
+
+// Load TOTP status when admin page loads
+if (document.getElementById('totp-section')) {
+  loadTotpStatus();
+}
+</script>
+
 </body></html>
