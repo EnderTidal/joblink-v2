@@ -768,6 +768,7 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
           interests: interests.interest_count,
           fills: interests.filled_count,
           interest_rate: s.total_sent > 0 ? Math.round((interests.interest_count / s.total_sent) * 100) + '%' : '0%',
+          fill_rate: s.total_sent > 0 ? Math.round((interests.filled_count / s.total_sent) * 100) + '%' : '0%',
           last_blast: s.last_blast_at,
         };
       });
