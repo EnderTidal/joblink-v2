@@ -687,9 +687,15 @@ function createTom(db) {
         plan.skippedExclusion = s.data.excludedPhones || [];
         s.data.plan = plan;
 
-        const sample = plan.sendable[0]
-          ? renderMessage(s.data.template.body, plan.sendable[0], getSetting(db, 'base_url') || '')
-          : '(no sendable recipients)';
+        let sample = '(no sendable recipients)';
+        if (plan.sendable[0]) {
+          const previewBaseUrl = getSetting(db, 'base_url') || '';
+          const previewCatSlug = (category || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          // Use blast token for preview (creates one if needed, blast_id 0 for preview)
+          const { getBlastToken } = require('./blast');
+          const previewToken = getBlastToken(db, plan.sendable[0].phone, category, 0);
+          sample = renderMessage(s.data.template.body, plan.sendable[0], previewBaseUrl, orgSlug, previewCatSlug, previewToken);
+        }
         const skippedBits = [];
         if (plan.skippedCooldown.length) skippedBits.push(`${plan.skippedCooldown.length} skipped (cooldown)`);
         if (plan.skippedDnc.length) skippedBits.push(`${plan.skippedDnc.length} skipped (do not contact)`);
