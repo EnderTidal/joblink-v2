@@ -1660,7 +1660,9 @@ function showBlastForm(data) {
   schedRow.appendChild(schedLbl);
   var schedPickerRow = document.createElement('div');
   schedPickerRow.style.cssText = 'display:none;margin:8px 0 12px;';
-  schedPickerRow.innerHTML = '<label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Send at</label><input type="datetime-local" id="schedDateTime" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);">';
+  var blastTz = (blastFormData && blastFormData.timezone) || 'America/Chicago';
+  var blastTzAbbr = new Date().toLocaleString('en-US', { timeZone: blastTz, timeZoneName: 'short' }).split(' ').pop();
+  schedPickerRow.innerHTML = '<label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Send at (' + blastTzAbbr + ')</label><input type="datetime-local" id="schedDateTime" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);">';
   schedToggle.addEventListener('change', function() {
     schedPickerRow.style.display = this.checked ? 'block' : 'none';
     var pb = document.querySelector('.bf-actions .btn:first-child');
