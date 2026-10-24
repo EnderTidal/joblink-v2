@@ -652,6 +652,7 @@ function createTom(db) {
         const recruiterId = payload?.recruiterId ? Number(payload.recruiterId) : null;
         const selectedFromNumber = payload?.fromNumber || null;
         const skipBlastGuard = payload?.skipBlastGuard === true;
+        const sendAtRaw = payload?.send_at || null;
 
         if (!getCategories(db).includes(category)) {
           persistSession(s); return reply(s, 'Select a category before previewing.', { showBlastForm: true, timezone: ((db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get() || {}).value || 'America/Chicago'), keepForm: true });
@@ -682,6 +683,7 @@ function createTom(db) {
 
         s.data.recruiterId = recruiterId;
         s.data.selectedFromNumber = selectedFromNumber;
+        s.data.sendAt = sendAtRaw;
 
         const plan = planBlast(db, { phones: selected.map(c => c.phone), category, skipBlastGuard });
         plan.skippedExclusion = s.data.excludedPhones || [];
@@ -717,6 +719,19 @@ function createTom(db) {
         }
         s.data.recruiterUsername = recruiterUsername;
 
+        // Build schedule-aware preview
+        const _schedTz = (db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get() || {}).value || 'America/Chicago';
+        let _schedLine = '';
+        let _confirmBtn;
+        if (sendAtRaw) {
+          const _sTime = new Date(sendAtRaw).toLocaleString('en-US', { timeZone: _schedTz, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+          const _sTzA = new Date(sendAtRaw).toLocaleString('en-US', { timeZone: _schedTz, timeZoneName: 'short' }).split(' ').pop();
+          _schedLine = `\u23F0 Scheduled for: ${_sTime} ${_sTzA}\n`;
+          _confirmBtn = { action: 'schedule_send', label: `Schedule blast for ${_sTime} ${_sTzA}`, send_at: sendAtRaw };
+        } else {
+          _confirmBtn = { action: 'confirm_send', label: `Send to ${plan.sendable.length} people` };
+        }
+
         s.state = 'preview';
         persistSession(s); return reply(s,
           `Blast preview \u2014 ${category}\n` +
@@ -724,10 +739,11 @@ function createTom(db) {
           `Sample message: "${sample}"\n\n` +
           `${plan.sendable.length} will be sent${skippedBits.length ? ', ' + skippedBits.join(', ') : ''}.\n` +
           (recruiterUsername ? `Recruiter: ${recruiterUsername}\n` : '') +
-          (skipBlastGuard ? `⚠️ BLAST GUARD OVERRIDDEN — cooldown skipped\n` : '') +
-          '\nPress the Send button to send. You can safely close this tab after \u2014 your blast will continue in the background.',
+          _schedLine +
+          (skipBlastGuard ? `\u26A0\uFE0F BLAST GUARD OVERRIDDEN \u2014 cooldown skipped\n` : '') +
+          (sendAtRaw ? '\nPress the Schedule button to confirm. You can safely close this tab after \u2014 your blast will be sent at the scheduled time.' : '\nPress the Send button to send. You can safely close this tab after \u2014 your blast will continue in the background.'),
           {
-            confirmButton: { action: 'confirm_send', label: `Send to ${plan.sendable.length} people` },
+            confirmButton: _confirmBtn,
             plan: {
               sendable: plan.sendable.map(c => ({ first_name: c.first_name, last_name: c.last_name, phone: c.phone })),
               skippedExclusion: (plan.skippedExclusion || []).map(phone => {
