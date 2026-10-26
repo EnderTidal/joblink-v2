@@ -338,7 +338,7 @@ function createTom(db) {
         const estimatedSendable = parsed.contacts.length - inCooldown - inDnc;
         const formData = loadBlastFormData(null);
         persistSession(s); return reply(s, '', {
-          showBlastForm: true,
+          showBlastForm: true, timezone: ((db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get() || {}).value || 'America/Chicago'),
           contactCount: parsed.contacts.length,
           estimatedSendable,
           estimatedCooldown: inCooldown,
@@ -429,7 +429,7 @@ function createTom(db) {
         const estimatedSendable = s.data.contacts.length - inCooldown - inDnc;
         const formData = loadBlastFormData(null);
         persistSession(s); return reply(s, '', {
-          showBlastForm: true,
+          showBlastForm: true, timezone: ((db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get() || {}).value || 'America/Chicago'),
           contactCount: s.data.contacts.length,
           estimatedSendable,
           estimatedCooldown: inCooldown,
@@ -514,7 +514,7 @@ function createTom(db) {
         const estimatedSendable = s.data.contacts.length - inCooldown - inDnc;
         const formData = loadBlastFormData(null);
         persistSession(s); return reply(s, '', {
-          showBlastForm: true,
+          showBlastForm: true, timezone: ((db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get() || {}).value || 'America/Chicago'),
           contactCount: s.data.contacts.length,
           estimatedSendable,
           estimatedCooldown: inCooldown,
@@ -566,7 +566,7 @@ function createTom(db) {
         const estimatedSendable = s.data.contacts.length - inCooldown - inDnc;
         const formData = loadBlastFormData(null);
         persistSession(s); return reply(s, '', {
-          showBlastForm: true,
+          showBlastForm: true, timezone: ((db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get() || {}).value || 'America/Chicago'),
           contactCount: s.data.contacts.length,
           estimatedSendable,
           estimatedCooldown: inCooldown,
@@ -630,12 +630,12 @@ function createTom(db) {
         const name = String(payload?.name || '').trim();
         const body = String(payload?.body || '').trim();
         const category = payload?.category || null;
-        if (!name || !body) { persistSession(s); return reply(s, 'Template needs a name and body.', { showBlastForm: true, keepForm: true }); }
+        if (!name || !body) { persistSession(s); return reply(s, 'Template needs a name and body.', { showBlastForm: true, timezone: ((db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get() || {}).value || 'America/Chicago'), keepForm: true }); }
         const r = db.prepare('INSERT INTO templates (name, body, category) VALUES (?, ?, ?)').run(name, body, category || null);
         const newTemplate = db.prepare('SELECT * FROM templates WHERE id = ?').get(Number(r.lastInsertRowid));
         const allTemplates = db.prepare('SELECT * FROM templates ORDER BY is_default DESC, id').all();
         persistSession(s); return reply(s, '', {
-          showBlastForm: true,
+          showBlastForm: true, timezone: ((db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get() || {}).value || 'America/Chicago'),
           keepForm: true,
           savedTemplate: { id: newTemplate.id, name: newTemplate.name, body: newTemplate.body, category: newTemplate.category || '', is_default: !!newTemplate.is_default },
           templates: allTemplates.map(t => ({ id: t.id, name: t.name, body: t.body, category: t.category || '', is_default: !!t.is_default })),
@@ -652,12 +652,13 @@ function createTom(db) {
         const recruiterId = payload?.recruiterId ? Number(payload.recruiterId) : null;
         const selectedFromNumber = payload?.fromNumber || null;
         const skipBlastGuard = payload?.skipBlastGuard === true;
+        const sendAtRaw = payload?.send_at || null;
 
         if (!getCategories(db).includes(category)) {
-          persistSession(s); return reply(s, 'Select a category before previewing.', { showBlastForm: true, keepForm: true });
+          persistSession(s); return reply(s, 'Select a category before previewing.', { showBlastForm: true, timezone: ((db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get() || {}).value || 'America/Chicago'), keepForm: true });
         }
         if (!templateBody.trim()) {
-          persistSession(s); return reply(s, 'Template message cannot be empty.', { showBlastForm: true, keepForm: true });
+          persistSession(s); return reply(s, 'Template message cannot be empty.', { showBlastForm: true, timezone: ((db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get() || {}).value || 'America/Chicago'), keepForm: true });
         }
 
         let selected = sortContacts(s.data.contacts, sortBy);
@@ -682,14 +683,21 @@ function createTom(db) {
 
         s.data.recruiterId = recruiterId;
         s.data.selectedFromNumber = selectedFromNumber;
+        s.data.sendAt = sendAtRaw;
 
         const plan = planBlast(db, { phones: selected.map(c => c.phone), category, skipBlastGuard });
         plan.skippedExclusion = s.data.excludedPhones || [];
         s.data.plan = plan;
 
-        const sample = plan.sendable[0]
-          ? renderMessage(s.data.template.body, plan.sendable[0], getSetting(db, 'base_url') || '')
-          : '(no sendable recipients)';
+        let sample = '(no sendable recipients)';
+        if (plan.sendable[0]) {
+          const previewBaseUrl = getSetting(db, 'base_url') || '';
+          const previewCatSlug = (category || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          // Use blast token for preview (creates one if needed, blast_id 0 for preview)
+          const { getBlastToken } = require('./blast');
+          const previewToken = getBlastToken(db, plan.sendable[0].phone, category, null);
+          sample = renderMessage(s.data.template.body, plan.sendable[0], previewBaseUrl, orgSlug, previewCatSlug, previewToken);
+        }
         const skippedBits = [];
         if (plan.skippedCooldown.length) skippedBits.push(`${plan.skippedCooldown.length} skipped (cooldown)`);
         if (plan.skippedDnc.length) skippedBits.push(`${plan.skippedDnc.length} skipped (do not contact)`);
@@ -711,6 +719,19 @@ function createTom(db) {
         }
         s.data.recruiterUsername = recruiterUsername;
 
+        // Build schedule-aware preview
+        const _schedTz = (db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get() || {}).value || 'America/Chicago';
+        let _schedLine = '';
+        let _confirmBtn;
+        if (sendAtRaw) {
+          const _sTime = new Date(sendAtRaw).toLocaleString('en-US', { timeZone: _schedTz, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+          const _sTzA = new Date(sendAtRaw).toLocaleString('en-US', { timeZone: _schedTz, timeZoneName: 'short' }).split(' ').pop();
+          _schedLine = `\u23F0 Scheduled for: ${_sTime} ${_sTzA}\n`;
+          _confirmBtn = { action: 'schedule_send', label: `Schedule blast for ${_sTime} ${_sTzA}`, send_at: sendAtRaw };
+        } else {
+          _confirmBtn = { action: 'confirm_send', label: `Send to ${plan.sendable.length} people` };
+        }
+
         s.state = 'preview';
         persistSession(s); return reply(s,
           `Blast preview \u2014 ${category}\n` +
@@ -718,10 +739,11 @@ function createTom(db) {
           `Sample message: "${sample}"\n\n` +
           `${plan.sendable.length} will be sent${skippedBits.length ? ', ' + skippedBits.join(', ') : ''}.\n` +
           (recruiterUsername ? `Recruiter: ${recruiterUsername}\n` : '') +
-          (skipBlastGuard ? `⚠️ BLAST GUARD OVERRIDDEN — cooldown skipped\n` : '') +
-          '\nPress the Send button to send. You can safely close this tab after \u2014 your blast will continue in the background.',
+          _schedLine +
+          (skipBlastGuard ? `\u26A0\uFE0F BLAST GUARD OVERRIDDEN \u2014 cooldown skipped\n` : '') +
+          (sendAtRaw ? '\nPress the Schedule button to confirm. You can safely close this tab after \u2014 your blast will be sent at the scheduled time.' : '\nPress the Send button to send. You can safely close this tab after \u2014 your blast will continue in the background.'),
           {
-            confirmButton: { action: 'confirm_send', label: `Send to ${plan.sendable.length} people` },
+            confirmButton: _confirmBtn,
             plan: {
               sendable: plan.sendable.map(c => ({ first_name: c.first_name, last_name: c.last_name, phone: c.phone })),
               skippedExclusion: (plan.skippedExclusion || []).map(phone => {
@@ -732,7 +754,7 @@ function createTom(db) {
           });
       }
 
-      persistSession(s); return reply(s, 'Use the blast settings form to configure your blast, then click Preview Blast.', { showBlastForm: true, keepForm: true });
+      persistSession(s); return reply(s, 'Use the blast settings form to configure your blast, then click Preview Blast.', { showBlastForm: true, timezone: ((db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get() || {}).value || 'America/Chicago'), keepForm: true });
     }
 
     if (s.state === 'preview') {
@@ -740,7 +762,7 @@ function createTom(db) {
         s.state = 'blast_form';
         const formData = loadBlastFormData(s.data.category);
         persistSession(s); return reply(s, '', {
-          showBlastForm: true,
+          showBlastForm: true, timezone: ((db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get() || {}).value || 'America/Chicago'),
           contactCount: s.data.contacts.length,
           invalidCount: s.data.invalidCount || 0,
           importCounts: s.data.importCounts || {},
@@ -819,8 +841,10 @@ function createTom(db) {
           numberOverride ? JSON.stringify(numberOverride) : null
         );
         s.state = 'ask_another';
-        const scheduledTime = new Date(sendAt).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
-        persistSession(s); return reply(s, `\u23F0 Blast scheduled for ${scheduledTime} Central.\n${s.data.plan.sendable.length} candidates will receive the blast at that time.\n\nSend another? (yes / no)`);
+        const schedTz = (db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get() || {}).value || 'America/Chicago';
+        const scheduledTime = new Date(sendAt).toLocaleString('en-US', { timeZone: schedTz, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+        const tzAbbr = new Date(sendAt).toLocaleString('en-US', { timeZone: schedTz, timeZoneName: 'short' }).split(' ').pop();
+        persistSession(s); return reply(s, `\u23F0 Blast scheduled for ${scheduledTime} ${tzAbbr}.\n${s.data.plan.sendable.length} candidates will receive the blast at that time.\n\nSend another? (yes / no)`);
       }
       persistSession(s); return reply(s, 'Press the Send button when you\'re ready, or start a new conversation to cancel.');
     }
