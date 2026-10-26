@@ -39,6 +39,10 @@ before(async () => {
   sysDb.prepare(
     'INSERT INTO users (org_id, username, password_hash, role, email, email_verified) VALUES (?, ?, ?, ?, ?, ?)'
   ).run(org2.id, 'acme-admin', bcrypt.hashSync('AcmePass2026!', 10), 'admin', 'admin@acme.test', 1);
+
+  // Set password_changed_at so password-expiry middleware doesn't 403 test users
+  const now = new Date().toISOString();
+  sysDb.prepare('UPDATE users SET password_changed_at = ?').run(now);
 });
 
 after(() => {
