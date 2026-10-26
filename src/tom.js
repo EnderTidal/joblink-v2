@@ -695,7 +695,7 @@ function createTom(db) {
           const previewCatSlug = (category || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
           // Use blast token for preview (creates one if needed, blast_id 0 for preview)
           const { getBlastToken } = require('./blast');
-          const previewToken = getBlastToken(db, plan.sendable[0].phone, category, 0);
+          const previewToken = getBlastToken(db, plan.sendable[0].phone, category, null);
           sample = renderMessage(s.data.template.body, plan.sendable[0], previewBaseUrl, orgSlug, previewCatSlug, previewToken);
         }
         const skippedBits = [];
