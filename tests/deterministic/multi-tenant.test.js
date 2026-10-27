@@ -73,12 +73,12 @@ test('/api/me returns correct org_id per user', async () => {
 
 test('data is isolated between tenants', async () => {
   // Create a job order in org1 via Tom
-  const s1 = await http('POST', '/api/tom/start', { path: 'job_order' }, cookie1);
-  await http('POST', '/api/tom/message', {
+  const s1 = await http('POST', '/api/wizard/start', { path: 'job_order' }, cookie1);
+  await http('POST', '/api/wizard/message', {
     sessionId: s1.data.sessionId,
     text: 'Title: Welder\nCategory: Skilled Trade\nPay: $25/hr',
   }, cookie1);
-  await http('POST', '/api/tom/message', {
+  await http('POST', '/api/wizard/message', {
     sessionId: s1.data.sessionId,
     text: 'done',
   }, cookie1);

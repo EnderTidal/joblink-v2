@@ -7,7 +7,7 @@ const path = require('node:path');
 const { openDb, setSetting } = require('../../src/db');
 const { getProvider } = require('../../src/messaging');
 
-const CORE_MODULES = ['blast.js', 'blast-guard.js', 'job-orders.js', 'importing.js', 'tom.js', 'candidate-page.js'];
+const CORE_MODULES = ['blast.js', 'blast-guard.js', 'job-orders.js', 'importing.js', 'wizard.js', 'candidate-page.js'];
 
 test('STRUCTURAL: no core module imports the Whippy implementation directly', () => {
   for (const file of CORE_MODULES) {
