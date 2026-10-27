@@ -1176,6 +1176,42 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
     res.json({ ok: true });
   });
 
+
+  // --- Product update email subscription (re-subscribe toggle) ---
+  router.get('/api/settings/email-subscription', auth.requireAuth, (req, res) => {
+    const email = req.user.email;
+    if (!email) return res.json({ subscribed: true }); // default ON
+    try {
+      const row = req.db.prepare('SELECT subscribed FROM email_subscriptions WHERE email = ?').get(email);
+      // No row = default subscribed
+      res.json({ subscribed: row ? !!row.subscribed : true });
+    } catch (e) {
+      // Table might not exist yet in older tenant DBs
+      res.json({ subscribed: true });
+    }
+  });
+
+  router.post('/api/settings/email-subscription', auth.requireAuth, (req, res) => {
+    const email = req.user.email;
+    if (!email) return res.status(400).json({ error: 'No email on your account' });
+    const subscribed = req.body.subscribed === true || req.body.subscribed === 'true' ? 1 : 0;
+    try {
+      const existing = req.db.prepare('SELECT id FROM email_subscriptions WHERE email = ?').get(email);
+      if (existing) {
+        req.db.prepare('UPDATE email_subscriptions SET subscribed = ? WHERE email = ?').run(subscribed, email);
+      } else {
+        const crypto = require('crypto');
+        const token = crypto.randomBytes(16).toString('hex');
+        req.db.prepare('INSERT INTO email_subscriptions (email, name, subscribed, unsub_token) VALUES (?, ?, ?, ?)').run(email, req.user.display_name || req.user.username || '', subscribed, token);
+      }
+      res.json({ ok: true, subscribed: !!subscribed });
+    } catch (e) {
+      console.error('email-subscription error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+
   // Analytics aliases
   router.get('/api/analytics/overview', auth.requireAuth, (req, res) => {
     const db = req.db;

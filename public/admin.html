@@ -126,6 +126,16 @@
         </div>
       </div>
     </div>
+  
+    <!-- Product Update Emails -->
+    <div class="card" style="margin-top:20px">
+      <h3 style="margin:0 0 12px;font-size:17px;font-weight:800">Product Update Emails</h3>
+      <p class="mut" style="margin-bottom:14px">Receive emails about new features, improvements, and changelog updates.</p>
+      <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
+        <input type="checkbox" id="set-email-sub" onchange="saveEmailSub()" style="width:18px;height:18px;accent-color:var(--blue)">
+        <span style="font-size:14px">Receive product update emails</span>
+      </label>
+    </div>
   </section>
 
   <section id="s-api-keys">
@@ -315,6 +325,7 @@ document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('cli
 }));
 
 async function loadSettings() {
+  loadEmailSub();
   try {
     const s = await api('/api/settings');
     document.getElementById('set-cooldown').value = s.cooldown_hours || 72;
@@ -328,6 +339,19 @@ async function loadSettings() {
         '<p class="mut" style="line-height:1.7">' + s.whippy_users.map(function(u) { return esc(u.name); }).join(', ') + '</p>';
     }
   } catch { document.getElementById('s-settings').innerHTML = '<div class="card half mut">Settings are admin-only.</div>'; }
+}
+
+async function loadEmailSub() {
+  try {
+    const r = await api('/api/settings/email-subscription');
+    document.getElementById('set-email-sub').checked = r.subscribed;
+  } catch(e) {}
+}
+async function saveEmailSub() {
+  try {
+    await api('/api/settings/email-subscription', { method: 'POST', body: { subscribed: document.getElementById('set-email-sub').checked } });
+    toast('Email preference saved.');
+  } catch(e) { toast('Failed to save preference.'); }
 }
 async function saveSettings() {
   await api('/api/settings', { method: 'POST', body: {
