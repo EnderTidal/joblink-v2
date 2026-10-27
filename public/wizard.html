@@ -22,7 +22,7 @@
   .card.hide-chat #chat,
   .card.hide-chat #composer { display:none !important; }
   .msg { max-width:78%; padding:12px 15px; border-radius:14px; white-space:pre-wrap; font-size:.94rem; line-height:1.45; }
-  .msg.tom { background:var(--surface-2); border:1px solid var(--border); align-self:flex-start; border-bottom-left-radius:4px; }
+  .msg.wizard { background:var(--surface-2); border:1px solid var(--border); align-self:flex-start; border-bottom-left-radius:4px; }
   .msg.me { background:var(--brand); color:#fff; align-self:flex-end; border-bottom-right-radius:4px; }
   .msg .choices { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
   #composer { display:flex; gap:8px; margin-top:14px; }
@@ -190,7 +190,7 @@
   #paste-panel .paste-actions { display:flex; gap:10px; margin-top:12px; align-items:center; }
   #paste-panel .paste-example { color:var(--text-subtle); font-size:.78rem; margin-top:10px; line-height:1.4; font-style:italic; }
 
-  /* Tom light mode */
+  /* Wizard light mode */
 
 
   /* Column mapping panel */
@@ -433,7 +433,7 @@ function dismissNudge(el) { el.style.transition='opacity .2s'; el.style.opacity=
 function showLoading() {
   var chat = document.getElementById('chat');
   var el = document.createElement('div');
-  el.className = 'msg tom loading-indicator';
+  el.className = 'msg wizard loading-indicator';
   el.id = 'loading-msg';
   if (blastProgressMode) {
     var idx = Math.floor(Math.random() * BLAST_PROGRESS_MESSAGES.length);
@@ -613,7 +613,7 @@ function getFormDraft() {
 async function submitJOForm(action) {
   var draft = getFormDraft();
   showLoading();
-  var r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, action: action, payload: { draft: draft } } });
+  var r = await api('/api/wizard/message', { method: 'POST', body: { sessionId: session, action: action, payload: { draft: draft } } });
   hideLoading();
   if (r.showForm && r.draft) {
     showJOForm(r.draft, r.warnings || []);
@@ -1227,13 +1227,13 @@ function showExclusionPanel(data) {
     var file = e.target.files[0];
     if (!file) return;
     hideExclusionPanel();
-    // Upload exclusion file through tom upload endpoint
+    // Upload exclusion file through wizard upload endpoint
     addMsg('me', 'Exclusion list: ' + file.name);
     showLoading();
     var fd = new FormData();
     fd.append('sessionId', session);
     fd.append('file', file);
-    fetch('/api/tom/upload', { method: 'POST', body: fd }).then(function(res) {
+    fetch('/api/wizard/upload', { method: 'POST', body: fd }).then(function(res) {
       return res.json();
     }).then(function(r) {
       hideLoading();
@@ -1805,7 +1805,7 @@ async function submitBlastForm(schedOpts) {
   hideBlastForm();
   document.querySelector('.card').classList.remove('hide-chat');
   showLoading();
-  var r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, action: 'preview_blast', payload: vals } });
+  var r = await api('/api/wizard/message', { method: 'POST', body: { sessionId: session, action: 'preview_blast', payload: vals } });
   hideLoading();
   if (r.showColumnMap && r.keepForm) {
     showColumnMapPanel(columnMapData || r);
@@ -1832,7 +1832,7 @@ document.getElementById('saveTemplateConfirm').addEventListener('click', async f
   document.getElementById('saveTemplateModal').classList.remove('active');
   nameEl.value = '';
   showLoading();
-  var r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, action: 'save_template', payload: { name: name, body: body, category: category } } });
+  var r = await api('/api/wizard/message', { method: 'POST', body: { sessionId: session, action: 'save_template', payload: { name: name, body: body, category: category } } });
   hideLoading();
   if (r.templates && r.savedTemplate) {
     var tplSel = document.getElementById('blastTemplateSelect');
@@ -1859,6 +1859,20 @@ document.getElementById('saveTemplateCancel').addEventListener('click', function
 function renderBlastCards(blasts, timezone) {
   var tz = timezone || 'America/Chicago';
   var container = document.createElement('div');
+
+  // CSV export toolbar — rendered inline with blast review cards
+  var toolbar = document.createElement('div');
+  toolbar.style.cssText = 'padding:12px 16px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;margin-bottom:12px';
+  var _now = new Date(), _ago = new Date(_now.getTime() - 30*24*60*60*1000);
+  toolbar.innerHTML =
+    '<div style="font-size:14px;font-weight:700;margin-bottom:8px">Export Blast Analytics</div>' +
+    '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+      '<label style="font-size:13px;color:var(--text-subtle)">From <input type="date" id="csv-from" value="' + _ago.toISOString().slice(0,10) + '" style="margin-left:4px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px"></label>' +
+      '<label style="font-size:13px;color:var(--text-subtle)">To <input type="date" id="csv-to" value="' + _now.toISOString().slice(0,10) + '" style="margin-left:4px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px"></label>' +
+      '<button class="btn sm" onclick="exportBlastCsv()">Export CSV</button>' +
+    '</div>';
+  container.appendChild(toolbar);
+
   (blasts || []).forEach(function(b) {
     var card = document.createElement('div');
     card.className = 'blast-card';
@@ -2077,8 +2091,8 @@ function addMsg(who, text, extra) {
   }
   chat.appendChild(div);
 
-  // Auto-add "Yes" button when Tom asks "create another?" or "Send another?"
-  if (who === "tom" && text && /another\?/i.test(text)) {
+  // Auto-add "Yes" button when Wizard asks "create another?" or "Send another?"
+  if (who === "wizard" && text && /another\?/i.test(text)) {
     var yesDiv = document.createElement("div");
     yesDiv.className = "choices";
     var yesBtn = document.createElement("button");
@@ -2257,7 +2271,7 @@ function submitContactForm() {
   var text = lines.join('\n');
   addMsg('me', lines.length + ' contact' + (lines.length === 1 ? '' : 's') + ' entered');
   showLoading();
-  api('/api/tom/message', { method: 'POST', body: { sessionId: session, text: text } }).then(function(r) {
+  api('/api/wizard/message', { method: 'POST', body: { sessionId: session, text: text } }).then(function(r) {
     hideLoading();
     handleReply(r);
   });
@@ -2269,7 +2283,7 @@ function cfStartOver() {
 }
 
 function handleReply(r) {
-  if (r.error) { addMsg('tom', r.text || r.error); return; }
+  if (r.error) { addMsg('wizard', r.text || r.error); return; }
   session = r.sessionId;
 
   // Show task cards again when conversation ends
@@ -2319,7 +2333,7 @@ function handleReply(r) {
     /* composer stays hidden — Patch B */
   }
 
-  addMsg('tom', r.text, r);
+  addMsg('wizard', r.text, r);
 
   // Render help topic buttons if present
   if (r.helpTopics && r.helpTopics.length) {
@@ -2359,7 +2373,7 @@ async function startPath(path) {
   document.getElementById('composer').style.display = 'none';
   document.getElementById('input').placeholder = 'Type here\u2026';
   showLoading();
-  var r = await api('/api/tom/start', { method: 'POST', body: { path: path } });
+  var r = await api('/api/wizard/start', { method: 'POST', body: { path: path } });
   hideLoading();
   if (path === 'job_order') {
     session = r.sessionId;
@@ -2394,7 +2408,7 @@ async function sendText() {
   inputEl.value = '';
   addMsg('me', text);
   showLoading();
-  var r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, text: text } });
+  var r = await api('/api/wizard/message', { method: 'POST', body: { sessionId: session, text: text } });
   hideLoading();
   handleReply(r);
 }
@@ -2402,7 +2416,7 @@ async function sendText() {
 async function sendAction(action, payload, label) {
   if (label) addMsg('me', label);
   showLoading();
-  var r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, action: action, payload: payload } });
+  var r = await api('/api/wizard/message', { method: 'POST', body: { sessionId: session, action: action, payload: payload } });
   hideLoading();
   handleReply(r);
 }
@@ -2414,7 +2428,7 @@ async function uploadFile(file) {
   var fd = new FormData();
   fd.append('sessionId', session);
   fd.append('file', file);
-  var res = await fetch('/api/tom/upload', { method: 'POST', body: fd });
+  var res = await fetch('/api/wizard/upload', { method: 'POST', body: fd });
   hideLoading();
   handleReply(await res.json());
 }
@@ -2589,7 +2603,7 @@ async function submitPastedText() {
 
   if (!session) {
     showLoading();
-    var startR = await api('/api/tom/start', { method: 'POST', body: { path: 'job_order' } });
+    var startR = await api('/api/wizard/start', { method: 'POST', body: { path: 'job_order' } });
     session = startR.sessionId;
     currentPath = 'job_order';
     hideLoading();
@@ -2599,12 +2613,12 @@ async function submitPastedText() {
 
   addMsg('me', 'Pasted job posting (' + text.length + ' chars)');
   showLoading();
-  var r = await api('/api/tom/message', { method: 'POST', body: { sessionId: session, text: text } });
+  var r = await api('/api/wizard/message', { method: 'POST', body: { sessionId: session, text: text } });
   hideLoading();
   handleReply(r);
 }
 
-boot('tom').then(function() {
+boot('wizard').then(function() {
   var p = new URLSearchParams(location.search).get('path');
   if (p && ['job_order','blast','review','help'].includes(p)) {
     startPath(p);
@@ -2619,42 +2633,10 @@ boot('tom').then(function() {
   }
 });
 
-// Show CSV export when review path active
-var _origPathClick = document.querySelectorAll('.paths button');
-_origPathClick.forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    var w = document.getElementById('csv-export-wrap');
-    if (w) w.style.display = btn.dataset.path === 'review' ? 'block' : 'none';
-    if (btn.dataset.path === 'review') initCsvExport();
-  });
-});
 
 
 
-// --- CSV Export ---
-function initCsvExport() {
-  var wrap = document.getElementById('csv-export-wrap');
-  if (wrap) return; // already added
-  // Find the chat area where review cards appear
-  var chatBox = document.getElementById('chatBox');
-  if (!chatBox) return;
-  wrap = document.createElement('div');
-  wrap.id = 'csv-export-wrap';
-  wrap.style.cssText = 'padding:16px 20px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin:14px 0';
-  wrap.innerHTML =
-    '<div style="font-size:15px;font-weight:700;margin-bottom:10px">Export Blast Analytics</div>' +
-    '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
-      '<label style="font-size:13px;color:var(--text-subtle)">From <input type="date" id="csv-from" style="margin-left:4px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px"></label>' +
-      '<label style="font-size:13px;color:var(--text-subtle)">To <input type="date" id="csv-to" style="margin-left:4px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px"></label>' +
-      '<button class="btn sm" onclick="exportBlastCsv()">Export CSV</button>' +
-    '</div>';
-  chatBox.parentNode.insertBefore(wrap, chatBox);
-  // Default dates: last 30 days
-  var now = new Date();
-  var ago = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  document.getElementById('csv-to').value = now.toISOString().slice(0, 10);
-  document.getElementById('csv-from').value = ago.toISOString().slice(0, 10);
-}
+
 
 async function exportBlastCsv() {
   try {
@@ -2678,15 +2660,15 @@ async function exportBlastCsv() {
     blasts.forEach(function(b) {
       var row = [
         b.id || '',
-        b.sent_at || b.created_at || '',
-        '"' + (b.sent_by || b.recruiter || '').replace(/"/g, '""') + '"',
+        b.sent_at || '',
+        '"' + (b.sent_by || '').replace(/"/g, '""') + '"',
         '"' + (b.category || '').replace(/"/g, '""') + '"',
-        '"' + (b.message_text || b.message_preview || '').replace(/"/g, '""') + '"',
-        b.sent || b.sent_count || 0,
-        b.interested || b.interest_count || 0,
-        b.interest_rate || (b.sent > 0 ? Math.round(((b.interested || 0) / b.sent) * 100) + '%' : '0%'),
-        b.filled || b.fill_count || 0,
-        b.fill_rate || (b.sent > 0 ? Math.round(((b.filled || 0) / b.sent) * 100) + '%' : '0%'),
+        '"' + (b.message_text || '').replace(/"/g, '""') + '"',
+        b.sent || 0,
+        b.interested || 0,
+        b.interest_rate || '0%',
+        b.filled || 0,
+        b.fill_rate || '0%',
       ];
       rows.push(row.join(','));
     });

@@ -1,4 +1,4 @@
-// "Tom" — the chat interface. Not a person; a deterministic state machine
+// "Wizard" — the chat interface. Not a person; a deterministic state machine
 // with AI assistance inside each path (Hybrid Vigor, PROJECT_BRIEF §4).
 //
 // Four fixed paths, one per conversation. Picking a button commits the
@@ -13,7 +13,7 @@
 //
 // V2.1 changes:
 //   - JO form UX overhaul: AI parses once -> full-width form replaces chat -> form-only editing
-//   - Drag-and-drop upload support (client-side in tom.html, server already handled uploads)
+//   - Drag-and-drop upload support (client-side in wizard.html, server already handled uploads)
 //   - Recruiter assignment on blasts: recruiter dropdown in preview, passed through to executeBlast
 //
 // V2.2 changes:
@@ -134,7 +134,7 @@ function sortContacts(contacts, sortBy) {
   return sorted;
 }
 
-function createTom(db) {
+function createWizard(db) {
   const sessions = new Map();
 
   // Cleanup stale sessions on startup (>24h)
@@ -970,4 +970,4 @@ function createTom(db) {
   return { start, message, sessions, BLAST_CONFIRM_REJECTION };
 }
 
-module.exports = { createTom, BLAST_CONFIRM_REJECTION, parseFieldEdit, parseManualContacts, sortContacts };
+module.exports = { createWizard, BLAST_CONFIRM_REJECTION, parseFieldEdit, parseManualContacts, sortContacts };

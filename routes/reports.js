@@ -153,7 +153,7 @@ function collectOrgActivity(sDb, week) {
         }
       } catch {}
 
-      // AI costs this week (from tom_usage table)
+      // AI costs this week (from tom_usage table — legacy table name)
       let aiCostThisWeek = 0;
       try {
         const usage = db.prepare(

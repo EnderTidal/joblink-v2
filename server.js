@@ -12,7 +12,7 @@ const { getSetting } = require('./src/db');
 const { openSystemDb, listOrgs, updateOrgBilling, cleanExpiredSignups } = require('./src/system-db');
 const { getTenantDb, tenantMiddleware } = require('./src/tenant');
 const { createAuth, sendEmail } = require('./routes/auth');
-const { createTomRoutes } = require('./routes/tom');
+const { createWizardRoutes } = require('./routes/wizard');
 const { orgRateLimiter, orgBlastLimiter } = require("./middleware/rate-limit");
 const { createDevRoutes } = require("./routes/dev");
 const { createAdminRoutes } = require('./routes/admin');
@@ -269,7 +269,7 @@ app.use('/api', billingMiddleware(sysDb));
 app.use('/api', tenantMiddleware);
 
 // Mount routes (they now use req.db instead of a closure db)
-app.use(createTomRoutes(sysDb));
+app.use(createWizardRoutes(sysDb));
 app.use(createAdminRoutes(sysDb, auth));
 app.use("/dev", createDevRoutes(sysDb, auth));
 app.use("/dev", createReportRoutes(auth));
@@ -287,6 +287,7 @@ app.get('/finances.html', auth.requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'private', 'finances.html'));
 });
 
+app.get('/thewizard.html', (req, res) => res.redirect(301, '/wizard.html'));
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => {
   const host = req.hostname || '';
