@@ -17,6 +17,24 @@ const { listOrgUsers, updateUser, validatePassword } = require('../src/system-db
 const SETTING_KEYS = ['cooldown_hours', 'sms_provider', 'whippy_api_key', 'whippy_channel_id', 'whippy_from_number', 'whippy_numbers', 'whippy_channels', 'whippy_users'];
 
 const RESEND_KEY = process.env.RESEND_KEY || '';
+
+/** Build changelog announcement email HTML */
+function buildChangelogEmail(entry, baseUrl, unsubToken) {
+  return '<div style="max-width:560px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;color:#1a1a2e">' +
+    '<div style="background:#1a1a2e;color:#fff;padding:28px 24px;border-radius:12px 12px 0 0;text-align:center">' +
+      '<h1 style="margin:0;font-size:22px">What\u2019s New in JobLink</h1>' +
+      '<p style="margin:6px 0 0;opacity:.7;font-size:14px">v' + (entry.version || '') + '</p>' +
+    '</div>' +
+    '<div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:0">' +
+      '<h2 style="margin:0 0 12px;font-size:18px;color:#1a1a2e">' + (entry.title || 'Update') + '</h2>' +
+      '<div style="font-size:14px;line-height:1.7;color:#333;white-space:pre-wrap">' + (entry.body || '') + '</div>' +
+    '</div>' +
+    '<div style="background:#f8f8fa;padding:16px 24px;border:1px solid #e5e5e5;border-top:0;border-radius:0 0 12px 12px;text-align:center;font-size:12px;color:#888">' +
+      '<a href="' + baseUrl + '/api/changelog/unsubscribe?token=' + unsubToken + '" style="color:#888">Unsubscribe</a>' +
+    '</div>' +
+  '</div>';
+}
+
 const FEEDBACK_EMAIL = 'support@joblinkplatform.com';
 
 /** Fetch Whippy team members from ALL selected channels (or fallback) and cache in settings */
@@ -890,14 +908,81 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
     sendFeedbackEmail(author, body);
     res.json({ ok: true });
   });
+  // Enhanced changelog with title/body + email system
   router.get('/api/changelog', (req, res) => {
-    res.json(req.db.prepare('SELECT * FROM changelog ORDER BY id DESC LIMIT 50').all());
+    // Try new table first, fall back to old
+    try {
+      const entries = req.db.prepare('SELECT * FROM changelog_entries ORDER BY id DESC LIMIT 50').all();
+      if (entries.length) return res.json(entries);
+    } catch(e) { /* table might not exist yet */ }
+    // Fallback to old changelog table
+    const old = req.db.prepare('SELECT * FROM changelog ORDER BY id DESC LIMIT 50').all();
+    res.json(old.map(function(c) { return { id: c.id, version: c.version, title: '', body: c.notes, created_at: c.created_at }; }));
   });
+
   router.post('/api/changelog', auth.requireAdmin, (req, res) => {
-    const { version, notes } = req.body || {};
-    if (!version || !notes) return res.status(400).json({ error: 'version and notes required' });
-    req.db.prepare('INSERT INTO changelog (version, notes) VALUES (?, ?)').run(String(version), String(notes));
+    const { version, title, body, notes } = req.body || {};
+    if (!version) return res.status(400).json({ error: 'version required' });
+    const entryTitle = title || '';
+    const entryBody = body || notes || '';
+    if (!entryBody) return res.status(400).json({ error: 'body or notes required' });
+    try {
+      req.db.prepare('INSERT INTO changelog_entries (version, title, body) VALUES (?, ?, ?)').run(String(version), String(entryTitle), String(entryBody));
+    } catch(e) {
+      // Fallback to old table
+      req.db.prepare('INSERT INTO changelog (version, notes) VALUES (?, ?)').run(String(version), String(entryBody));
+    }
     res.json({ ok: true });
+  });
+
+  // Preview changelog email
+  router.post('/api/changelog/preview/:id', auth.requireAdmin, (req, res) => {
+    let entry;
+    try { entry = req.db.prepare('SELECT * FROM changelog_entries WHERE id = ?').get(Number(req.params.id)); } catch(e) {}
+    if (!entry) return res.status(404).json({ error: 'not_found' });
+    const baseUrl = req.db.prepare("SELECT value FROM settings WHERE key = 'base_url'").get()?.value || process.env.BASE_URL || 'https://app.joblinkplatform.com';
+    const html = buildChangelogEmail(entry, baseUrl, '{{unsub_token}}');
+    res.json({ subject: 'JobLink Update: ' + entry.title, html });
+  });
+
+  // Send changelog email to all subscribers
+  router.post('/api/changelog/send/:id', auth.requireAdmin, (req, res) => {
+    let entry;
+    try { entry = req.db.prepare('SELECT * FROM changelog_entries WHERE id = ?').get(Number(req.params.id)); } catch(e) {}
+    if (!entry) return res.status(404).json({ error: 'not_found' });
+    const baseUrl = req.db.prepare("SELECT value FROM settings WHERE key = 'base_url'").get()?.value || process.env.BASE_URL || 'https://app.joblinkplatform.com';
+    let subs = [];
+    try { subs = req.db.prepare('SELECT * FROM email_subscriptions WHERE subscribed = 1').all(); } catch(e) {}
+    // Also include all org users with emails
+    const orgUsers = listOrgUsers(sysDb, req.user.org_id).filter(function(u) { return u.email; });
+    const allEmails = new Map();
+    orgUsers.forEach(function(u) { allEmails.set(u.email, { email: u.email, name: u.display_name || u.username, unsub_token: '' }); });
+    subs.forEach(function(s) { allEmails.set(s.email, s); });
+
+    let sent = 0, failed = 0;
+    const RESEND_KEY = process.env.RESEND_KEY || '';
+    if (!RESEND_KEY) return res.status(500).json({ error: 'RESEND_KEY not configured' });
+
+    const promises = [];
+    allEmails.forEach(function(sub) {
+      const emailHtml = buildChangelogEmail(entry, baseUrl, sub.unsub_token || 'none');
+      promises.push(
+        fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + RESEND_KEY },
+          body: JSON.stringify({
+            from: 'JobLink <updates@joblinkplatform.com>',
+            to: [sub.email],
+            subject: 'JobLink Update: ' + entry.title,
+            html: emailHtml,
+          }),
+        }).then(function() { sent++; }).catch(function() { failed++; })
+      );
+    });
+
+    Promise.all(promises).then(function() {
+      res.json({ ok: true, sent, failed, total: allEmails.size });
+    });
   });
 
 

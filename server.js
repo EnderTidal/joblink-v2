@@ -240,6 +240,28 @@ app.post('/api/billing/create-checkout', async (req, res) => {
   }
 });
 
+
+// Public: changelog email unsubscribe (before auth middleware)
+app.get('/api/changelog/unsubscribe', (req, res) => {
+  const token = req.query.token;
+  if (!token || token === 'none') return res.send('<h2>Unsubscribed</h2><p>You have been unsubscribed from changelog emails.</p>');
+  // Find subscription across all tenant DBs
+  const { openDb } = require('./src/db');
+  const { listOrgs } = require('./src/system-db');
+  const orgs = listOrgs(sysDb);
+  for (const org of orgs) {
+    try {
+      const db = openDb(org.id);
+      const sub = db.prepare('SELECT id FROM email_subscriptions WHERE unsub_token = ?').get(token);
+      if (sub) {
+        db.prepare('UPDATE email_subscriptions SET subscribed = 0 WHERE id = ?').run(sub.id);
+        return res.send('<h2>Unsubscribed</h2><p>You have been unsubscribed from changelog emails.</p>');
+      }
+    } catch(e) { /* skip orgs without the table */ }
+  }
+  res.send('<h2>Unsubscribed</h2><p>You have been unsubscribed from changelog emails.</p>');
+});
+
 // Billing middleware — check subscription status after auth
 app.use('/api', billingMiddleware(sysDb));
 

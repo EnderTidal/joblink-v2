@@ -2618,5 +2618,91 @@ boot('tom').then(function() {
     }
   }
 });
+
+// Show CSV export when review path active
+var _origPathClick = document.querySelectorAll('.paths button');
+_origPathClick.forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var w = document.getElementById('csv-export-wrap');
+    if (w) w.style.display = btn.dataset.path === 'review' ? 'block' : 'none';
+    if (btn.dataset.path === 'review') initCsvExport();
+  });
+});
+
+
+
+// --- CSV Export ---
+function initCsvExport() {
+  var wrap = document.getElementById('csv-export-wrap');
+  if (wrap) return; // already added
+  // Find the chat area where review cards appear
+  var chatBox = document.getElementById('chatBox');
+  if (!chatBox) return;
+  wrap = document.createElement('div');
+  wrap.id = 'csv-export-wrap';
+  wrap.style.cssText = 'padding:16px 20px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin:14px 0;display:none';
+  wrap.innerHTML =
+    '<div style="font-size:15px;font-weight:700;margin-bottom:10px">Export Blast Analytics</div>' +
+    '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+      '<label style="font-size:13px;color:var(--text-subtle)">From <input type="date" id="csv-from" style="margin-left:4px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px"></label>' +
+      '<label style="font-size:13px;color:var(--text-subtle)">To <input type="date" id="csv-to" style="margin-left:4px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px"></label>' +
+      '<button class="btn sm" onclick="exportBlastCsv()">Export CSV</button>' +
+    '</div>';
+  chatBox.parentNode.insertBefore(wrap, chatBox);
+  // Default dates: last 30 days
+  var now = new Date();
+  var ago = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  document.getElementById('csv-to').value = now.toISOString().slice(0, 10);
+  document.getElementById('csv-from').value = ago.toISOString().slice(0, 10);
+}
+
+async function exportBlastCsv() {
+  try {
+    var fromDate = document.getElementById('csv-from').value;
+    var toDate = document.getElementById('csv-to').value;
+    var url = '/api/blasts/analytics';
+    if (fromDate || toDate) {
+      var params = [];
+      if (fromDate) params.push('from=' + fromDate);
+      if (toDate) params.push('to=' + toDate);
+      url += '?' + params.join('&');
+    }
+    var resp = await fetch(url, { credentials: 'same-origin' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    var data = await resp.json();
+    var blasts = Array.isArray(data) ? data : (data.blasts || []);
+    if (!blasts.length) { alert('No blast data for this date range.'); return; }
+
+    var headers = ['blast_id','date','recruiter','category','template_text','sent','interests','interest_rate','fills','fill_rate'];
+    var rows = [headers.join(',')];
+    blasts.forEach(function(b) {
+      var row = [
+        b.id || '',
+        b.sent_at || b.created_at || '',
+        '"' + (b.sent_by || b.recruiter || '').replace(/"/g, '""') + '"',
+        '"' + (b.category || '').replace(/"/g, '""') + '"',
+        '"' + (b.message_preview || b.template_text || '').replace(/"/g, '""') + '"',
+        b.sent_count || b.sent || 0,
+        b.interest_count || b.interests || 0,
+        b.interest_rate || (b.sent_count > 0 ? Math.round(((b.interest_count || 0) / b.sent_count) * 100) + '%' : '0%'),
+        b.fill_count || b.fills || 0,
+        b.fill_rate || (b.sent_count > 0 ? Math.round(((b.fill_count || 0) / b.sent_count) * 100) + '%' : '0%'),
+      ];
+      rows.push(row.join(','));
+    });
+
+    var csv = rows.join('\n');
+    var blob = new Blob([csv], { type: 'text/csv' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'blast-analytics-' + (fromDate || 'all') + '-to-' + (toDate || 'now') + '.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch(e) {
+    alert('Export failed: ' + e.message);
+    console.error('CSV export', e);
+  }
+}
+
 </script>
 </body></html>
