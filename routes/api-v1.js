@@ -36,6 +36,8 @@ function resolveName(body) {
 // In-memory store for blast preview tokens (15 min expiry)
 // ponytail: in-memory Map, move to Redis if multi-process matters
 const blastPreviewTokens = new Map();
+// ponytail: in-memory blast rate limit — loses state on restart, fine for 30s window
+const blastRateByKey = new Map();
 const PREVIEW_TOKEN_TTL_MS = 15 * 60 * 1000;
 
 function cleanExpiredTokens() {
@@ -729,6 +731,24 @@ function createApiV1Routes(sysDb) {
 
       // Consume the token — one-time use (AFTER all validation passes)
       blastPreviewTokens.delete(preview_token);
+
+      // --- Rate limit: 30s per API key ---
+      const lastBlast = blastRateByKey.get(req.apiKeyId);
+      if (lastBlast && Date.now() - lastBlast < 30_000) {
+        return res.status(429).json({ error: { code: 'rate_limited', message: 'Blast rate limit: wait 30 seconds between blasts.' } });
+      }
+
+      // --- Idempotency: no duplicate category within 60s ---
+      const blastCategory = tokenData.category || 'unknown';
+      const recentDupe = db.prepare(
+        "SELECT id FROM blasts WHERE category = ? AND sent_at > ? AND sent_count > 0 LIMIT 1"
+      ).get(blastCategory, Date.now() - 60_000);
+      if (recentDupe) {
+        return res.status(409).json({ error: { code: 'duplicate', message: 'Duplicate blast detected. Wait 60 seconds between blasts of the same category.' } });
+      }
+
+      // Record blast time for rate limit
+      blastRateByKey.set(req.apiKeyId, Date.now());
 
       const { planBlast, executeBlast } = require('../src/blast');
       const { getProvider } = require('../src/messaging');
