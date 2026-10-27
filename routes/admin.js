@@ -293,6 +293,10 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
       let where = '1=1';
       const params = [];
       if (category) { where += ' AND b.category = ?'; params.push(category); }
+      const fromDate = req.query.from;
+      const toDate = req.query.to;
+      if (fromDate) { where += ' AND b.sent_at >= ?'; params.push(fromDate); }
+      if (toDate) { where += ' AND b.sent_at <= ?'; params.push(toDate + ' 23:59:59'); }
       params.push(limit);
 
       const blasts = db.prepare(`

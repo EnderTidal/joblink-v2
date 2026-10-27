@@ -2640,7 +2640,7 @@ function initCsvExport() {
   if (!chatBox) return;
   wrap = document.createElement('div');
   wrap.id = 'csv-export-wrap';
-  wrap.style.cssText = 'padding:16px 20px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin:14px 0;display:none';
+  wrap.style.cssText = 'padding:16px 20px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin:14px 0';
   wrap.innerHTML =
     '<div style="font-size:15px;font-weight:700;margin-bottom:10px">Export Blast Analytics</div>' +
     '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
@@ -2681,12 +2681,12 @@ async function exportBlastCsv() {
         b.sent_at || b.created_at || '',
         '"' + (b.sent_by || b.recruiter || '').replace(/"/g, '""') + '"',
         '"' + (b.category || '').replace(/"/g, '""') + '"',
-        '"' + (b.message_preview || b.template_text || '').replace(/"/g, '""') + '"',
-        b.sent_count || b.sent || 0,
-        b.interest_count || b.interests || 0,
-        b.interest_rate || (b.sent_count > 0 ? Math.round(((b.interest_count || 0) / b.sent_count) * 100) + '%' : '0%'),
-        b.fill_count || b.fills || 0,
-        b.fill_rate || (b.sent_count > 0 ? Math.round(((b.fill_count || 0) / b.sent_count) * 100) + '%' : '0%'),
+        '"' + (b.message_text || b.message_preview || '').replace(/"/g, '""') + '"',
+        b.sent || b.sent_count || 0,
+        b.interested || b.interest_count || 0,
+        b.interest_rate || (b.sent > 0 ? Math.round(((b.interested || 0) / b.sent) * 100) + '%' : '0%'),
+        b.filled || b.fill_count || 0,
+        b.fill_rate || (b.sent > 0 ? Math.round(((b.filled || 0) / b.sent) * 100) + '%' : '0%'),
       ];
       rows.push(row.join(','));
     });
