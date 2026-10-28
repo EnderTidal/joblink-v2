@@ -146,3 +146,92 @@ echo "=== Deploy complete ==="
 echo "$(date '+%Y-%m-%d %H:%M:%S') — All tests passed, server is live"
 # Clean up deploy lock
 rm -f /tmp/.joblink-deploy-active
+
+# ──────────────────────────────────────────────
+# GATE 9: CHANGELOG ENTRY (added Oct 26, 2026)
+# ──────────────────────────────────────────────
+echo ""
+echo "--- Changelog Entry ---"
+read -p "Changelog version (e.g. 2.9.0): " CL_VERSION
+read -p "Changelog title: " CL_TITLE
+
+if [ -z "$CL_VERSION" ] || [ -z "$CL_TITLE" ]; then
+  echo "WARNING: Skipping changelog — version or title was empty."
+else
+  echo "Enter changelog body (end with EOF on a new line):"
+  CL_BODY=""
+  while IFS= read -r line; do
+    [[ "$line" == "EOF" ]] && break
+    CL_BODY="${CL_BODY}${line}\n"
+  done
+
+  $NODE -e "
+const fs = require('fs');
+const Database = require('better-sqlite3');
+const dir = process.env.DATA_DIR || 'data';
+const version = process.argv[1], title = process.argv[2], body = process.argv[3];
+fs.readdirSync(dir).filter(f => /^org-\d+\.db$/.test(f)).forEach(f => {
+  try {
+    const db = new Database(dir + '/' + f);
+    db.prepare('INSERT INTO changelog_entries (version, title, body) VALUES (?, ?, ?)').run(version, title, body);
+    db.close();
+    console.log('  Added to ' + f);
+  } catch(e) { console.log('  Skipped ' + f + ': ' + e.message); }
+});
+console.log('Changelog entry added to all orgs');
+" "$CL_VERSION" "$CL_TITLE" "$CL_BODY"
+fi
+
+# ──────────────────────────────────────────────
+# GATE 10: EMAIL PREVIEW (added Oct 26, 2026)
+# ──────────────────────────────────────────────
+if [ -n "${CL_VERSION:-}" ] && [ -n "${CL_TITLE:-}" ]; then
+  echo ""
+  echo "--- Sending changelog preview email ---"
+  $NODE -e "
+const https = require('https');
+const version = process.argv[1], title = process.argv[2], body = process.argv[3];
+const html = '<div style=\"font-family:-apple-system,sans-serif;max-width:620px;margin:0 auto\">'
+  + '<div style=\"background:#4338ca;color:#fff;padding:24px 32px;border-radius:12px 12px 0 0\">'
+  + '<h1 style=\"margin:0;font-size:22px\">What\\'s New in JobLink</h1>'
+  + '<p style=\"margin:6px 0 0;opacity:0.85;font-size:14px\">' + version + '</p></div>'
+  + '<div style=\"padding:24px 32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px\">'
+  + '<h2 style=\"font-size:18px;color:#1e1b4b;margin:0 0 8px\">' + title + '</h2>'
+  + '<p style=\"color:#374151;line-height:1.6\">' + body.replace(/\\\\n/g, '<br>') + '</p>'
+  + '<div style=\"text-align:center;margin:24px 0\">'
+  + '<a href=\"https://app.joblinkplatform.com\" style=\"display:inline-block;background:#4338ca;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:600\">Try it now</a></div>'
+  + '<hr style=\"border:none;border-top:1px solid #e5e7eb;margin:24px 0\"/>'
+  + '<p style=\"color:#6b7280;font-size:13px\">Questions? Reply to this email.</p></div></div>';
+const payload = JSON.stringify({
+  from: 'The JobLink Team <notifications@joblinkplatform.com>',
+  to: ['joshuafriends@gmail.com'],
+  subject: '[PREVIEW] JobLink Update — ' + title,
+  html
+});
+const req = https.request({
+  hostname: 'api.resend.com', path: '/emails', method: 'POST',
+  headers: { 'Authorization': 'Bearer ' + (process.env.RESEND_KEY || ''), 'Content-Type': 'application/json' }
+}, res => {
+  let d = '';
+  res.on('data', c => d += c);
+  res.on('end', () => console.log(res.statusCode === 200 ? 'Preview email sent!' : 'Email failed: ' + d));
+});
+req.write(payload);
+req.end();
+" "$CL_VERSION" "$CL_TITLE" "${CL_BODY:-}"
+  echo ""
+  echo "Check joshuafriends@gmail.com for the preview."
+  echo "After approving, send to customers from Admin > Changelog > Send to Customers."
+fi
+
+# ──────────────────────────────────────────────
+# GATE 11: DOCS REMINDER (added Oct 26, 2026)
+# ──────────────────────────────────────────────
+echo ""
+echo "========================================"
+echo "  DEPLOY COMPLETE — POST-DEPLOY TASKS"
+echo "========================================"
+echo "  1. Update shape file if architecture changed"
+echo "  2. Approve the preview email and send to customers"
+echo "  3. Update docs (docs site) if new features were added"
+echo "========================================"
