@@ -147,8 +147,25 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') — All tests passed, server is live"
 # Clean up deploy lock
 rm -f /tmp/.joblink-deploy-active
 
+
 # ──────────────────────────────────────────────
-# GATE 9: CHANGELOG ENTRY (added Oct 26, 2026)
+# GATE 8: GROK POST-DEPLOY VERIFY (added Oct 26, 2026)
+# ──────────────────────────────────────────────
+echo ""
+echo "=== GATE 8: Grok Post-Deploy Verify ==="
+echo "Posting smoke test task to JobLink QA Grok..."
+
+BRIDGE_KEY="${IRIS_BRIDGE_KEY:-1a2bbd50ff5d4c66748f110dfe08da9ecdc38047d37abf7f68dc429c2f83d084}"
+BRIDGE_URL="https://bridge.thetelosway.com/joblink-qa"
+
+curl -s -X POST "$BRIDGE_URL/tasks"   -H "Authorization: Bearer $BRIDGE_KEY"   -H "Content-Type: application/json"   -d "{\"from\":\"iris\",\"to\":\"grok\",\"title\":\"VERIFY: Post-deploy smoke test on PROD — $1\",\"brief\":\"JobLink just deployed to production. Smoke test the following on app.joblinkplatform.com:\n\n1. Login page loads\n2. Wizard loads at /wizard.html\n3. Admin page loads at /admin.html\n4. All admin tabs visible (Settings, API Keys, Categories, Users, Templates, Messaging, Candidates, Feedback, Changelog, Reports, Team)\n5. Take SCREENSHOTS of any issues\n\nReport PASS/FAIL with evidence.\",\"priority\":\"urgent\"}"
+
+echo ""
+echo "Grok will verify on prod. Check bridge for results."
+echo "Continuing with changelog..."
+
+# ──────────────────────────────────────────────
+# GATE 10: CHANGELOG ENTRY (added Oct 26, 2026)
 # ──────────────────────────────────────────────
 echo ""
 echo "--- Changelog Entry ---"
@@ -183,7 +200,7 @@ console.log('Changelog entry added to all orgs');
 fi
 
 # ──────────────────────────────────────────────
-# GATE 10: EMAIL PREVIEW (added Oct 26, 2026)
+# GATE 11: EMAIL PREVIEW (added Oct 26, 2026)
 # ──────────────────────────────────────────────
 if [ -n "${CL_VERSION:-}" ] && [ -n "${CL_TITLE:-}" ]; then
   echo ""
@@ -225,7 +242,7 @@ req.end();
 fi
 
 # ──────────────────────────────────────────────
-# GATE 11: DOCS REMINDER (added Oct 26, 2026)
+# GATE 12: DOCS REMINDER (added Oct 26, 2026)
 # ──────────────────────────────────────────────
 echo ""
 echo "========================================"
