@@ -288,7 +288,7 @@ app.get('/finances.html', auth.requireAuth, (req, res) => {
 });
 
 app.get('/thewizard.html', (req, res) => res.redirect(301, '/wizard.html'));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { setHeaders: (res) => { res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate'); res.setHeader('Pragma', 'no-cache'); } }));
 app.get('/', (req, res) => {
   const host = req.hostname || '';
   if (host === 'joblinkplatform.com' || host === 'www.joblinkplatform.com') {
