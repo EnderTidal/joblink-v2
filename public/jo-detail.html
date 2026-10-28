@@ -229,7 +229,9 @@ function renderPipeline(jo) {
 }
 
 async function discontinue(phone, name) {
-  if (!confirm('Rule out ' + name + ' from ALL job orders?\n\nThis will move them to Ruled Out on every JO they expressed interest in. You can Restore them individually on any JO.')) return;
+  if (!confirm('Rule out ' + name + ' from ALL job orders?
+
+This will move them to Ruled Out on every JO they expressed interest in. You can Restore them individually on any JO.')) return;
   try {
     var r = await api('/api/candidates/' + encodeURIComponent(phone) + '/discontinue', { method: 'POST' });
     if (r.error) { toast('Error: ' + r.error); return; }

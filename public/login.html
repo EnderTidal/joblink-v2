@@ -85,7 +85,8 @@ document.getElementById('f').addEventListener('submit', async (e) => {
       return;
     }
     if (r.needsOnboarding) { location.href = '/onboarding.html'; return; }
-    if (r.passwordExpired) { location.href = '/change-password.html?expired=1'; return; }\n    if (r.defaultPassword) alert('You are using the default password. Please change it in Admin → Users.');
+    if (r.passwordExpired) { location.href = '/change-password.html?expired=1'; return; }
+    if (r.defaultPassword) alert('You are using the default password. Please change it in Admin → Users.');
     location.href = '/dashboard.html';
   } catch { document.getElementById('err').style.display = 'block'; }
 });

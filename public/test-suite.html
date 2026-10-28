@@ -69,20 +69,25 @@
 async function validatePhones() {
   var raw = document.getElementById('phoneInput').value.trim();
   if (!raw) { toast('Enter some phone numbers first'); return; }
-  var phones = raw.split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+  var phones = raw.split('
+').map(function(s){ return s.trim(); }).filter(Boolean);
   var data = await api('/api/test-suite/validate-phones', { method: 'POST', body: { phones: phones } }).catch(function(e){ toast(e.message); return null; });
   if (!data) return;
   var box = document.getElementById('phoneResults');
   box.style.display = 'block';
-  box.textContent = data.valid + '/' + data.total + ' valid\n\n' +
-    data.results.map(function(r){ return (r.valid ? '\u2713' : '\u2717') + ' ' + r.raw + ' \u2192 ' + (r.normalized || 'invalid'); }).join('\n');
+  box.textContent = data.valid + '/' + data.total + ' valid
+
+' +
+    data.results.map(function(r){ return (r.valid ? '\u2713' : '\u2717') + ' ' + r.raw + ' \u2192 ' + (r.normalized || 'invalid'); }).join('
+');
 }
 
 async function dryRun() {
   var phonesRaw = document.getElementById('dryRunPhones').value.trim();
   var message = document.getElementById('dryRunMsg').value.trim();
   if (!phonesRaw) { toast('Enter phone numbers first'); return; }
-  var phones = phonesRaw.split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+  var phones = phonesRaw.split('
+').map(function(s){ return s.trim(); }).filter(Boolean);
   var data = await api('/api/test-suite/dry-run', { method: 'POST', body: { phones: phones, message: message } }).catch(function(e){ toast(e.message); return null; });
   if (!data) return;
   var wrap = document.getElementById('dryRunResults');
