@@ -39,6 +39,10 @@ before(async () => {
   sysDb.prepare(
     'INSERT INTO users (org_id, username, password_hash, role, email, email_verified) VALUES (?, ?, ?, ?, ?, ?)'
   ).run(org2.id, 'acme-admin', bcrypt.hashSync('AcmePass2026!', 10), 'admin', 'admin@acme.test', 1);
+
+  // Set password_changed_at so password-expiry middleware doesn't 403 test users
+  const now = new Date().toISOString();
+  sysDb.prepare('UPDATE users SET password_changed_at = ?').run(now);
 });
 
 after(() => {
@@ -69,12 +73,12 @@ test('/api/me returns correct org_id per user', async () => {
 
 test('data is isolated between tenants', async () => {
   // Create a job order in org1 via Tom
-  const s1 = await http('POST', '/api/tom/start', { path: 'job_order' }, cookie1);
-  await http('POST', '/api/tom/message', {
+  const s1 = await http('POST', '/api/wizard/start', { path: 'job_order' }, cookie1);
+  await http('POST', '/api/wizard/message', {
     sessionId: s1.data.sessionId,
     text: 'Title: Welder\nCategory: Skilled Trade\nPay: $25/hr',
   }, cookie1);
-  await http('POST', '/api/tom/message', {
+  await http('POST', '/api/wizard/message', {
     sessionId: s1.data.sessionId,
     text: 'done',
   }, cookie1);

@@ -246,6 +246,7 @@ function createAuth(sysDb) {
       org_name: org ? org.name : '',
       subscription_status: org ? org.subscription_status : 'unknown',
       trial_end: org ? org.trial_end : null,
+      totp_enabled: !!(sysDb.prepare('SELECT totp_enabled FROM users WHERE id = ?').get(s.user_id) || {}).totp_enabled,
     });
   });
 

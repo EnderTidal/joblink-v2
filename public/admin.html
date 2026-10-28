@@ -64,6 +64,7 @@
     <button data-t="feedback">Feedback</button>
     <button data-t="changelog">Changelog</button>
     <button data-t="reports">Reports</button>
+    <button data-t="team">Team</button>
   </div>
 
   <section id="s-settings" class="on">
@@ -124,6 +125,16 @@
           </div>
         </div>
       </div>
+    </div>
+  
+    <!-- Product Update Emails -->
+    <div class="card" style="margin-top:20px">
+      <h3 style="margin:0 0 12px;font-size:17px;font-weight:800">Product Update Emails</h3>
+      <p class="mut" style="margin-bottom:14px">Receive emails about new features, improvements, and changelog updates.</p>
+      <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
+        <input type="checkbox" id="set-email-sub" onchange="saveEmailSub()" style="width:18px;height:18px;accent-color:var(--blue)">
+        <span style="font-size:14px">Receive product update emails</span>
+      </label>
     </div>
   </section>
 
@@ -241,10 +252,23 @@
     <div id="fb-list" style="margin-top:14px"></div>
   </div></section>
 
-  <section id="s-changelog"><div class="card half">
-    <h3 style="margin-bottom:12px">Updates</h3>
-    <div id="cl-list"></div>
-  </div></section>
+  <section id="s-changelog">
+    <div class="card" style="margin-bottom:20px" id="cl-admin-form">
+      <h3 style="margin:0 0 14px;font-size:17px;font-weight:800">Post Update</h3>
+      <div style="display:flex;gap:10px;margin-bottom:10px">
+        <input id="cl-version" placeholder="Version (e.g. 2.5)" style="width:120px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+        <input id="cl-title" placeholder="Title" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+      </div>
+      <textarea id="cl-notes" placeholder="What changed?" rows="4" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box"></textarea>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn" onclick="addChangelog()">Post</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 14px;font-size:17px;font-weight:800">What's New</h3>
+      <div id="cl-list"></div>
+    </div>
+  </section>
 
   <section id="s-reports">
     <div class="stat-grid">
@@ -267,6 +291,24 @@
     </div>
   </section>
 
+
+  <section id="s-team">
+    <div class="card" style="margin-bottom:20px">
+      <h3 style="margin:0 0 14px;font-size:17px;font-weight:800">Recruiter Performance</h3>
+      <table class="blast-table" id="team-stats-table">
+        <thead><tr><th>Recruiter</th><th>Blasts</th><th>Sent</th><th>Interests</th><th>Fills</th><th>Interest %</th><th>Fill %</th></tr></thead>
+        <tbody id="team-stats-body"><tr><td colspan="7" style="text-align:center;color:var(--text-subtle);padding:24px">Loading...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 14px;font-size:17px;font-weight:800">Recent Activity <span class="mut" style="font-weight:400;font-size:13px">(last 50 blasts)</span></h3>
+      <table class="blast-table">
+        <thead><tr><th>Date</th><th>Recruiter</th><th>Category</th><th>Sent</th><th>Skipped</th><th>Failed</th><th>Preview</th></tr></thead>
+        <tbody id="team-activity-body"><tr><td colspan="7" style="text-align:center;color:var(--text-subtle);padding:24px">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
 </main>
 <script src="/app.js?v=5"></script>
 <script>
@@ -278,10 +320,12 @@ document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('cli
   b.classList.add('on');
   document.getElementById('s-' + b.dataset.t).classList.add('on');
   if (b.dataset.t === 'api-keys') loadApiKeys();
+  if (b.dataset.t === 'team') loadTeam();
   if (b.dataset.t === 'reports') loadReports();
 }));
 
 async function loadSettings() {
+  loadEmailSub();
   try {
     const s = await api('/api/settings');
     document.getElementById('set-cooldown').value = s.cooldown_hours || 72;
@@ -295,6 +339,19 @@ async function loadSettings() {
         '<p class="mut" style="line-height:1.7">' + s.whippy_users.map(function(u) { return esc(u.name); }).join(', ') + '</p>';
     }
   } catch { document.getElementById('s-settings').innerHTML = '<div class="card half mut">Settings are admin-only.</div>'; }
+}
+
+async function loadEmailSub() {
+  try {
+    const r = await api('/api/settings/email-subscription');
+    document.getElementById('set-email-sub').checked = r.subscribed;
+  } catch(e) {}
+}
+async function saveEmailSub() {
+  try {
+    await api('/api/settings/email-subscription', { method: 'POST', body: { subscribed: document.getElementById('set-email-sub').checked } });
+    toast('Email preference saved.');
+  } catch(e) { toast('Failed to save preference.'); }
 }
 async function saveSettings() {
   await api('/api/settings', { method: 'POST', body: {
@@ -595,27 +652,80 @@ async function loadFeedback() {
 }
 
 async function loadChangelog() {
-  const list = await api('/api/changelog');
-  document.getElementById('cl-list').innerHTML = list.length ? list.map(function(c) {
+  var list = await api('/api/changelog');
+  var lastSeen = localStorage.getItem('jl_changelog_seen') || '0';
+  var container = document.getElementById('cl-list');
+  if (!list.length) { container.innerHTML = '<div class="mut">No updates yet.</div>'; return; }
+  container.innerHTML = list.map(function(c) {
+    var isNew = c.id > parseInt(lastSeen);
+    var title = c.title || '';
+    var body = c.body || c.notes || '';
     return '<div style="padding:14px 0;border-bottom:1px solid var(--border)">' +
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
         '<span class="cl-version-badge">v' + esc(c.version) + '</span>' +
+        (title ? '<strong style="font-size:14px">' + esc(title) + '</strong>' : '') +
+        (isNew ? '<span style="background:var(--blue);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;letter-spacing:.04em">NEW</span>' : '') +
         '<span class="mut">' + new Date(c.created_at).toLocaleDateString() + '</span>' +
       '</div>' +
-      '<div style="white-space:pre-wrap;font-size:14px;line-height:1.5">' + esc(c.notes) + '</div>' +
+      '<div style="white-space:pre-wrap;font-size:14px;line-height:1.5">' + esc(body) + '</div>' +
+      (me && me.role === 'admin' ? '<div style="margin-top:8px;display:flex;gap:6px"><button class="btn ghost sm" onclick="previewChangelogEmail(' + c.id + ')">Preview Email</button><button class="btn sm" onclick="sendChangelogEmail(' + c.id + ')">Send Email</button></div>' : '') +
     '</div>';
-  }).join('') : '<div class="mut">No updates yet.</div>';
+  }).join('');
+  // Mark as seen
+  if (list[0]) localStorage.setItem('jl_changelog_seen', String(list[0].id));
 }
 async function addChangelog() {
-  await api('/api/changelog', { method: 'POST', body: { version: document.getElementById('cl-version').value, notes: document.getElementById('cl-notes').value } });
+  await api('/api/changelog', { method: 'POST', body: {
+    version: document.getElementById('cl-version').value,
+    title: document.getElementById('cl-title').value,
+    notes: document.getElementById('cl-notes').value
+  }});
   document.getElementById('cl-version').value = '';
+  document.getElementById('cl-title').value = '';
   document.getElementById('cl-notes').value = '';
   toast('Posted.'); loadChangelog();
+}
+async function previewChangelogEmail(id) {
+  try {
+    var d = await api('/api/changelog/preview/' + id, { method: 'POST' });
+    var w = window.open('', '_blank', 'width=640,height=600');
+    w.document.write('<html><head><title>' + esc(d.subject) + '</title></head><body>' + d.html + '</body></html>');
+  } catch(e) { toast('Preview failed: ' + e.message); }
+}
+async function sendChangelogEmail(id) {
+  if (!confirm('Send this update email to all team members?')) return;
+  try {
+    var d = await api('/api/changelog/send/' + id, { method: 'POST' });
+    toast('Sent to ' + d.sent + ' recipients' + (d.failed ? ' (' + d.failed + ' failed)' : ''));
+  } catch(e) { toast('Send failed: ' + e.message); }
 }
 
 
 var adminPickerAvailable = [];
 var adminPickerSelected = [];
+
+
+async function loadTeam() {
+  try {
+    var d = await api('/api/team/activity');
+    var tb = document.getElementById('team-stats-body');
+    if (d.team && d.team.length) {
+      tb.innerHTML = d.team.map(function(r) {
+        return '<tr><td>' + esc(r.recruiter) + '</td><td>' + r.blasts + '</td><td>' + r.total_sent + '</td><td>' + r.interests + '</td><td>' + r.fills + '</td><td>' + esc(r.interest_rate) + '</td><td>' + esc(r.fill_rate) + '</td></tr>';
+      }).join('');
+    } else {
+      tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-subtle);padding:24px">No blast activity yet.</td></tr>';
+    }
+    var ab = document.getElementById('team-activity-body');
+    if (d.recent_activity && d.recent_activity.length) {
+      ab.innerHTML = d.recent_activity.map(function(a) {
+        return '<tr><td>' + new Date(a.sent_at).toLocaleDateString() + '</td><td>' + esc(a.recruiter) + '</td><td>' + esc(a.category) + '</td><td>' + a.sent + '</td><td>' + a.skipped + '</td><td>' + a.failed + '</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.preview) + '</td></tr>';
+      }).join('');
+    } else {
+      ab.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-subtle);padding:24px">No recent blasts.</td></tr>';
+    }
+  } catch(e) { console.error('loadTeam', e); }
+}
 
 async function loadWhippyUsers() {
   try {
@@ -1080,7 +1190,8 @@ async function loadReports() {
 
 boot('admin').then(function(m) {
   me = m;
-  loadCategories(); loadSettings(); loadTemplates(); loadUsers(); loadCandidates(); loadFeedback(); loadChangelog(); loadWhippyUsers(); loadPhoneLines(); loadApiKeys(); loadReports();
+  loadCategories(); loadSettings(); loadTemplates(); loadUsers(); loadCandidates(); loadFeedback(); loadChangelog(); loadWhippyUsers(); loadPhoneLines(); loadApiKeys(); loadReports(); loadTeam();
+    if (me && me.role !== 'admin') { var af = document.getElementById('cl-admin-form'); if (af) af.style.display = 'none'; };
 });
 
 
@@ -1135,4 +1246,106 @@ boot('admin').then(function(m) {
   }
 
 </script>
+
+  <!-- MFA / Two-Factor Authentication -->
+  <div id="totp-section" class="card" style="margin-top:20px;padding:24px;">
+    <h3 style="margin:0 0 12px;font-size:16px;font-weight:700;">Two-Factor Authentication</h3>
+    <div id="totp-status"></div>
+    <div id="totp-setup" style="display:none">
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.):</p>
+      <div id="totp-qr" style="text-align:center;margin:16px 0;"></div>
+      <p style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:12px;">Or enter this key manually: <code id="totp-secret" style="background:var(--bg-soft);padding:2px 6px;border-radius:4px;font-size:11px;"></code></p>
+      <div style="display:flex;gap:8px;align-items:flex-end;">
+        <label class="f" style="flex:1;margin-bottom:0;">Verification Code<input id="totp-verify-code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit code" style="margin-bottom:0"></label>
+        <button class="btn" onclick="verifyTotp()" style="height:40px;white-space:nowrap;">Verify &amp; Enable</button>
+      </div>
+    </div>
+    <div id="totp-disable" style="display:none">
+      <p style="font-size:13px;color:var(--green);margin-bottom:12px;">&#x2713; Two-factor authentication is enabled.</p>
+      <div style="display:flex;gap:8px;align-items:flex-end;">
+        <label class="f" style="flex:1;margin-bottom:0;">Current Password (to disable)<input id="totp-disable-pw" type="password" placeholder="Enter password" style="margin-bottom:0"></label>
+        <button class="btn ghost" onclick="disableTotp()" style="height:40px;white-space:nowrap;color:var(--red);">Disable MFA</button>
+      </div>
+    </div>
+  </div>
+
+
+<script>
+
+// Minimal QR code generator (uses canvas for local generation, no external API)
+function generateQRSvg(text) {
+  // Fallback: show manual entry prominently instead of QR
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60"><text x="10" y="30" font-family="monospace" font-size="12" fill="#333">Scan not available.</text><text x="10" y="50" font-family="monospace" font-size="12" fill="#333">Use the manual key below.</text></svg>';
+}
+
+// ---- MFA / TOTP ----
+async function loadTotpStatus() {
+  try {
+    var r = await api('/api/me');
+    var section = document.getElementById('totp-section');
+    if (!section) return;
+    var statusEl = document.getElementById('totp-status');
+    if (r.totp_enabled) {
+      statusEl.innerHTML = '';
+      document.getElementById('totp-setup').style.display = 'none';
+      document.getElementById('totp-disable').style.display = 'block';
+    } else {
+      statusEl.innerHTML = '<p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Add an extra layer of security to your account.</p><button class="btn ghost" onclick="startTotpSetup()">Set Up Authenticator</button>';
+      document.getElementById('totp-setup').style.display = 'none';
+      document.getElementById('totp-disable').style.display = 'none';
+    }
+  } catch {}
+}
+
+async function startTotpSetup() {
+  try {
+    var r = await api('/api/totp/setup', { method: 'POST' });
+    document.getElementById('totp-status').innerHTML = '';
+    document.getElementById('totp-setup').style.display = 'block';
+    document.getElementById('totp-secret').textContent = r.secret;
+    // Generate QR code as an image using a public QR API
+    // Generate QR code locally (no third-party API)
+    var qrUrl = 'data:image/svg+xml,' + encodeURIComponent(generateQRSvg(r.uri));
+    document.getElementById('totp-qr').innerHTML = '<img src="' + qrUrl + '" alt="QR Code" style="border-radius:8px;border:1px solid var(--border);">';
+    document.getElementById('totp-verify-code').focus();
+  } catch (e) {
+    alert(e.message || 'Failed to start setup');
+  }
+}
+
+async function verifyTotp() {
+  var code = document.getElementById('totp-verify-code').value;
+  if (!code || code.length !== 6) { alert('Enter the 6-digit code from your authenticator app.'); return; }
+  try {
+    var r = await api('/api/totp/verify', { method: 'POST', body: { code: code } });
+    if (r.ok) {
+      alert('Two-factor authentication is now enabled!');
+      loadTotpStatus();
+    }
+  } catch (e) {
+    alert(e.message || 'Invalid code. Try again.');
+  }
+}
+
+async function disableTotp() {
+  var pw = document.getElementById('totp-disable-pw').value;
+  if (!pw) { alert('Enter your current password to disable MFA.'); return; }
+  if (!confirm('Are you sure you want to disable two-factor authentication?')) return;
+  try {
+    var r = await api('/api/totp', { method: 'DELETE', body: { password: pw } });
+    if (r.ok) {
+      alert('Two-factor authentication has been disabled.');
+      loadTotpStatus();
+    }
+  } catch (e) {
+    alert(e.message || 'Wrong password.');
+  }
+}
+
+// Load TOTP status when admin page loads
+if (document.getElementById('totp-section')) {
+  loadTotpStatus();
+}
+</script>
+
 </body></html>

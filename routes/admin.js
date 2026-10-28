@@ -17,6 +17,24 @@ const { listOrgUsers, updateUser, validatePassword } = require('../src/system-db
 const SETTING_KEYS = ['cooldown_hours', 'sms_provider', 'whippy_api_key', 'whippy_channel_id', 'whippy_from_number', 'whippy_numbers', 'whippy_channels', 'whippy_users'];
 
 const RESEND_KEY = process.env.RESEND_KEY || '';
+
+/** Build changelog announcement email HTML */
+function buildChangelogEmail(entry, baseUrl, unsubToken) {
+  return '<div style="max-width:560px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;color:#1a1a2e">' +
+    '<div style="background:#1a1a2e;color:#fff;padding:28px 24px;border-radius:12px 12px 0 0;text-align:center">' +
+      '<h1 style="margin:0;font-size:22px">What\u2019s New in JobLink</h1>' +
+      '<p style="margin:6px 0 0;opacity:.7;font-size:14px">v' + (entry.version || '') + '</p>' +
+    '</div>' +
+    '<div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:0">' +
+      '<h2 style="margin:0 0 12px;font-size:18px;color:#1a1a2e">' + (entry.title || 'Update') + '</h2>' +
+      '<div style="font-size:14px;line-height:1.7;color:#333;white-space:pre-wrap">' + (entry.body || '') + '</div>' +
+    '</div>' +
+    '<div style="background:#f8f8fa;padding:16px 24px;border:1px solid #e5e5e5;border-top:0;border-radius:0 0 12px 12px;text-align:center;font-size:12px;color:#888">' +
+      '<a href="' + baseUrl + '/api/changelog/unsubscribe?token=' + unsubToken + '" style="color:#888">Unsubscribe</a>' +
+    '</div>' +
+  '</div>';
+}
+
 const FEEDBACK_EMAIL = 'support@joblinkplatform.com';
 
 /** Fetch Whippy team members from ALL selected channels (or fallback) and cache in settings */
@@ -265,6 +283,110 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
   router.get('/api/blasts', (req, res) => res.json(listBlasts(req.db, 50)));
 
   // ---- Blast Recipients (expandable blast detail) ----
+  // ---- Blast Analytics — retrospective message comparison ----
+  router.get('/api/blasts/analytics', auth.requireAuth, (req, res) => {
+    try {
+      const db = req.db;
+      const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+      const category = req.query.category;
+
+      let where = '1=1';
+      const params = [];
+      if (category) { where += ' AND b.category = ?'; params.push(category); }
+      const fromDate = req.query.from;
+      const toDate = req.query.to;
+      if (fromDate) { where += ' AND b.sent_at >= ?'; params.push(fromDate); }
+      if (toDate) { where += ' AND b.sent_at <= ?'; params.push(toDate + ' 23:59:59'); }
+      params.push(limit);
+
+      const blasts = db.prepare(`
+        SELECT b.id, b.category, b.sent_by, b.sent_at, b.sent_count,
+               b.skipped_cooldown_count, b.skipped_dnc_count, b.failed_count,
+               b.message_preview,
+               (SELECT COUNT(*) FROM interests i WHERE i.blast_id = b.id) AS interested_count,
+               (SELECT COUNT(*) FROM interests i WHERE i.blast_id = b.id AND i.status = 'filled') AS filled_count
+        FROM blasts b WHERE ${where}
+        ORDER BY b.sent_at DESC LIMIT ?
+      `).all(...params);
+
+      const results = blasts.map(b => ({
+        id: b.id,
+        category: b.category,
+        sent_by: b.sent_by,
+        sent_at: b.sent_at,
+        message_text: b.message_preview || '(no preview)',
+        sent: b.sent_count,
+        interested: b.interested_count,
+        filled: b.filled_count,
+        interest_rate: b.sent_count > 0 ? ((b.interested_count / b.sent_count) * 100).toFixed(1) + '%' : '0%',
+        fill_rate: b.sent_count > 0 ? ((b.filled_count / b.sent_count) * 100).toFixed(1) + '%' : '0%',
+      }));
+
+      // Summary stats
+      const totalSent = results.reduce((s, r) => s + r.sent, 0);
+      const totalInterested = results.reduce((s, r) => s + r.interested, 0);
+      const totalFilled = results.reduce((s, r) => s + r.filled, 0);
+
+      res.json({
+        blasts: results,
+        summary: {
+          total_blasts: results.length,
+          total_sent: totalSent,
+          total_interested: totalInterested,
+          total_filled: totalFilled,
+          avg_interest_rate: totalSent > 0 ? ((totalInterested / totalSent) * 100).toFixed(1) + '%' : '0%',
+          avg_fill_rate: totalSent > 0 ? ((totalFilled / totalSent) * 100).toFixed(1) + '%' : '0%',
+        }
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ---- A/B Test Results ----
+  router.get('/api/blasts/:id/ab-results', auth.requireAuth, (req, res) => {
+    try {
+      const blastId = Number(req.params.id);
+      const db = req.db;
+
+      // Count recipients per variant
+      const variants = db.prepare(`
+        SELECT message_variant as variant, COUNT(*) as sent
+        FROM blast_recipients WHERE blast_id = ? AND status = 'sent'
+        GROUP BY message_variant
+      `).all(blastId);
+
+      // Count interests per variant
+      const interests = db.prepare(`
+        SELECT br.message_variant as variant, COUNT(DISTINCT i.id) as interests
+        FROM blast_recipients br
+        LEFT JOIN interests i ON i.phone = br.phone AND i.blast_id = br.blast_id
+        WHERE br.blast_id = ? AND br.status = 'sent'
+        GROUP BY br.message_variant
+      `).all(blastId);
+
+      const interestMap = {};
+      interests.forEach(r => { interestMap[r.variant || 'A'] = r.interests; });
+
+      const results = variants.map(v => ({
+        variant: v.variant || 'A',
+        sent: v.sent,
+        interests: interestMap[v.variant || 'A'] || 0,
+        interest_rate: v.sent > 0 ? (((interestMap[v.variant || 'A'] || 0) / v.sent) * 100).toFixed(1) + '%' : '0%',
+      }));
+
+      const blast = db.prepare('SELECT message_preview, variant_b_preview FROM blasts WHERE id = ?').get(blastId);
+      res.json({
+        blast_id: blastId,
+        variant_a_preview: blast ? blast.message_preview : null,
+        variant_b_preview: blast ? blast.variant_b_preview : null,
+        results,
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   router.get('/api/blasts/:id/recipients', (req, res) => {
     const blastId = Number(req.params.id);
     const blast = req.db.prepare('SELECT * FROM blasts WHERE id = ?').get(blastId);
@@ -618,6 +740,80 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
   });
 
   // ---- Team list (any authenticated user — for filters/dropdowns) ----
+  // ---- Team Activity (admin sees all, recruiter sees own) ----
+  router.get('/api/team/activity', auth.requireAuth, (req, res) => {
+    try {
+      const isAdmin = req.user.role === 'admin';
+      const db = req.db;
+      const users = listOrgUsers(sysDb, req.user.org_id);
+      const userMap = {};
+      users.forEach(u => { userMap[u.username] = u.display_name || u.username; });
+
+      // Per-recruiter blast stats
+      const blastStats = db.prepare(`
+        SELECT sent_by, COUNT(*) as blast_count, SUM(sent_count) as total_sent,
+               MAX(sent_at) as last_blast_at
+        FROM blasts WHERE sent_by IS NOT NULL
+        GROUP BY sent_by ORDER BY last_blast_at DESC
+      `).all();
+
+      // Per-recruiter interest stats (via blast -> interests)
+      const interestStats = db.prepare(`
+        SELECT b.sent_by, COUNT(DISTINCT i.id) as interest_count,
+               COUNT(DISTINCT CASE WHEN i.status = 'filled' THEN i.id END) as filled_count
+        FROM interests i JOIN blasts b ON i.blast_id = b.id
+        WHERE b.sent_by IS NOT NULL
+        GROUP BY b.sent_by
+      `).all();
+
+      const interestMap = {};
+      interestStats.forEach(s => { interestMap[s.sent_by] = s; });
+
+      // Recent activity feed (last 50 blasts)
+      const recentBlasts = db.prepare(`
+        SELECT id, sent_by, category, sent_count, skipped_cooldown_count, skipped_dnc_count,
+               failed_count, sent_at, message_preview
+        FROM blasts ORDER BY sent_at DESC LIMIT 50
+      `).all();
+
+      // Filter by user if not admin
+      const filteredBlasts = isAdmin ? recentBlasts : recentBlasts.filter(b => b.sent_by === req.user.username);
+      const filteredStats = isAdmin ? blastStats : blastStats.filter(s => s.sent_by === req.user.username);
+
+      const team = filteredStats.map(s => {
+        const interests = interestMap[s.sent_by] || { interest_count: 0, filled_count: 0 };
+        return {
+          recruiter: userMap[s.sent_by] || s.sent_by,
+          username: s.sent_by,
+          blasts: s.blast_count,
+          total_sent: s.total_sent,
+          interests: interests.interest_count,
+          fills: interests.filled_count,
+          interest_rate: s.total_sent > 0 ? Math.round((interests.interest_count / s.total_sent) * 100) + '%' : '0%',
+          fill_rate: s.total_sent > 0 ? Math.round((interests.filled_count / s.total_sent) * 100) + '%' : '0%',
+          last_blast: s.last_blast_at,
+        };
+      });
+
+      res.json({
+        team,
+        recent_activity: filteredBlasts.map(b => ({
+          id: b.id,
+          recruiter: userMap[b.sent_by] || b.sent_by || 'system',
+          category: b.category,
+          sent: b.sent_count,
+          skipped: (b.skipped_cooldown_count || 0) + (b.skipped_dnc_count || 0),
+          failed: b.failed_count || 0,
+          sent_at: b.sent_at,
+          preview: (b.message_preview || '').substring(0, 80),
+        })),
+        is_admin: isAdmin,
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   router.get('/api/team', auth.requireAuth, (req, res) => {
     const users = listOrgUsers(sysDb, req.user.org_id);
     res.json(users.map(u => ({ display_name: u.display_name || u.username, username: u.username })));
@@ -694,9 +890,10 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
   router.post('/api/me/password', (req, res) => {
     const { current, password } = req.body || {};
     const pwCheck = validatePassword(String(password || '')); if (!pwCheck.valid) return res.status(400).json({ error: pwCheck.error });
+    if (current && password && bcrypt.compareSync(String(password), sysDb.prepare('SELECT password_hash FROM users WHERE id = ?').get(req.user.user_id)?.password_hash || '')) return res.status(400).json({ error: 'New password must be different from current password' });
     const user = sysDb.prepare('SELECT * FROM users WHERE id = ?').get(req.user.user_id);
     if (!user || !bcrypt.compareSync(String(current || ''), user.password_hash)) {
-      return res.status(401).json({ error: 'current password is wrong' });
+      return res.status(400).json({ error: 'current password is wrong' });
     }
     updateUser(sysDb, user.id, { password_hash: bcrypt.hashSync(String(password), 10), password_changed_at: new Date().toISOString() });
     res.json({ ok: true });
@@ -715,14 +912,81 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
     sendFeedbackEmail(author, body);
     res.json({ ok: true });
   });
+  // Enhanced changelog with title/body + email system
   router.get('/api/changelog', (req, res) => {
-    res.json(req.db.prepare('SELECT * FROM changelog ORDER BY id DESC LIMIT 50').all());
+    // Try new table first, fall back to old
+    try {
+      const entries = req.db.prepare('SELECT * FROM changelog_entries ORDER BY id DESC LIMIT 50').all();
+      if (entries.length) return res.json(entries);
+    } catch(e) { /* table might not exist yet */ }
+    // Fallback to old changelog table
+    const old = req.db.prepare('SELECT * FROM changelog ORDER BY id DESC LIMIT 50').all();
+    res.json(old.map(function(c) { return { id: c.id, version: c.version, title: '', body: c.notes, created_at: c.created_at }; }));
   });
+
   router.post('/api/changelog', auth.requireAdmin, (req, res) => {
-    const { version, notes } = req.body || {};
-    if (!version || !notes) return res.status(400).json({ error: 'version and notes required' });
-    req.db.prepare('INSERT INTO changelog (version, notes) VALUES (?, ?)').run(String(version), String(notes));
+    const { version, title, body, notes } = req.body || {};
+    if (!version) return res.status(400).json({ error: 'version required' });
+    const entryTitle = title || '';
+    const entryBody = body || notes || '';
+    if (!entryBody) return res.status(400).json({ error: 'body or notes required' });
+    try {
+      req.db.prepare('INSERT INTO changelog_entries (version, title, body) VALUES (?, ?, ?)').run(String(version), String(entryTitle), String(entryBody));
+    } catch(e) {
+      // Fallback to old table
+      req.db.prepare('INSERT INTO changelog (version, notes) VALUES (?, ?)').run(String(version), String(entryBody));
+    }
     res.json({ ok: true });
+  });
+
+  // Preview changelog email
+  router.post('/api/changelog/preview/:id', auth.requireAdmin, (req, res) => {
+    let entry;
+    try { entry = req.db.prepare('SELECT * FROM changelog_entries WHERE id = ?').get(Number(req.params.id)); } catch(e) {}
+    if (!entry) return res.status(404).json({ error: 'not_found' });
+    const baseUrl = req.db.prepare("SELECT value FROM settings WHERE key = 'base_url'").get()?.value || process.env.BASE_URL || 'https://app.joblinkplatform.com';
+    const html = buildChangelogEmail(entry, baseUrl, '{{unsub_token}}');
+    res.json({ subject: 'JobLink Update: ' + entry.title, html });
+  });
+
+  // Send changelog email to all subscribers
+  router.post('/api/changelog/send/:id', auth.requireAdmin, (req, res) => {
+    let entry;
+    try { entry = req.db.prepare('SELECT * FROM changelog_entries WHERE id = ?').get(Number(req.params.id)); } catch(e) {}
+    if (!entry) return res.status(404).json({ error: 'not_found' });
+    const baseUrl = req.db.prepare("SELECT value FROM settings WHERE key = 'base_url'").get()?.value || process.env.BASE_URL || 'https://app.joblinkplatform.com';
+    let subs = [];
+    try { subs = req.db.prepare('SELECT * FROM email_subscriptions WHERE subscribed = 1').all(); } catch(e) {}
+    // Also include all org users with emails
+    const orgUsers = listOrgUsers(sysDb, req.user.org_id).filter(function(u) { return u.email; });
+    const allEmails = new Map();
+    orgUsers.forEach(function(u) { allEmails.set(u.email, { email: u.email, name: u.display_name || u.username, unsub_token: '' }); });
+    subs.forEach(function(s) { allEmails.set(s.email, s); });
+
+    let sent = 0, failed = 0;
+    const RESEND_KEY = process.env.RESEND_KEY || '';
+    if (!RESEND_KEY) return res.status(500).json({ error: 'RESEND_KEY not configured' });
+
+    const promises = [];
+    allEmails.forEach(function(sub) {
+      const emailHtml = buildChangelogEmail(entry, baseUrl, sub.unsub_token || 'none');
+      promises.push(
+        fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + RESEND_KEY },
+          body: JSON.stringify({
+            from: 'JobLink <updates@joblinkplatform.com>',
+            to: [sub.email],
+            subject: 'JobLink Update: ' + entry.title,
+            html: emailHtml,
+          }),
+        }).then(function() { sent++; }).catch(function() { failed++; })
+      );
+    });
+
+    Promise.all(promises).then(function() {
+      res.json({ ok: true, sent, failed, total: allEmails.size });
+    });
   });
 
 
@@ -911,6 +1175,42 @@ router.delete("/api/job-orders/:id", auth.requireAdmin, (req, res, next) => {
     if (result.changes === 0) return res.status(404).json({ error: 'not_found' });
     res.json({ ok: true });
   });
+
+
+  // --- Product update email subscription (re-subscribe toggle) ---
+  router.get('/api/settings/email-subscription', auth.requireAuth, (req, res) => {
+    const email = req.user.email;
+    if (!email) return res.json({ subscribed: true }); // default ON
+    try {
+      const row = req.db.prepare('SELECT subscribed FROM email_subscriptions WHERE email = ?').get(email);
+      // No row = default subscribed
+      res.json({ subscribed: row ? !!row.subscribed : true });
+    } catch (e) {
+      // Table might not exist yet in older tenant DBs
+      res.json({ subscribed: true });
+    }
+  });
+
+  router.post('/api/settings/email-subscription', auth.requireAuth, (req, res) => {
+    const email = req.user.email;
+    if (!email) return res.status(400).json({ error: 'No email on your account' });
+    const subscribed = req.body.subscribed === true || req.body.subscribed === 'true' ? 1 : 0;
+    try {
+      const existing = req.db.prepare('SELECT id FROM email_subscriptions WHERE email = ?').get(email);
+      if (existing) {
+        req.db.prepare('UPDATE email_subscriptions SET subscribed = ? WHERE email = ?').run(subscribed, email);
+      } else {
+        const crypto = require('crypto');
+        const token = crypto.randomBytes(16).toString('hex');
+        req.db.prepare('INSERT INTO email_subscriptions (email, name, subscribed, unsub_token) VALUES (?, ?, ?, ?)').run(email, req.user.display_name || req.user.username || '', subscribed, token);
+      }
+      res.json({ ok: true, subscribed: !!subscribed });
+    } catch (e) {
+      console.error('email-subscription error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
 
   // Analytics aliases
   router.get('/api/analytics/overview', auth.requireAuth, (req, res) => {

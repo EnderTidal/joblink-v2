@@ -7,12 +7,12 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { openDb, setSetting } = require('../../src/db');
-const { createTom, BLAST_CONFIRM_REJECTION, parseFieldEdit, parseManualContacts, sortContacts } = require('../../src/tom');
+const { createWizard, BLAST_CONFIRM_REJECTION, parseFieldEdit, parseManualContacts, sortContacts } = require('../../src/wizard');
 
 function freshTom() {
   const db = openDb(':memory:');
   setSetting(db, 'sms_provider', 'mock');
-  return { db, tom: createTom(db) };
+  return { db, tom: createWizard(db) };
 }
 
 const JOB_TEXT = `Title: Forklift Operator
