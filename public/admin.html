@@ -136,6 +136,27 @@
         <span style="font-size:14px">Receive product update emails</span>
       </label>
     </div>
+    <!-- MFA / Two-Factor Authentication -->
+    <div id="totp-section" class="card" style="margin-top:20px;padding:24px;">
+      <h3 style="margin:0 0 12px;font-size:16px;font-weight:700;">Two-Factor Authentication</h3>
+      <div id="totp-status"></div>
+      <div id="totp-setup" style="display:none">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.):</p>
+        <div id="totp-qr" style="text-align:center;margin:16px 0;"></div>
+        <p style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:12px;">Or enter this key manually: <code id="totp-secret" style="background:var(--bg-soft);padding:2px 6px;border-radius:4px;font-size:11px;"></code></p>
+        <div style="display:flex;gap:8px;align-items:flex-end;">
+          <label class="f" style="flex:1;margin-bottom:0;">Verification Code<input id="totp-verify-code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit code" style="margin-bottom:0"></label>
+          <button class="btn" onclick="verifyTotp()" style="height:40px;white-space:nowrap;">Verify &amp; Enable</button>
+        </div>
+      </div>
+      <div id="totp-disable" style="display:none">
+        <p style="font-size:13px;color:var(--green);margin-bottom:12px;">&#x2713; Two-factor authentication is enabled.</p>
+        <div style="display:flex;gap:8px;align-items:flex-end;">
+          <label class="f" style="flex:1;margin-bottom:0;">Current Password (to disable)<input id="totp-disable-pw" type="password" placeholder="Enter password" style="margin-bottom:0"></label>
+          <button class="btn ghost" onclick="disableTotp()" style="height:40px;white-space:nowrap;color:var(--red);">Disable MFA</button>
+        </div>
+      </div>
+    </div>
   </section>
 
   <section id="s-api-keys">
@@ -1192,6 +1213,14 @@ boot('admin').then(function(m) {
   me = m;
   loadCategories(); loadSettings(); loadTemplates(); loadUsers(); loadCandidates(); loadFeedback(); loadChangelog(); loadWhippyUsers(); loadPhoneLines(); loadApiKeys(); loadReports(); loadTeam();
     if (me && me.role !== 'admin') { var af = document.getElementById('cl-admin-form'); if (af) af.style.display = 'none'; };
+    // Changelog is dev-only — hide tab + section for non-developer accounts
+    var isDev = me && me.email === 'joshuafriends@gmail.com';
+    if (!isDev) {
+      var clTab = document.querySelector('#tabs button[data-t="changelog"]');
+      if (clTab) clTab.style.display = 'none';
+      var clSection = document.getElementById('s-changelog');
+      if (clSection) clSection.style.display = 'none';
+    }
 });
 
 
@@ -1246,28 +1275,6 @@ boot('admin').then(function(m) {
   }
 
 </script>
-
-  <!-- MFA / Two-Factor Authentication -->
-  <div id="totp-section" class="card" style="margin-top:20px;padding:24px;">
-    <h3 style="margin:0 0 12px;font-size:16px;font-weight:700;">Two-Factor Authentication</h3>
-    <div id="totp-status"></div>
-    <div id="totp-setup" style="display:none">
-      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.):</p>
-      <div id="totp-qr" style="text-align:center;margin:16px 0;"></div>
-      <p style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:12px;">Or enter this key manually: <code id="totp-secret" style="background:var(--bg-soft);padding:2px 6px;border-radius:4px;font-size:11px;"></code></p>
-      <div style="display:flex;gap:8px;align-items:flex-end;">
-        <label class="f" style="flex:1;margin-bottom:0;">Verification Code<input id="totp-verify-code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit code" style="margin-bottom:0"></label>
-        <button class="btn" onclick="verifyTotp()" style="height:40px;white-space:nowrap;">Verify &amp; Enable</button>
-      </div>
-    </div>
-    <div id="totp-disable" style="display:none">
-      <p style="font-size:13px;color:var(--green);margin-bottom:12px;">&#x2713; Two-factor authentication is enabled.</p>
-      <div style="display:flex;gap:8px;align-items:flex-end;">
-        <label class="f" style="flex:1;margin-bottom:0;">Current Password (to disable)<input id="totp-disable-pw" type="password" placeholder="Enter password" style="margin-bottom:0"></label>
-        <button class="btn ghost" onclick="disableTotp()" style="height:40px;white-space:nowrap;color:var(--red);">Disable MFA</button>
-      </div>
-    </div>
-  </div>
 
 
 <script>
