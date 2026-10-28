@@ -15,7 +15,8 @@
     });
   };
 })();
-\n// Shared page helpers — one copy, every page.
+
+// Shared page helpers — one copy, every page.
 async function api(path, opts = {}) {
   const res = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
