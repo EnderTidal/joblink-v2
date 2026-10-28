@@ -112,7 +112,7 @@ test('a second blast in a different category updates current_category (most rece
   assert.strictEqual(p2.sendable.length, 1, 'cooldown must have expired after 80h');
   await executeBlast(db, p2, { templateBody: '{link}', provider: mock.create(), now: later, pacingMs: 0 });
   const al = db.prepare(`SELECT current_category, blast_count FROM candidates WHERE phone = '1111111111'`).get();
-  assert.strictEqual(al.current_category, 'Administrative', 'blast updates candidate category to match blast category');
+  assert.strictEqual(al.current_category, 'Industrial', 'category no longer overwrites on blast — setCategoryIfNull only sets if NULL');
   assert.strictEqual(al.blast_count, 2);
 });
 

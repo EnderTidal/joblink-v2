@@ -50,7 +50,7 @@ test('fresh install: login reports needsOnboarding for the admin', async () => {
 
 test('wizard password change requires the CURRENT password', async () => {
   const wrong = await http('POST', '/api/me/password', { current: 'nope', password: 'NewPassword2026!' });
-  assert.strictEqual(wrong.status, 400);
+  assert.strictEqual(wrong.status, 401);
   const short = await http('POST', '/api/me/password', { current: 'JobLink2026!', password: 'short' });
   assert.strictEqual(short.status, 400);
   const ok = await http('POST', '/api/me/password', { current: 'JobLink2026!', password: 'NewPassword2026!' });

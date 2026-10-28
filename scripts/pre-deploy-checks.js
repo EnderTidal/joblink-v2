@@ -120,7 +120,6 @@ check('Route audit (admin.html api() URLs vs backend handlers)', () => {
   for (const url of apiCalls) {
     if (!url.startsWith('/api')) continue; // skip non-api calls
     const normalized = url.replace(/\/$/, '');
-    if (apiCalls.has(normalized + "/:id")) continue; // skip concatenation bases
     if (!normalized || normalized === '/api') continue; // skip bare /api
     const found = [...registeredRoutes].some(r => routeMatches(normalized, r));
     if (!found) missing.push(url);

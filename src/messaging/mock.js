@@ -19,7 +19,6 @@ function create(opts = {}) {
       return { ok: true, mock: true };
     },
     async getOpenConversationIds() { return []; },
-    ensureContact(phone, fn, ln) { return { ok: true, action: 'mock' }; },
     assignAndCloseNewConversations(rid, pre) { return { assigned: 0, closed: 0 }; },
     assignConversation(cid, uid) { return { ok: true }; },
     assignAndCloseConversations(rid) { return { assigned: 0, closed: 0 }; },

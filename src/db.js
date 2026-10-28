@@ -150,23 +150,6 @@ CREATE TABLE IF NOT EXISTS changelog (
   notes      TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
-CREATE TABLE IF NOT EXISTS changelog_entries (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  version    TEXT NOT NULL,
-  title      TEXT NOT NULL DEFAULT '',
-  body       TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-
-CREATE TABLE IF NOT EXISTS email_subscriptions (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  email      TEXT NOT NULL,
-  name       TEXT NOT NULL DEFAULT '',
-  subscribed INTEGER NOT NULL DEFAULT 1,
-  unsub_token TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  UNIQUE(email)
-);
 `;
 
 const DEFAULT_SETTINGS = {

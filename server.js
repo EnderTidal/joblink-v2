@@ -12,7 +12,7 @@ const { getSetting } = require('./src/db');
 const { openSystemDb, listOrgs, updateOrgBilling, cleanExpiredSignups } = require('./src/system-db');
 const { getTenantDb, tenantMiddleware } = require('./src/tenant');
 const { createAuth, sendEmail } = require('./routes/auth');
-const { createWizardRoutes } = require('./routes/wizard');
+const { createTomRoutes } = require('./routes/tom');
 const { orgRateLimiter, orgBlastLimiter } = require("./middleware/rate-limit");
 const { createDevRoutes } = require("./routes/dev");
 const { createAdminRoutes } = require('./routes/admin');
@@ -189,27 +189,6 @@ app.use(createQboRoutes());
 app.use(auth.router);
 
 // Everything below requires a logged-in recruiter/admin
-
-// Public: changelog email unsubscribe (before auth middleware)
-app.get('/api/changelog/unsubscribe', (req, res) => {
-  const token = req.query.token;
-  if (!token || token === 'none') return res.send('<h2>Unsubscribed</h2><p>You have been unsubscribed from changelog emails.</p>');
-  const { getTenantDb } = require('./src/tenant');
-  const { listOrgs } = require('./src/system-db');
-  const orgs = listOrgs(sysDb);
-  for (const org of orgs) {
-    try {
-      const db = getTenantDb(org.id);
-      const sub = db.prepare('SELECT id FROM email_subscriptions WHERE unsub_token = ?').get(token);
-      if (sub) {
-        db.prepare('UPDATE email_subscriptions SET subscribed = 0 WHERE id = ?').run(sub.id);
-        return res.send('<h2>Unsubscribed</h2><p>You have been unsubscribed from changelog emails.</p>');
-      }
-    } catch(e) { /* skip orgs without the table */ }
-  }
-  res.send('<h2>Unsubscribed</h2><p>You have been unsubscribed from changelog emails.</p>');
-});
-
 app.use('/api', auth.requireAuth);
 
 // Password expiration gate — must change password before accessing any other API
@@ -261,7 +240,6 @@ app.post('/api/billing/create-checkout', async (req, res) => {
   }
 });
 
-
 // Billing middleware — check subscription status after auth
 app.use('/api', billingMiddleware(sysDb));
 
@@ -269,7 +247,7 @@ app.use('/api', billingMiddleware(sysDb));
 app.use('/api', tenantMiddleware);
 
 // Mount routes (they now use req.db instead of a closure db)
-app.use(createWizardRoutes(sysDb));
+app.use(createTomRoutes(sysDb));
 app.use(createAdminRoutes(sysDb, auth));
 app.use("/dev", createDevRoutes(sysDb, auth));
 app.use("/dev", createReportRoutes(auth));
@@ -287,8 +265,7 @@ app.get('/finances.html', auth.requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'private', 'finances.html'));
 });
 
-app.get('/thewizard.html', (req, res) => res.redirect(301, '/wizard.html'));
-app.use(express.static(path.join(__dirname, 'public'), { setHeaders: (res) => { res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate'); res.setHeader('Pragma', 'no-cache'); } }));
+app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => {
   const host = req.hostname || '';
   if (host === 'joblinkplatform.com' || host === 'www.joblinkplatform.com') {

@@ -11,7 +11,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const { openDb } = require('../../src/db');
-const { createWizard } = require('../../src/wizard');
+const { createTom } = require('../../src/tom');
 const { answerHelpQuestion, DEMO_BANNER } = require('../../src/ai/help-faq');
 
 const ADVERSARIAL = [
@@ -34,10 +34,10 @@ test('STRUCTURAL: help-faq.js imports no write-capable module', () => {
 });
 
 test('STRUCTURAL: the tom router gives the help path no db-touching handler', () => {
-  const tomSrc = fs.readFileSync(path.join(__dirname, '../../src/wizard.js'), 'utf8');
+  const tomSrc = fs.readFileSync(path.join(__dirname, '../../src/tom.js'), 'utf8');
   // The help branch must use ONLY inline topicAnswers — no db calls, no imports
   const helpStart = tomSrc.indexOf("s.path === 'help'");
-  assert.ok(helpStart > -1, 'help path exists in wizard.js');
+  assert.ok(helpStart > -1, 'help path exists in tom.js');
   // Extract the help block (from the if to its closing — look for the next s.path check)
   const helpBlock = tomSrc.slice(helpStart, tomSrc.indexOf("s.path === 'review'", helpStart));
   assert.ok(helpBlock.includes('topicAnswers'), 'help path uses inline topicAnswers');
@@ -62,7 +62,7 @@ test('BEHAVIORAL: adversarial help questions change nothing', async () => {
   });
 
   const before = snapshot();
-  const tom = createWizard(db);
+  const tom = createTom(db);
   const s = await tom.start('help');
   for (const attack of ADVERSARIAL) {
     const r = await tom.message(s.sessionId, { text: attack });

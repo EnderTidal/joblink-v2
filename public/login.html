@@ -37,10 +37,6 @@
   <div class="err" id="err">Invalid email or password.</div>
   <label class="f">Email<input id="e" type="email" autocomplete="email" required placeholder="you@agency.com"></label>
   <label class="f">Password<input id="p" type="password" autocomplete="current-password" required placeholder="••••••••"></label>
-  <div id="mfaSection" style="display:none">
-    <label class="f">Authenticator Code<input id="totp" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code"></label>
-    <p style="font-size:12px;color:var(--text-muted);margin:-12px 0 14px;">Open your authenticator app and enter the 6-digit code.</p>
-  </div>
   <button class="btn" style="width:100%" type="submit" onclick="this.closest('form').requestSubmit()">Log in</button>
   <div class="alt-actions">
     <button type="button" class="link-btn" onclick="showForgot()">Forgot password?</button>
@@ -61,7 +57,7 @@
 
   <div class="signup-link">New to JobLink? <a href="/signup.html">Start your free trial</a></div>
 </form>
-<script src="/app.js?v=6"></script>
+<script src="/app.js?v=5"></script>
 <script>
 (function() {
   var params = new URLSearchParams(location.search);
@@ -75,17 +71,8 @@ document.getElementById('f').addEventListener('submit', async (e) => {
   document.getElementById('err').style.display = 'none';
   document.getElementById('signupSuccess').style.display = 'none';
   try {
-    const loginBody = { email: e.target.querySelector('#e').value, password: p.value };
-    const totpInput = document.getElementById('totp');
-    if (totpInput.value) loginBody.totp_code = totpInput.value;
-    const r = await api('/api/login', { method: 'POST', body: loginBody });
-    if (r.mfa_required) {
-      document.getElementById('mfaSection').style.display = 'block';
-      totpInput.focus();
-      return;
-    }
+    const r = await api('/api/login', { method: 'POST', body: { email: e.target.querySelector('#e').value, password: p.value } });
     if (r.needsOnboarding) { location.href = '/onboarding.html'; return; }
-    if (r.passwordExpired) { location.href = '/change-password.html?expired=1'; return; }
     if (r.defaultPassword) alert('You are using the default password. Please change it in Admin → Users.');
     location.href = '/dashboard.html';
   } catch { document.getElementById('err').style.display = 'block'; }

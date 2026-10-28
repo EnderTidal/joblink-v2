@@ -1,21 +1,3 @@
-// Password expiry 403 interceptor
-(function() {
-  var _origFetch = window.fetch;
-  window.fetch = function() {
-    return _origFetch.apply(this, arguments).then(function(response) {
-      if (response.status === 403 && !location.pathname.includes('change-password')) {
-        return response.clone().json().then(function(body) {
-          if (body && body.error === 'password_expired') {
-            window.location.href = '/change-password.html?expired=1';
-          }
-          return response;
-        }).catch(function() { return response; });
-      }
-      return response;
-    });
-  };
-})();
-
 // Shared page helpers — one copy, every page.
 async function api(path, opts = {}) {
   const res = await fetch(path, {

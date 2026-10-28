@@ -59,7 +59,7 @@
   <!-- Pipeline sections -->
   <div id="pipeline"></div>
 </main>
-<script src="/app.js?v=6"></script>
+<script src="/app.js?v=5"></script>
 <script>
 var joId = Number(new URLSearchParams(location.search).get('id'));
 var joData = null;
@@ -229,9 +229,7 @@ function renderPipeline(jo) {
 }
 
 async function discontinue(phone, name) {
-  if (!confirm('Rule out ' + name + ' from ALL job orders?
-
-This will move them to Ruled Out on every JO they expressed interest in. You can Restore them individually on any JO.')) return;
+  if (!confirm('Rule out ' + name + ' from ALL job orders?\n\nThis will move them to Ruled Out on every JO they expressed interest in. You can Restore them individually on any JO.')) return;
   try {
     var r = await api('/api/candidates/' + encodeURIComponent(phone) + '/discontinue', { method: 'POST' });
     if (r.error) { toast('Error: ' + r.error); return; }
