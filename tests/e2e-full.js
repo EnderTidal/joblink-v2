@@ -177,15 +177,15 @@ describe('JobLink V2 — Full E2E', () => {
 
   describe('Job Orders', () => {
 
-    it('7. Create JO via AI parser (POST /api/tom with job_order path + text)', async () => {
+    it('7. Create JO via AI parser (POST /api/wizard with job_order path + text)', async () => {
       // Complete onboarding first
       await http('POST', '/api/onboarding/complete');
 
-      const s = await http('POST', '/api/tom/start', { path: 'job_order' });
+      const s = await http('POST', '/api/wizard/start', { path: 'job_order' });
       assert.equal(s.status, 200);
       assert.ok(s.data.sessionId);
 
-      const r = await http('POST', '/api/tom/message', {
+      const r = await http('POST', '/api/wizard/message', {
         sessionId: s.data.sessionId,
         text: 'Title: Forklift Operator\nCategory: Industrial\nPay: $18/hr\nShift: 1st shift, 6am-2:30pm\nAddress: 123 Warehouse Dr\nCity/State: Waxahachie, TX\nRequirements: 6+ months forklift experience\nDescription: Move palletized goods in a climate-controlled warehouse.\nCompany: Express'
       });
@@ -193,9 +193,9 @@ describe('JobLink V2 — Full E2E', () => {
       assert.ok(r.data.draft || r.data.showForm, 'Should show form or draft');
     });
 
-    it('8. Create JO via blank form (POST /api/tom with blank_form action)', async () => {
-      const s = await http('POST', '/api/tom/start', { path: 'job_order' });
-      const r = await http('POST', '/api/tom/message', {
+    it('8. Create JO via blank form (POST /api/wizard with blank_form action)', async () => {
+      const s = await http('POST', '/api/wizard/start', { path: 'job_order' });
+      const r = await http('POST', '/api/wizard/message', {
         sessionId: s.data.sessionId,
         action: 'blank_form'
       });
@@ -204,7 +204,7 @@ describe('JobLink V2 — Full E2E', () => {
       assert.ok(r.data.draft, 'Should have empty draft');
 
       // Fill in the blank form and save as draft
-      const save = await http('POST', '/api/tom/message', {
+      const save = await http('POST', '/api/wizard/message', {
         sessionId: s.data.sessionId,
         action: 'done',
         payload: {
@@ -228,12 +228,12 @@ describe('JobLink V2 — Full E2E', () => {
       joId2 = Number(m[1]);
     });
 
-    it('9. Edit JO field (POST /api/tom with edit_field action)', async () => {
-      const s = await http('POST', '/api/tom/start', { path: 'job_order' });
+    it('9. Edit JO field (POST /api/wizard with edit_field action)', async () => {
+      const s = await http('POST', '/api/wizard/start', { path: 'job_order' });
       // Start with blank form
-      await http('POST', '/api/tom/message', { sessionId: s.data.sessionId, action: 'blank_form' });
+      await http('POST', '/api/wizard/message', { sessionId: s.data.sessionId, action: 'blank_form' });
       // Edit a field
-      const r = await http('POST', '/api/tom/message', {
+      const r = await http('POST', '/api/wizard/message', {
         sessionId: s.data.sessionId,
         action: 'edit_field',
         payload: { field: 'title', value: 'Test Edited Title' }
@@ -241,11 +241,11 @@ describe('JobLink V2 — Full E2E', () => {
       assert.ok(r.data.draft || r.data.showForm);
     });
 
-    it('10. Publish JO (POST /api/tom with publish action)', async () => {
-      const s = await http('POST', '/api/tom/start', { path: 'job_order' });
-      await http('POST', '/api/tom/message', { sessionId: s.data.sessionId, action: 'blank_form' });
+    it('10. Publish JO (POST /api/wizard with publish action)', async () => {
+      const s = await http('POST', '/api/wizard/start', { path: 'job_order' });
+      await http('POST', '/api/wizard/message', { sessionId: s.data.sessionId, action: 'blank_form' });
 
-      const r = await http('POST', '/api/tom/message', {
+      const r = await http('POST', '/api/wizard/message', {
         sessionId: s.data.sessionId,
         action: 'publish',
         payload: {
@@ -268,7 +268,7 @@ describe('JobLink V2 — Full E2E', () => {
       joId = Number(m[1]);
     });
 
-    it('11. Save JO as draft (POST /api/tom with done action)', async () => {
+    it('11. Save JO as draft (POST /api/wizard with done action)', async () => {
       // Already tested in test 8 — verify the DB state
       const jo = tenantDb.prepare('SELECT * FROM job_orders WHERE id = ?').get(joId2);
       assert.ok(jo, 'Draft JO should exist');
@@ -323,12 +323,12 @@ describe('JobLink V2 — Full E2E', () => {
   describe('Candidates & Blasts', () => {
     let blastSessionId;
 
-    it('17. Upload contacts (POST /api/tom/upload with a test CSV)', async () => {
-      const s = await http('POST', '/api/tom/start', { path: 'blast' });
+    it('17. Upload contacts (POST /api/wizard/upload with a test CSV)', async () => {
+      const s = await http('POST', '/api/wizard/start', { path: 'blast' });
       blastSessionId = s.data.sessionId;
 
       const csv = 'First Name,Last Name,Phone\nAlice,Smith,555-111-2222\nBob,Jones,555-333-4444\nCarol,Williams,555-555-6666\nDave,Brown,555-777-8888\n';
-      const r = await uploadCSV('/api/tom/upload', csv, blastSessionId);
+      const r = await uploadCSV('/api/wizard/upload', csv, blastSessionId);
       assert.equal(r.status, 200);
       // Upload now goes to column-mapping step first
       assert.ok(r.data.showColumnMap, 'Should show column mapping after upload');
@@ -336,7 +336,7 @@ describe('JobLink V2 — Full E2E', () => {
       assert.ok(r.data.suggestedMap, 'Should have suggested column map');
 
       // Confirm the auto-detected column mapping
-      const confirm = await http('POST', '/api/tom/message', {
+      const confirm = await http('POST', '/api/wizard/message', {
         sessionId: blastSessionId,
         action: 'confirm_auto',
         payload: { columnMap: r.data.suggestedMap }
@@ -346,7 +346,7 @@ describe('JobLink V2 — Full E2E', () => {
       assert.equal(confirm.data.contactCount, 4);
 
       // Skip exclusion step to get to blast form
-      const skip = await http('POST', '/api/tom/message', {
+      const skip = await http('POST', '/api/wizard/message', {
         sessionId: blastSessionId,
         action: 'skip_exclusion'
       });
@@ -354,9 +354,9 @@ describe('JobLink V2 — Full E2E', () => {
       assert.ok(skip.data.showBlastForm, 'Should show blast form after skipping exclusion');
     });
 
-    it('18. Parse contacts via tom (POST /api/tom with blast path + contacts text)', async () => {
-      const s = await http('POST', '/api/tom/start', { path: 'blast' });
-      const r = await http('POST', '/api/tom/message', {
+    it('18. Parse contacts via tom (POST /api/wizard with blast path + contacts text)', async () => {
+      const s = await http('POST', '/api/wizard/start', { path: 'blast' });
+      const r = await http('POST', '/api/wizard/message', {
         sessionId: s.data.sessionId,
         text: 'Alice Smith 555-111-2222\nBob Jones 555-333-4444\nEve Adams 555-999-0000'
       });
@@ -365,8 +365,8 @@ describe('JobLink V2 — Full E2E', () => {
       assert.ok(r.data.contactCount >= 3);
     });
 
-    it('19. Preview blast (POST /api/tom with preview_blast action)', async () => {
-      const r = await http('POST', '/api/tom/message', {
+    it('19. Preview blast (POST /api/wizard with preview_blast action)', async () => {
+      const r = await http('POST', '/api/wizard/message', {
         sessionId: blastSessionId,
         action: 'preview_blast',
         payload: {
@@ -384,8 +384,8 @@ describe('JobLink V2 — Full E2E', () => {
       assert.ok(r.data.confirmButton, 'Should have confirm button');
     });
 
-    it('20. Execute blast (POST /api/tom with confirm_send action)', async () => {
-      const r = await http('POST', '/api/tom/message', {
+    it('20. Execute blast (POST /api/wizard with confirm_send action)', async () => {
+      const r = await http('POST', '/api/wizard/message', {
         sessionId: blastSessionId,
         action: 'confirm_send'
       });
@@ -396,8 +396,8 @@ describe('JobLink V2 — Full E2E', () => {
       assert.ok(/4 sent/.test(r.data.text), 'Should send to 4 people');
     });
 
-    it('21. Review blasts (POST /api/tom with review path)', async () => {
-      const s = await http('POST', '/api/tom/start', { path: 'review' });
+    it('21. Review blasts (POST /api/wizard with review path)', async () => {
+      const s = await http('POST', '/api/wizard/start', { path: 'review' });
       assert.equal(s.status, 200);
       assert.ok(s.data.text.includes('Recent Magic Blasts'), 'Should show blasts');
       assert.ok(s.data.blasts.length >= 1);
@@ -589,14 +589,14 @@ describe('JobLink V2 — Full E2E', () => {
 
     it('39. Verify cooldown prevents re-blast within 72 hours', async () => {
       // Alice was just blasted — try to blast her again immediately
-      const s = await http('POST', '/api/tom/start', { path: 'blast' });
-      const r = await http('POST', '/api/tom/message', {
+      const s = await http('POST', '/api/wizard/start', { path: 'blast' });
+      const r = await http('POST', '/api/wizard/message', {
         sessionId: s.data.sessionId,
         text: 'Alice Smith 555-111-2222'
       });
       assert.ok(r.data.showBlastForm);
 
-      const preview = await http('POST', '/api/tom/message', {
+      const preview = await http('POST', '/api/wizard/message', {
         sessionId: s.data.sessionId,
         action: 'preview_blast',
         payload: {
@@ -618,13 +618,13 @@ describe('JobLink V2 — Full E2E', () => {
       // Mark a candidate as DNC
       await http('POST', '/api/candidates/5557778888/dnc', { value: true });
 
-      const s = await http('POST', '/api/tom/start', { path: 'blast' });
-      await http('POST', '/api/tom/message', {
+      const s = await http('POST', '/api/wizard/start', { path: 'blast' });
+      await http('POST', '/api/wizard/message', {
         sessionId: s.data.sessionId,
         text: 'Dave Brown 555-777-8888\nNew Person 555-222-3333'
       });
 
-      const preview = await http('POST', '/api/tom/message', {
+      const preview = await http('POST', '/api/wizard/message', {
         sessionId: s.data.sessionId,
         action: 'preview_blast',
         payload: {
@@ -649,8 +649,8 @@ describe('JobLink V2 — Full E2E', () => {
 
   describe('Help / FAQ', () => {
 
-    it('41. Start help path (POST /api/tom with help path)', async () => {
-      const s = await http('POST', '/api/tom/start', { path: 'help' });
+    it('41. Start help path (POST /api/wizard with help path)', async () => {
+      const s = await http('POST', '/api/wizard/start', { path: 'help' });
       assert.equal(s.status, 200);
       assert.ok(s.data.sessionId);
       // Help now shows topic-based navigation
@@ -659,8 +659,8 @@ describe('JobLink V2 — Full E2E', () => {
     });
 
     it('42. Ask about blast guard via topic selection', async () => {
-      const s = await http('POST', '/api/tom/start', { path: 'help' });
-      const r = await http('POST', '/api/tom/message', {
+      const s = await http('POST', '/api/wizard/start', { path: 'help' });
+      const r = await http('POST', '/api/wizard/message', {
         sessionId: s.data.sessionId,
         action: 'help_topic',
         payload: { topic: 'blast_guard' }
@@ -752,12 +752,12 @@ describe('JobLink V2 — Full E2E', () => {
 
     it('Typed "yes" at blast gate is rejected', async () => {
       // Start a fresh blast, get to preview, try typing yes
-      const s = await http('POST', '/api/tom/start', { path: 'blast' });
-      await http('POST', '/api/tom/message', {
+      const s = await http('POST', '/api/wizard/start', { path: 'blast' });
+      await http('POST', '/api/wizard/message', {
         sessionId: s.data.sessionId,
         text: 'New Tester 555-444-5555'
       });
-      await http('POST', '/api/tom/message', {
+      await http('POST', '/api/wizard/message', {
         sessionId: s.data.sessionId,
         action: 'preview_blast',
         payload: {
@@ -769,7 +769,7 @@ describe('JobLink V2 — Full E2E', () => {
         }
       });
       // Now try typing "yes" instead of button
-      const typed = await http('POST', '/api/tom/message', {
+      const typed = await http('POST', '/api/wizard/message', {
         sessionId: s.data.sessionId,
         text: 'yes'
       });
