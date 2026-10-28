@@ -214,8 +214,8 @@ function createAuth(sysDb) {
     createSession(res, user);
     updateUser(sysDb, user.id, { last_login_at: new Date().toISOString() });
     // Check password expiration (30 days)
-    const pwChangedAt = user.password_changed_at ? new Date(user.password_changed_at) : new Date(0);
-    const pwAgeDays = Math.floor((Date.now() - pwChangedAt.getTime()) / (1000 * 60 * 60 * 24));
+    const pwChangedAt = user.password_changed_at ? new Date(user.password_changed_at) : null;
+    const pwAgeDays = pwChangedAt ? Math.floor((Date.now() - pwChangedAt.getTime()) / (1000 * 60 * 60 * 24)) : 0;
     const passwordExpired = pwAgeDays >= 30;
     const isDefault = (user.username === 'admin' && bcrypt.compareSync('JobLink2026!', user.password_hash));
     const tenantDb = getTenantDb(user.org_id);
