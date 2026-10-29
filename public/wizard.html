@@ -2270,8 +2270,7 @@ function submitContactForm() {
   if (!lines.length) { toast('Add at least one contact with a phone number.'); return; }
 
   hideContactForm();
-  var text = lines.join('
-');
+  var text = lines.join('\n');
   addMsg('me', lines.length + ' contact' + (lines.length === 1 ? '' : 's') + ' entered');
   showLoading();
   api('/api/wizard/message', { method: 'POST', body: { sessionId: session, text: text } }).then(function(r) {
@@ -2676,8 +2675,7 @@ async function exportBlastCsv() {
       rows.push(row.join(','));
     });
 
-    var csv = rows.join('
-');
+    var csv = rows.join('\n');
     var blob = new Blob([csv], { type: 'text/csv' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
