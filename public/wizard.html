@@ -485,8 +485,7 @@ function md(s) {
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/^- (.+)/gm, '<li>$1</li>')
     .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
-    .replace(/
-/g, '<br>');
+    .replace(/\n/g, '<br>');
 }
 
 // ---- Full-width JO Form ----
