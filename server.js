@@ -13,6 +13,7 @@ const { openSystemDb, listOrgs, updateOrgBilling, cleanExpiredSignups } = requir
 const { getTenantDb, tenantMiddleware } = require('./src/tenant');
 const { createAuth, sendEmail } = require('./routes/auth');
 const { createTomRoutes } = require('./routes/tom');
+const { createWizardRoutes } = require('./routes/wizard');
 const { orgRateLimiter, orgBlastLimiter } = require("./middleware/rate-limit");
 const { createDevRoutes } = require("./routes/dev");
 const { createAdminRoutes } = require('./routes/admin');
@@ -248,6 +249,7 @@ app.use('/api', tenantMiddleware);
 
 // Mount routes (they now use req.db instead of a closure db)
 app.use(createTomRoutes(sysDb));
+app.use(createWizardRoutes(sysDb));
 app.use(createAdminRoutes(sysDb, auth));
 app.use("/dev", createDevRoutes(sysDb, auth));
 app.use("/dev", createReportRoutes(auth));
